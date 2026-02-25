@@ -12,6 +12,7 @@ import Vacations from "./pages/Vacations";
 import Absences from "./pages/Absences";
 import Meetings from "./pages/Meetings";
 import Auth from "./pages/Auth";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/faltas" element={<Absences />} />
           <Route path="/reunioes" element={<Meetings />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/configuracoes" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
