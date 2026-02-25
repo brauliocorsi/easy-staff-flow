@@ -126,12 +126,12 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
 
           <div className="space-y-2">
             <Label>Gestor direto</Label>
-            <Select value={form.manager_id} onValueChange={(v) => handleChange("manager_id", v)}>
+            <Select value={form.manager_id || "none"} onValueChange={(v) => handleChange("manager_id", v === "none" ? "" : v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Sem gestor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem gestor</SelectItem>
+                <SelectItem value="none">Sem gestor</SelectItem>
                 {managerOptions.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.first_name} {m.last_name}
