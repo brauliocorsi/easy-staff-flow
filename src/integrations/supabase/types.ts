@@ -170,6 +170,53 @@ export type Database = {
           },
         ]
       }
+      employee_schedules: {
+        Row: {
+          clock_in_time: string
+          clock_out_time: string
+          created_at: string
+          day_of_week: number
+          employee_id: string
+          id: string
+          is_day_off: boolean
+          lunch_in_time: string
+          lunch_out_time: string
+          updated_at: string
+        }
+        Insert: {
+          clock_in_time?: string
+          clock_out_time?: string
+          created_at?: string
+          day_of_week: number
+          employee_id: string
+          id?: string
+          is_day_off?: boolean
+          lunch_in_time?: string
+          lunch_out_time?: string
+          updated_at?: string
+        }
+        Update: {
+          clock_in_time?: string
+          clock_out_time?: string
+          created_at?: string
+          day_of_week?: number
+          employee_id?: string
+          id?: string
+          is_day_off?: boolean
+          lunch_in_time?: string
+          lunch_out_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_schedules_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           address_city: string | null
