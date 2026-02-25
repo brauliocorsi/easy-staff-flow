@@ -1,120 +1,104 @@
 
+# Relogio de Ponto - Sistema de Cards + PIN
 
-# Sistema de Gestão de RH
-
-## Visão Geral
-Aplicação web completa para gestão de Recursos Humanos com design moderno e clean, 3 níveis de acesso (RH/Admin, Gestores e Funcionários) e backend com Supabase.
-
----
-
-## 🔐 Autenticação e Perfis de Acesso
-
-### 3 Níveis de acesso:
-- **RH/Admin**: Acesso total ao sistema — cadastros, relatórios, configurações
-- **Gestores**: Visualizam equipe, aprovam férias, registram advertências, conduzem reuniões
-- **Funcionários**: Visualizam seus próprios dados, batem ponto, consultam documentos e holerites
-
-### Login e Segurança
-- Login com email e senha
-- Página de recuperação de senha
-- Perfis com foto, cargo e departamento
+## Resumo
+Pagina publica onde funcionarios selecionam seu card, digitam o PIN de 4 digitos e registram ponto automaticamente. O sistema detecta qual e a proxima acao (entrada, saida almoco, retorno almoco, saida) com base no horario vinculado ao funcionario.
 
 ---
 
-## 👥 Módulo de Funcionários
+## 1. Banco de Dados - Nova tabela `employee_schedules`
 
-- Cadastro completo: dados pessoais, endereço, contato, cargo, departamento, data de admissão
-- Upload de foto do funcionário
-- Histórico de cargos e departamentos
-- Status: ativo, férias, afastado, desligado
-- Busca e filtros por departamento, cargo, status
+Criar tabela para vincular horarios a cada funcionario:
 
----
+```text
+employee_schedules
+- id (uuid, PK)
+- employee_id (uuid, FK -> employees)
+- day_of_week (integer, 0=domingo...6=sabado)
+- clock_in_time (time) -- ex: 08:00
+- lunch_out_time (time) -- ex: 12:00
+- lunch_in_time (time) -- ex: 13:00
+- clock_out_time (time) -- ex: 17:00
+- is_day_off (boolean, default false)
+- created_at, updated_at
+```
 
-## 📄 Módulo de Documentos e Contratos
+RLS: leitura publica (necessario para o terminal de ponto), escrita apenas admin.
 
-- Upload e gestão de documentos (RG, CPF, carteira de trabalho, certificados)
-- Contratos de trabalho com datas de início/fim, tipo (CLT, PJ, temporário)
-- Aditivos contratuais
-- Controle de vencimento de documentos com alertas visuais
-- Download de documentos pelo funcionário (seus próprios)
-
----
-
-## ⏰ Relógio de Ponto
-
-### Sistema de Ponto via Web:
-- Página pública com cards dos funcionários
-- Funcionário seleciona seu card e digita PIN pessoal para registrar ponto
-- Registro de entrada, saída para almoço, retorno do almoço e saída
-- Visualização do ponto do dia em tempo real
-
-### Gestão do Ponto:
-- Relatórios diários, semanais e mensais de horas
-- Cálculo automático de horas trabalhadas e extras
-- Aprovação/ajuste de ponto pelo RH
-- Exportação de relatórios
+Tambem precisamos de uma policy que permita INSERT/UPDATE anonimo na `time_clock_records` para o terminal de ponto funcionar. Para seguranca, faremos isso via Edge Function com service role, mantendo as policies restritas.
 
 ---
 
-## ⚠️ Módulo de Advertências
+## 2. Edge Function `time-clock-punch`
 
-- Registro de advertências verbais e escritas
-- Vinculação ao funcionário com data, motivo e descrição
-- Upload de documento assinado
-- Histórico de advertências por funcionário
-- Níveis: advertência verbal → escrita → suspensão
-
----
-
-## 🏖️ Mapa de Férias
-
-- Calendário visual com férias planejadas e aprovadas
-- Solicitação de férias pelo funcionário
-- Aprovação pelo gestor/RH
-- Controle de período aquisitivo e saldo de dias
-- Visão por departamento para evitar conflitos de agenda
-- Alertas de férias vencidas
+Funcao backend que recebe `employee_id` + `pin_code` e:
+1. Valida o PIN contra `employees.pin_code`
+2. Busca o registro do dia atual em `time_clock_records`
+3. Busca o horario do funcionario em `employee_schedules` para o dia da semana
+4. Determina a proxima acao automaticamente:
+   - Sem registro -> `clock_in`
+   - Com clock_in, sem lunch_out -> `lunch_out`
+   - Com lunch_out, sem lunch_in -> `lunch_in`
+   - Com lunch_in, sem clock_out -> `clock_out`
+   - Tudo preenchido -> Erro "ponto ja completo"
+5. Retorna os dados atualizados + proxima acao + horarios do turno
 
 ---
 
-## 📋 Registro de Faltas
+## 3. Edge Function `time-clock-employees`
 
-- Registro de faltas justificadas e injustificadas
-- Upload de atestados médicos e justificativas
-- Relatórios de absenteísmo por funcionário e departamento
-- Impacto automático no controle de ponto
-
----
-
-## 🤝 Módulo de Reuniões
-
-### Agendamento e Gestão:
-- Criar reunião com título, data/hora, participantes e pautas
-- Cronômetro de tempo corrido visível durante a reunião
-- Registro de decisões e encaminhamentos por pauta
-- Status: agendada, em andamento, concluída
-
-### Envio Automático por Email:
-- Convite de reunião enviado automaticamente aos participantes
-- Ata com pautas e decisões enviada por email após conclusão
-- Integração com serviço de email (Resend)
+Funcao para listar funcionarios ativos (sem expor PIN):
+- Retorna `id`, `first_name`, `last_name`, `position`, `avatar_url`, `department` dos funcionarios com status "active"
+- Tambem retorna o status do ponto do dia (qual foi a ultima batida)
 
 ---
 
-## 📊 Dashboard Principal
+## 4. Frontend - Pagina `/ponto`
 
-- Visão geral: total de funcionários, aniversariantes do mês, férias em andamento
-- Gráficos de faltas e horas extras
-- Alertas: documentos vencendo, férias vencidas, advertências recentes
-- Acesso rápido aos módulos
+### Tela principal (selecao de funcionario)
+- Grid de cards com foto/iniciais, nome e cargo de cada funcionario ativo
+- Relogio digital grande no topo mostrando hora atual
+- Campo de busca para filtrar funcionarios
+- Ao clicar em um card, abre o modal de PIN
+
+### Modal de PIN
+- Nome e foto do funcionario selecionado
+- Input OTP de 4 digitos (usando componente `InputOTP` ja existente)
+- Indicacao visual de qual sera a proxima batida (Entrada, Saida Almoco, Retorno Almoco, Saida)
+- Horarios do turno do funcionario exibidos como referencia
+- Botao "Registrar"
+- Feedback visual de sucesso/erro com toast
+
+### Componentes
+- `src/components/timeclock/EmployeeCardGrid.tsx` - Grid de cards
+- `src/components/timeclock/EmployeeCard.tsx` - Card individual
+- `src/components/timeclock/PinModal.tsx` - Modal de PIN + registro
+- `src/components/timeclock/ClockDisplay.tsx` - Relogio digital
+- `src/components/timeclock/TodayStatus.tsx` - Status das batidas do dia
 
 ---
 
-## 🛠️ Tecnologias
+## 5. Fluxo do Usuario
 
-- **Frontend**: React + TypeScript + Tailwind CSS + shadcn/ui
-- **Backend**: Supabase (banco de dados, autenticação, storage para documentos, edge functions)
-- **Email**: Resend para envio de pautas de reunião
-- **Gráficos**: Recharts para dashboards
+```text
+1. Funcionario acessa /ponto
+2. Ve grid de cards com todos os colegas
+3. Clica no seu card
+4. Modal abre mostrando: nome, proxima acao (ex: "Entrada - 08:00"), input PIN
+5. Digita PIN de 4 digitos
+6. Sistema valida PIN via edge function
+7. Registra a batida automaticamente
+8. Toast de sucesso: "Entrada registrada as 08:02"
+9. Modal fecha, card atualiza status
+```
 
+---
+
+## Detalhes Tecnicos
+
+- A pagina `/ponto` nao requer autenticacao (e um terminal publico)
+- Toda validacao e feita server-side na edge function usando service role
+- O PIN e validado no backend, nunca exposto no frontend
+- Os horarios do turno servem como referencia visual, nao bloqueiam o registro
+- Relogio atualiza a cada segundo via `setInterval`
+- A lista de funcionarios e carregada via edge function (sem acesso direto ao banco)
