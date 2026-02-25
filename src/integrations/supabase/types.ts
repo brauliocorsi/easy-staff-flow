@@ -219,21 +219,22 @@ export type Database = {
       }
       employees: {
         Row: {
-          address_city: string | null
-          address_state: string | null
-          address_street: string | null
-          address_zip: string | null
           avatar_url: string | null
           birth_date: string | null
-          cpf: string | null
+          cidade: string | null
+          codigo_postal: string | null
           created_at: string
           department_id: string | null
+          distrito: string | null
           email: string
           first_name: string
           hire_date: string
           id: string
           last_name: string
           manager_id: string | null
+          morada: string | null
+          nif: string | null
+          niss: string | null
           phone: string | null
           pin_code: string | null
           position: string
@@ -242,21 +243,22 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
-          address_city?: string | null
-          address_state?: string | null
-          address_street?: string | null
-          address_zip?: string | null
           avatar_url?: string | null
           birth_date?: string | null
-          cpf?: string | null
+          cidade?: string | null
+          codigo_postal?: string | null
           created_at?: string
           department_id?: string | null
+          distrito?: string | null
           email: string
           first_name: string
           hire_date?: string
           id?: string
           last_name: string
           manager_id?: string | null
+          morada?: string | null
+          nif?: string | null
+          niss?: string | null
           phone?: string | null
           pin_code?: string | null
           position?: string
@@ -265,21 +267,22 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
-          address_city?: string | null
-          address_state?: string | null
-          address_street?: string | null
-          address_zip?: string | null
           avatar_url?: string | null
           birth_date?: string | null
-          cpf?: string | null
+          cidade?: string | null
+          codigo_postal?: string | null
           created_at?: string
           department_id?: string | null
+          distrito?: string | null
           email?: string
           first_name?: string
           hire_date?: string
           id?: string
           last_name?: string
           manager_id?: string | null
+          morada?: string | null
+          nif?: string | null
+          niss?: string | null
           phone?: string | null
           pin_code?: string | null
           position?: string
