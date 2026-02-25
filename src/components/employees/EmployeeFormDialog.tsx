@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useCreateEmployee, useUpdateEmployee, type Employee } from "@/hooks/useEmployees";
+import { useCreateEmployee, useUpdateEmployee, useEmployees, type Employee } from "@/hooks/useEmployees";
 
 interface Props {
   open: boolean;
@@ -19,16 +19,23 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
   const createMutation = useCreateEmployee();
   const updateMutation = useUpdateEmployee();
   const loading = createMutation.isPending || updateMutation.isPending;
+  const { data: allEmployees } = useEmployees("");
 
   const [form, setForm] = useState({
     first_name: employee?.first_name || "",
     last_name: employee?.last_name || "",
     email: employee?.email || "",
     phone: employee?.phone || "",
-    cpf: employee?.cpf || "",
+    nif: employee?.nif || "",
+    niss: employee?.niss || "",
     position: employee?.position || "",
     status: employee?.status || "active",
     pin_code: employee?.pin_code || "",
+    morada: employee?.morada || "",
+    cidade: employee?.cidade || "",
+    distrito: employee?.distrito || "",
+    codigo_postal: employee?.codigo_postal || "",
+    manager_id: employee?.manager_id || "",
   });
 
   const handleChange = (field: string, value: string) => {
@@ -38,16 +45,21 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.first_name || !form.last_name || !form.email) {
-      toast.error("Preencha nome, sobrenome e email");
+      toast.error("Preencha nome, apelido e email");
       return;
     }
 
+    const payload = {
+      ...form,
+      manager_id: form.manager_id || null,
+    };
+
     try {
       if (isEdit && employee) {
-        await updateMutation.mutateAsync({ id: employee.id, ...form });
+        await updateMutation.mutateAsync({ id: employee.id, ...payload });
         toast.success("Funcionário atualizado");
       } else {
-        await createMutation.mutateAsync(form);
+        await createMutation.mutateAsync(payload);
         toast.success("Funcionário cadastrado");
       }
       onClose();
@@ -56,9 +68,14 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     }
   };
 
+  // Filter out current employee from manager list
+  const managerOptions = (allEmployees || []).filter(
+    (e) => e.id !== employee?.id && e.status === "active"
+  );
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display">
             {isEdit ? "Editar Funcionário" : "Novo Funcionário"}
@@ -74,7 +91,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               <Input id="first_name" value={form.first_name} onChange={(e) => handleChange("first_name", e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">Sobrenome *</Label>
+              <Label htmlFor="last_name">Apelido *</Label>
               <Input id="last_name" value={form.last_name} onChange={(e) => handleChange("last_name", e.target.value)} required />
             </div>
           </div>
@@ -88,9 +105,13 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               <Input id="phone" value={form.phone} onChange={(e) => handleChange("phone", e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input id="cpf" value={form.cpf} onChange={(e) => handleChange("cpf", e.target.value)} />
+              <Label htmlFor="nif">NIF</Label>
+              <Input id="nif" value={form.nif} onChange={(e) => handleChange("nif", e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="niss">NISS</Label>
+            <Input id="niss" value={form.niss} onChange={(e) => handleChange("niss", e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -102,6 +123,43 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               <Input id="pin_code" maxLength={4} value={form.pin_code} onChange={(e) => handleChange("pin_code", e.target.value.replace(/\D/g, "").slice(0, 4))} />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label>Gestor direto</Label>
+            <Select value={form.manager_id} onValueChange={(v) => handleChange("manager_id", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sem gestor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sem gestor</SelectItem>
+                {managerOptions.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.first_name} {m.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="morada">Morada</Label>
+            <Input id="morada" value={form.morada} onChange={(e) => handleChange("morada", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="cidade">Cidade</Label>
+              <Input id="cidade" value={form.cidade} onChange={(e) => handleChange("cidade", e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="distrito">Distrito</Label>
+              <Input id="distrito" value={form.distrito} onChange={(e) => handleChange("distrito", e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="codigo_postal">Código Postal</Label>
+              <Input id="codigo_postal" value={form.codigo_postal} onChange={(e) => handleChange("codigo_postal", e.target.value)} />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={form.status} onValueChange={(v) => handleChange("status", v)}>
@@ -115,6 +173,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               </SelectContent>
             </Select>
           </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={loading}>
