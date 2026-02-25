@@ -1,27 +1,59 @@
-import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { ClockDisplay } from "@/components/timeclock/ClockDisplay";
+import { EmployeeCardGrid } from "@/components/timeclock/EmployeeCardGrid";
+import { PinModal } from "@/components/timeclock/PinModal";
+import type { EmployeeData } from "@/components/timeclock/EmployeeCard";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 export default function TimeClock() {
+  const [employees, setEmployees] = useState<EmployeeData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<EmployeeData | null>(null);
+
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("time-clock-employees");
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (err) {
+      console.error("Failed to load employees", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Relógio de Ponto</h1>
-          <p className="text-muted-foreground mt-1">Registre a entrada e saída dos funcionários</p>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <ClockDisplay />
+
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-bold text-foreground">Relógio de Ponto</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Selecione seu card e digite o PIN para registrar
+          </p>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-display flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Registro de Ponto
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Selecione seu card e digite o PIN para registrar o ponto.</p>
-          </CardContent>
-        </Card>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <EmployeeCardGrid employees={employees} onSelect={setSelected} />
+        )}
+
+        <PinModal
+          employee={selected}
+          open={!!selected}
+          onClose={() => setSelected(null)}
+          onSuccess={fetchEmployees}
+        />
       </div>
-    </AppLayout>
+    </div>
   );
 }

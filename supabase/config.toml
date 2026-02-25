@@ -1,1 +1,7 @@
 project_id = "ritpcnfqknqlwednskvv"
+
+[functions.time-clock-employees]
+verify_jwt = false
+
+[functions.time-clock-punch]
+verify_jwt = false
