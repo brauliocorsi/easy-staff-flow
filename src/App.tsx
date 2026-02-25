@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
 import Documents from "./pages/Documents";
@@ -23,19 +25,21 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/funcionarios" element={<Employees />} />
-          <Route path="/documentos" element={<Documents />} />
-          <Route path="/ponto" element={<TimeClock />} />
-          <Route path="/advertencias" element={<Warnings />} />
-          <Route path="/ferias" element={<Vacations />} />
-          <Route path="/faltas" element={<Absences />} />
-          <Route path="/reunioes" element={<Meetings />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/configuracoes" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/ponto" element={<TimeClock />} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/funcionarios" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+            <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+            <Route path="/advertencias" element={<ProtectedRoute><Warnings /></ProtectedRoute>} />
+            <Route path="/ferias" element={<ProtectedRoute><Vacations /></ProtectedRoute>} />
+            <Route path="/faltas" element={<ProtectedRoute><Absences /></ProtectedRoute>} />
+            <Route path="/reunioes" element={<ProtectedRoute><Meetings /></ProtectedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
