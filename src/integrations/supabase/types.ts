@@ -765,40 +765,61 @@ export type Database = {
       }
       vacation_requests: {
         Row: {
+          admin_confirmed: boolean
           approved_by: string | null
+          category: string
           created_at: string
           days_count: number
+          employee_confirmed: boolean
           employee_id: string
           end_date: string
+          enjoyed: boolean
           id: string
           notes: string | null
           start_date: string
           status: string
+          token: string
+          total_entitled_days: number
           updated_at: string
+          year: number
         }
         Insert: {
+          admin_confirmed?: boolean
           approved_by?: string | null
+          category?: string
           created_at?: string
           days_count?: number
+          employee_confirmed?: boolean
           employee_id: string
           end_date: string
+          enjoyed?: boolean
           id?: string
           notes?: string | null
           start_date: string
           status?: string
+          token?: string
+          total_entitled_days?: number
           updated_at?: string
+          year?: number
         }
         Update: {
+          admin_confirmed?: boolean
           approved_by?: string | null
+          category?: string
           created_at?: string
           days_count?: number
+          employee_confirmed?: boolean
           employee_id?: string
           end_date?: string
+          enjoyed?: boolean
           id?: string
           notes?: string | null
           start_date?: string
           status?: string
+          token?: string
+          total_entitled_days?: number
           updated_at?: string
+          year?: number
         }
         Relationships: [
           {
@@ -816,6 +837,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vacation_settings: {
+        Row: {
+          category: string
+          created_at: string
+          end_date: string
+          id: string
+          notes: string | null
+          start_date: string
+          year: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          end_date: string
+          id?: string
+          notes?: string | null
+          start_date: string
+          year: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          notes?: string | null
+          start_date?: string
+          year?: number
+        }
+        Relationships: []
       }
       warnings: {
         Row: {

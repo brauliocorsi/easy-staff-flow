@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Search, Pencil, Trash2, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Loader2, AlertTriangle, CheckCircle, Palmtree } from "lucide-react";
 import { useEmployees, useDeleteEmployee, type Employee } from "@/hooks/useEmployees";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EmployeeFormDialog } from "@/components/employees/EmployeeFormDialog";
 import { toast } from "sonner";
+import { Clock } from "lucide-react";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -61,6 +62,27 @@ export default function Employees() {
         if (t in counts[w.employee_id]) (counts[w.employee_id] as any)[t]++;
       }
       return counts;
+    },
+  });
+
+  // Fetch vacation status per employee (current year)
+  const currentYear = new Date().getFullYear();
+  const { data: vacationData } = useQuery({
+    queryKey: ["vacation-summary", currentYear],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .select("employee_id, days_count, status, enjoyed, total_entitled_days")
+        .eq("year", currentYear);
+      if (error) throw error;
+      const summary: Record<string, { entitled: number; approved: number; enjoyed: number; pending: boolean }> = {};
+      for (const v of data || []) {
+        if (!summary[v.employee_id]) summary[v.employee_id] = { entitled: (v as any).total_entitled_days || 22, approved: 0, enjoyed: 0, pending: false };
+        if (v.status === "approved" || (v as any).enjoyed) summary[v.employee_id].approved += v.days_count;
+        if ((v as any).enjoyed) summary[v.employee_id].enjoyed += v.days_count;
+        if (v.status === "pending" || v.status === "employee_suggested") summary[v.employee_id].pending = true;
+      }
+      return summary;
     },
   });
 
@@ -130,9 +152,10 @@ export default function Employees() {
                     <TableHead>Funcionário</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Faltas</TableHead>
-                    <TableHead>Advertências</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Faltas</TableHead>
+                     <TableHead>Advertências</TableHead>
+                     <TableHead>Férias</TableHead>
+                     <TableHead>Status</TableHead>
                     <TableHead className="w-24">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -201,6 +224,34 @@ export default function Employees() {
                             </Tooltip>
                           ) : (
                             <span className="text-xs text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {vacationData?.[emp.id] ? (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                {vacationData[emp.id].approved - vacationData[emp.id].enjoyed > 0 ? (
+                                  <Badge variant="default" className="text-xs gap-0.5">
+                                    <Palmtree className="h-3 w-3" />
+                                    {vacationData[emp.id].approved - vacationData[emp.id].enjoyed}d a gozar
+                                  </Badge>
+                                ) : vacationData[emp.id].pending ? (
+                                  <Badge variant="outline" className="text-xs gap-0.5">
+                                    <Clock className="h-3 w-3" />
+                                    Pendente
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">OK</Badge>
+                                )}
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div>Direito: {vacationData[emp.id].entitled}d</div>
+                                <div>Aprovados: {vacationData[emp.id].approved}d</div>
+                                <div>Gozados: {vacationData[emp.id].enjoyed}d</div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>

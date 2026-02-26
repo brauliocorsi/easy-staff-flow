@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.send-warning-email]
 verify_jwt = false
+
+[functions.vacation-public]
+verify_jwt = false
+
+[functions.send-vacation-email]
+verify_jwt = false
