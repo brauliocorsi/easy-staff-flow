@@ -385,6 +385,7 @@ export type Database = {
           department_id: string | null
           description: string | null
           duration_minutes: number | null
+          end_time: string | null
           id: string
           meeting_date: string
           status: string
@@ -397,6 +398,7 @@ export type Database = {
           department_id?: string | null
           description?: string | null
           duration_minutes?: number | null
+          end_time?: string | null
           id?: string
           meeting_date: string
           status?: string
@@ -409,6 +411,7 @@ export type Database = {
           department_id?: string | null
           description?: string | null
           duration_minutes?: number | null
+          end_time?: string | null
           id?: string
           meeting_date?: string
           status?: string

@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.time-clock-punch]
 verify_jwt = false
+
+[functions.meeting-public]
+verify_jwt = false
+
+[functions.send-meeting-minutes]
+verify_jwt = false

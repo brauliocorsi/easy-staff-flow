@@ -13,6 +13,8 @@ import Warnings from "./pages/Warnings";
 import Vacations from "./pages/Vacations";
 import Absences from "./pages/Absences";
 import Meetings from "./pages/Meetings";
+import MeetingDetail from "./pages/MeetingDetail";
+import MeetingPublic from "./pages/MeetingPublic";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -36,6 +38,8 @@ const App = () => (
             <Route path="/ferias" element={<ProtectedRoute><Vacations /></ProtectedRoute>} />
             <Route path="/faltas" element={<ProtectedRoute><Absences /></ProtectedRoute>} />
             <Route path="/reunioes" element={<ProtectedRoute><Meetings /></ProtectedRoute>} />
+            <Route path="/reunioes/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
+            <Route path="/reuniao-publica/:id" element={<MeetingPublic />} />
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
