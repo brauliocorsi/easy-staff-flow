@@ -59,24 +59,11 @@ export default function MeetingPublic() {
     fetchData();
   }, [id]);
 
-  // Realtime for agendas and meeting changes (pause/resume/status)
+  // Poll every 5 seconds to keep in sync (realtime requires auth which public page doesn't have)
   useEffect(() => {
     if (!id) return;
-    const channel = supabase
-      .channel(`public-meeting-${id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "meeting_agendas", filter: `meeting_id=eq.${id}` },
-        () => fetchData()
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "meetings", filter: `id=eq.${id}` },
-        () => fetchData()
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, [id]);
 
   if (loading) {
