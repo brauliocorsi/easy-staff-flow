@@ -52,6 +52,36 @@ export type Database = {
           },
         ]
       }
+      admin_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          reference_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          reference_id?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          reference_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       contracts: {
         Row: {
           created_at: string
@@ -163,6 +193,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      early_leave_attempts: {
+        Row: {
+          actual_attempt_time: string
+          attempt_date: string
+          attempt_time: string
+          confirmed: boolean
+          created_at: string
+          employee_id: string
+          id: string
+          minutes_early: number
+          scheduled_clock_out: string
+          seen_by_admin: boolean
+        }
+        Insert: {
+          actual_attempt_time: string
+          attempt_date?: string
+          attempt_time?: string
+          confirmed?: boolean
+          created_at?: string
+          employee_id: string
+          id?: string
+          minutes_early?: number
+          scheduled_clock_out: string
+          seen_by_admin?: boolean
+        }
+        Update: {
+          actual_attempt_time?: string
+          attempt_date?: string
+          attempt_time?: string
+          confirmed?: boolean
+          created_at?: string
+          employee_id?: string
+          id?: string
+          minutes_early?: number
+          scheduled_clock_out?: string
+          seen_by_admin?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "early_leave_attempts_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
