@@ -11,7 +11,7 @@ export function useWarnings(filters?: { employee_id?: string; type?: string }) {
     queryFn: async () => {
       let query = supabase
         .from("warnings")
-        .select("*, employees(first_name, last_name, position, email, departments(name))")
+        .select("*, employees!warnings_employee_id_fkey(first_name, last_name, position, email, departments(name))")
         .order("warning_date", { ascending: false });
 
       if (filters?.employee_id) query = query.eq("employee_id", filters.employee_id);
@@ -31,7 +31,7 @@ export function useCreateWarning() {
       const { data, error } = await supabase
         .from("warnings")
         .insert(warning)
-        .select("*, employees(first_name, last_name, position, email, departments(name))")
+        .select("*, employees!warnings_employee_id_fkey(first_name, last_name, position, email, departments(name))")
         .single();
       if (error) throw error;
       return data;
