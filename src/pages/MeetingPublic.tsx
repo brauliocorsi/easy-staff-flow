@@ -12,7 +12,7 @@ interface PublicMeetingData {
   title: string;
   description: string | null;
   meeting_date: string;
-  end_time: string | null;
+  duration_minutes: number | null;
   started_at: string | null;
   paused_at: string | null;
   paused_seconds: number;
@@ -118,7 +118,7 @@ export default function MeetingPublic() {
 
         {/* Timer */}
         <div className="flex justify-center">
-          <MeetingTimer endTime={data.end_time} startedAt={data.started_at} pausedAt={data.paused_at} pausedSeconds={data.paused_seconds ?? 0} status={data.status} large />
+          <MeetingTimer durationMinutes={data.duration_minutes} startedAt={data.started_at} pausedAt={data.paused_at} pausedSeconds={data.paused_seconds ?? 0} status={data.status} large />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
