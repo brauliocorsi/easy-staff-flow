@@ -20,7 +20,7 @@ interface MeetingData {
   title: string;
   description: string | null;
   meeting_date: string;
-  end_time?: string | null;
+  duration_minutes?: number | null;
   meeting_participants?: { employee_id: string }[];
 }
 
@@ -33,10 +33,8 @@ interface Props {
 export function MeetingFormDialog({ open, onClose, meeting }: Props) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [meetingDate, setMeetingDate] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
   const { data: employees } = useEmployees("");
@@ -46,22 +44,12 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
   const isEditing = !!meeting;
   const activeEmployees = employees?.filter((e) => e.status === "active") ?? [];
 
-  // Populate form when editing
   useEffect(() => {
     if (meeting && open) {
       setTitle(meeting.title);
       setDescription(meeting.description ?? "");
-      const start = new Date(meeting.meeting_date);
-      setStartDate(format(start, "yyyy-MM-dd"));
-      setStartTime(format(start, "HH:mm"));
-      if (meeting.end_time) {
-        const end = new Date(meeting.end_time);
-        setEndDate(format(end, "yyyy-MM-dd"));
-        setEndTime(format(end, "HH:mm"));
-      } else {
-        setEndDate("");
-        setEndTime("");
-      }
+      setMeetingDate(format(new Date(meeting.meeting_date), "yyyy-MM-dd"));
+      setDurationMinutes(meeting.duration_minutes ? String(meeting.duration_minutes) : "");
       setSelectedEmployees(
         (meeting.meeting_participants ?? []).map((p) => p.employee_id)
       );
@@ -79,22 +67,26 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
   const reset = () => {
     setTitle("");
     setDescription("");
-    setStartDate("");
-    setStartTime("");
-    setEndDate("");
-    setEndTime("");
+    setMeetingDate("");
+    setDurationMinutes("");
     setSelectedEmployees([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !startDate || !startTime) {
-      toast({ title: "Preencha título, data e hora de início", variant: "destructive" });
+    if (!title || !meetingDate || !durationMinutes) {
+      toast({ title: "Preencha título, data e duração", variant: "destructive" });
       return;
     }
 
-    const meetingDate = new Date(`${startDate}T${startTime}`).toISOString();
-    const endTimeISO = endDate && endTime ? new Date(`${endDate}T${endTime}`).toISOString() : null;
+    const duration = parseInt(durationMinutes, 10);
+    if (isNaN(duration) || duration <= 0) {
+      toast({ title: "Duração inválida", variant: "destructive" });
+      return;
+    }
+
+    // Store meeting_date as just the date (noon UTC to avoid timezone issues)
+    const meetingDateISO = new Date(`${meetingDate}T12:00:00`).toISOString();
 
     try {
       if (isEditing) {
@@ -103,8 +95,9 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
           meeting: {
             title,
             description: description || null,
-            meeting_date: meetingDate,
-            end_time: endTimeISO,
+            meeting_date: meetingDateISO,
+            duration_minutes: duration,
+            end_time: null, // no longer used
           },
           participantIds: selectedEmployees,
         });
@@ -114,8 +107,8 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
           meeting: {
             title,
             description: description || null,
-            meeting_date: meetingDate,
-            end_time: endTimeISO,
+            meeting_date: meetingDateISO,
+            duration_minutes: duration,
             created_by: null,
           },
           participantIds: selectedEmployees,
@@ -149,22 +142,18 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Data Início *</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Label>Data *</Label>
+              <Input type="date" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Hora Início *</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data Término</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Hora Término</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              <Label>Duração (minutos) *</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Ex: 30"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(e.target.value)}
+              />
             </div>
           </div>
 

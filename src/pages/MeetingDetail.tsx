@@ -153,9 +153,8 @@ export default function MeetingDetail() {
               <p className="text-muted-foreground">{meeting.description}</p>
             )}
             <p className="text-sm text-muted-foreground">
-              {format(new Date(meeting.meeting_date), "dd MMM yyyy 'às' HH:mm", { locale: pt })}
-              {meeting.end_time &&
-                ` — ${format(new Date(meeting.end_time), "HH:mm")}`}
+              {format(new Date(meeting.meeting_date), "dd MMM yyyy", { locale: pt })}
+              {meeting.duration_minutes && ` · ${meeting.duration_minutes} minutos`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -211,7 +210,7 @@ export default function MeetingDetail() {
         <Card>
           <CardContent className="p-6 flex items-center justify-center">
             <MeetingTimer
-              endTime={meeting.end_time}
+              durationMinutes={meeting.duration_minutes}
               startedAt={(meeting as any).started_at}
               pausedAt={(meeting as any).paused_at}
               pausedSeconds={(meeting as any).paused_seconds ?? 0}
