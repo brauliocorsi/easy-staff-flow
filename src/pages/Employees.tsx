@@ -45,6 +45,25 @@ export default function Employees() {
     },
   });
 
+  // Fetch warning counts per employee
+  const { data: warningCounts } = useQuery({
+    queryKey: ["warning-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("warnings")
+        .select("employee_id, type");
+      if (error) throw error;
+      const counts: Record<string, { total: number; verbal: number; written: number; suspension: number; termination: number }> = {};
+      for (const w of data || []) {
+        if (!counts[w.employee_id]) counts[w.employee_id] = { total: 0, verbal: 0, written: 0, suspension: 0, termination: 0 };
+        counts[w.employee_id].total++;
+        const t = w.type as keyof typeof counts[string];
+        if (t in counts[w.employee_id]) (counts[w.employee_id] as any)[t]++;
+      }
+      return counts;
+    },
+  });
+
   const handleEdit = (emp: Employee) => {
     setEditing(emp);
     setDialogOpen(true);
@@ -112,6 +131,7 @@ export default function Employees() {
                     <TableHead>Cargo</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Faltas</TableHead>
+                    <TableHead>Advertências</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-24">Ações</TableHead>
                   </TableRow>
@@ -162,6 +182,26 @@ export default function Employees() {
                               <span className="text-xs text-muted-foreground">0</span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {warningCounts?.[emp.id] ? (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Badge variant="destructive" className="text-xs gap-0.5">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {warningCounts[emp.id].total}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {warningCounts[emp.id].verbal > 0 && <div>Verbal: {warningCounts[emp.id].verbal}</div>}
+                                {warningCounts[emp.id].written > 0 && <div>Escrita: {warningCounts[emp.id].written}</div>}
+                                {warningCounts[emp.id].suspension > 0 && <div>Suspensão: {warningCounts[emp.id].suspension}</div>}
+                                {warningCounts[emp.id].termination > 0 && <div>Justa Causa: {warningCounts[emp.id].termination}</div>}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">0</span>
+                          )}
                         </TableCell>
                         <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                         <TableCell>
