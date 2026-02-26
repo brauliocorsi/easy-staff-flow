@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Get active employees (without PIN)
     const { data: employees, error: empError } = await supabase
       .from("employees")
-      .select("id, first_name, last_name, position, avatar_url, department_id, departments(name)")
+      .select("id, first_name, last_name, position, avatar_url, department_id, schedule_template_id, departments(name), schedule_templates(name)")
       .eq("status", "active")
       .order("first_name");
 
@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
 
     // Get today's time clock records for all active employees
     const today = new Date().toISOString().split("T")[0];
+    const dayOfWeek = new Date().getDay();
     const employeeIds = employees.map((e: any) => e.id);
 
     const { data: records, error: recError } = await supabase
@@ -37,6 +38,20 @@ Deno.serve(async (req) => {
       .in("employee_id", employeeIds);
 
     if (recError) throw recError;
+
+    // Get schedule template days for today
+    const templateIds = [...new Set(employees.filter((e: any) => e.schedule_template_id).map((e: any) => e.schedule_template_id))];
+    let templateDayMap = new Map();
+    if (templateIds.length > 0) {
+      const { data: tDays } = await supabase
+        .from("schedule_template_days")
+        .select("template_id, clock_in_time, clock_out_time, is_day_off")
+        .eq("day_of_week", dayOfWeek)
+        .in("template_id", templateIds);
+      for (const td of tDays || []) {
+        templateDayMap.set(td.template_id, td);
+      }
+    }
 
     const recordMap = new Map();
     for (const r of records || []) {
@@ -53,6 +68,19 @@ Deno.serve(async (req) => {
         else if (!rec.clock_out) nextAction = "clock_out";
         else nextAction = "complete";
       }
+
+      const tDay = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
+      let schedule_label: string | null = null;
+      if (emp.schedule_templates?.name) {
+        if (tDay && !tDay.is_day_off) {
+          schedule_label = `${emp.schedule_templates.name} · ${tDay.clock_in_time.slice(0,5)}-${tDay.clock_out_time.slice(0,5)}`;
+        } else if (tDay?.is_day_off) {
+          schedule_label = `${emp.schedule_templates.name} · Folga`;
+        } else {
+          schedule_label = emp.schedule_templates.name;
+        }
+      }
+
       return {
         id: emp.id,
         first_name: emp.first_name,
@@ -61,6 +89,7 @@ Deno.serve(async (req) => {
         avatar_url: emp.avatar_url,
         department: emp.departments?.name || null,
         today_status: nextAction,
+        schedule_label,
       };
     });
 

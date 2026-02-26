@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
+import { Clock } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
 
 export interface EmployeeData {
@@ -10,6 +11,7 @@ export interface EmployeeData {
   avatar_url: string | null;
   department: string | null;
   today_status: string;
+  schedule_label?: string | null;
 }
 
 interface Props {
@@ -39,6 +41,12 @@ export function EmployeeCard({ employee, onClick }: Props) {
           <p className="text-xs text-muted-foreground">{employee.position}</p>
           {employee.department && (
             <p className="text-xs text-muted-foreground">{employee.department}</p>
+          )}
+          {employee.schedule_label && (
+            <p className="text-xs text-primary/80 flex items-center justify-center gap-1">
+              <Clock className="h-3 w-3" />
+              {employee.schedule_label}
+            </p>
           )}
         </div>
         <TodayStatus status={employee.today_status} />
