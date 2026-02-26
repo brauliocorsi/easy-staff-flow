@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, CalendarIcon, Upload, Trash2, FileText, AlertTriangle, CheckCircle } from "lucide-react";
+import { Plus, Search, Loader2, CalendarIcon, Upload, Trash2, FileText, AlertTriangle, CheckCircle, ArrowRightLeft } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ export default function Absences() {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [justifyOpen, setJustifyOpen] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [swapAbsence, setSwapAbsence] = useState<any | null>(null);
   const [reason, setReason] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -126,6 +127,45 @@ export default function Absences() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const swapMutation = useMutation({
+    mutationFn: async (absence: any) => {
+      // Create a 1-day approved vacation request
+      const { error: vacError } = await supabase.from("vacation_requests").insert({
+        employee_id: absence.employee_id,
+        start_date: absence.absence_date,
+        end_date: absence.absence_date,
+        days_count: 1,
+        category: "individual",
+        year: new Date(absence.absence_date).getFullYear(),
+        status: "approved",
+        admin_confirmed: true,
+        enjoyed: true,
+        notes: "Troca de falta por dia de férias",
+      });
+      if (vacError) throw vacError;
+
+      // Justify the absence
+      const { error: absError } = await supabase
+        .from("absences")
+        .update({
+          justified: true,
+          type: "vacation_swap",
+          reason: "Trocada por 1 dia de férias",
+          justification_date: new Date().toISOString(),
+        })
+        .eq("id", absence.id);
+      if (absError) throw absError;
+    },
+    onSuccess: () => {
+      toast.success("Falta trocada por dia de férias com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      queryClient.invalidateQueries({ queryKey: ["vacation_requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee_vacations"] });
+      setSwapAbsence(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const resetForm = () => {
     setSelectedEmployee("");
     setSelectedDate(undefined);
@@ -134,6 +174,9 @@ export default function Absences() {
   };
 
   const getStatusBadge = (absence: any) => {
+    if (absence.type === "vacation_swap") {
+      return <Badge variant="outline" className="text-xs text-primary border-primary"><ArrowRightLeft className="h-3 w-3 mr-1" />Troca férias</Badge>;
+    }
     if (absence.justified) {
       return <Badge variant="outline" className="text-xs text-green-600 border-green-500"><CheckCircle className="h-3 w-3 mr-1" />Justificada</Badge>;
     }
@@ -251,6 +294,11 @@ export default function Absences() {
                               <FileText className="h-4 w-4 text-amber-600" />
                             </Button>
                           )}
+                          {isAdmin && !absence.justified && (
+                            <Button variant="ghost" size="icon" title="Trocar por dia de férias" onClick={() => setSwapAbsence(absence)}>
+                              <ArrowRightLeft className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
                           {isAdmin && (
                             <Button variant="ghost" size="icon" title="Remover" onClick={() => setDeleteId(absence.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -350,6 +398,31 @@ export default function Absences() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Swap for vacation day confirmation */}
+      <AlertDialog open={!!swapAbsence} onOpenChange={(o) => { if (!o) setSwapAbsence(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Trocar Falta por Dia de Férias</AlertDialogTitle>
+            <AlertDialogDescription>
+              {swapAbsence && (
+                <>
+                  Tem certeza que deseja trocar a falta de{" "}
+                  <strong>{swapAbsence.employees?.first_name} {swapAbsence.employees?.last_name}</strong>{" "}
+                  no dia <strong>{format(new Date(swapAbsence.absence_date + "T12:00:00"), "dd/MM/yyyy")}</strong>{" "}
+                  por 1 dia de férias? Isto irá subtrair 1 dia do saldo de férias do colaborador.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => swapAbsence && swapMutation.mutate(swapAbsence)}>
+              {swapMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Confirmar Troca
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
