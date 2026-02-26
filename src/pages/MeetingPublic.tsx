@@ -59,14 +59,19 @@ export default function MeetingPublic() {
     fetchData();
   }, [id]);
 
-  // Realtime for agendas
+  // Realtime for agendas and meeting changes (pause/resume/status)
   useEffect(() => {
     if (!id) return;
     const channel = supabase
-      .channel(`public-agendas-${id}`)
+      .channel(`public-meeting-${id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "meeting_agendas", filter: `meeting_id=eq.${id}` },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "meetings", filter: `id=eq.${id}` },
         () => fetchData()
       )
       .subscribe();
@@ -90,14 +95,21 @@ export default function MeetingPublic() {
     );
   }
 
-  const statusLabel = data.status === "completed" ? "Concretizada" : data.status === "in_progress" ? "Em Andamento" : "Agendada";
+  const isPaused = !!data.paused_at;
+  const statusLabel = data.status === "completed"
+    ? "Concretizada"
+    : isPaused
+      ? "Pausada"
+      : data.status === "in_progress"
+        ? "Em Andamento"
+        : "Agendada";
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <Badge variant="outline">{statusLabel}</Badge>
+          <Badge variant={isPaused ? "destructive" : "outline"}>{statusLabel}</Badge>
           <h1 className="font-display text-4xl font-bold tracking-tight">{data.title}</h1>
           {data.description && (
             <p className="text-muted-foreground text-lg">{data.description}</p>
