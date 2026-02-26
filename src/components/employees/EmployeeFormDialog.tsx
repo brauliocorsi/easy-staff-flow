@@ -166,7 +166,21 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                     {form.hire_date ? format(new Date(form.hire_date + "T00:00:00"), "dd/MM/yyyy") : "Selecionar"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 space-y-2" align="start">
+                  <div className="px-3 pt-3">
+                    <Input
+                      placeholder="dd/mm/aaaa"
+                      defaultValue={form.hire_date ? format(new Date(form.hire_date + "T00:00:00"), "dd/MM/yyyy") : ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const match = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                        if (match) {
+                          const parsed = new Date(`${match[3]}-${match[2]}-${match[1]}T00:00:00`);
+                          if (!isNaN(parsed.getTime())) handleChange("hire_date", format(parsed, "yyyy-MM-dd"));
+                        }
+                      }}
+                    />
+                  </div>
                   <Calendar
                     mode="single"
                     selected={form.hire_date ? new Date(form.hire_date + "T00:00:00") : undefined}
@@ -186,7 +200,21 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                     {form.birth_date ? format(new Date(form.birth_date + "T00:00:00"), "dd/MM/yyyy") : "Selecionar"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 space-y-2" align="start">
+                  <div className="px-3 pt-3">
+                    <Input
+                      placeholder="dd/mm/aaaa"
+                      defaultValue={form.birth_date ? format(new Date(form.birth_date + "T00:00:00"), "dd/MM/yyyy") : ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const match = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                        if (match) {
+                          const parsed = new Date(`${match[3]}-${match[2]}-${match[1]}T00:00:00`);
+                          if (!isNaN(parsed.getTime()) && parsed <= new Date()) handleChange("birth_date", format(parsed, "yyyy-MM-dd"));
+                        }
+                      }}
+                    />
+                  </div>
                   <Calendar
                     mode="single"
                     selected={form.birth_date ? new Date(form.birth_date + "T00:00:00") : undefined}
