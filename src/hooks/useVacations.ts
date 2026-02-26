@@ -109,6 +109,33 @@ export function useCreateVacationRequest() {
   });
 }
 
+export function useCreateBulkVacationRequests() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payloads: {
+      employee_id: string;
+      start_date: string;
+      end_date: string;
+      days_count: number;
+      category: string;
+      year: number;
+      total_entitled_days?: number;
+      notes?: string;
+    }[]) => {
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .insert(payloads)
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vacation_requests"] });
+      qc.invalidateQueries({ queryKey: ["employee_vacations"] });
+    },
+  });
+}
+
 export function useUpdateVacationRequest() {
   const qc = useQueryClient();
   return useMutation({
@@ -116,6 +143,23 @@ export function useUpdateVacationRequest() {
       const { error } = await supabase
         .from("vacation_requests")
         .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vacation_requests"] });
+      qc.invalidateQueries({ queryKey: ["employee_vacations"] });
+    },
+  });
+}
+
+export function useDeleteVacationRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("vacation_requests")
+        .delete()
         .eq("id", id);
       if (error) throw error;
     },

@@ -2,23 +2,43 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, Palmtree } from "lucide-react";
+import { Loader2, CheckCircle, Palmtree, Plus, Trash2, CalendarIcon } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+
+interface DatePeriod {
+  start_date: string;
+  end_date: string;
+}
+
+function calcDays(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const s = new Date(start);
+  const e = new Date(end);
+  let count = 0;
+  const d = new Date(s);
+  while (d <= e) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
 
 export default function VacationPublic() {
   const { token } = useParams<{ token: string }>();
   const [vacation, setVacation] = useState<any>(null);
+  const [allPeriods, setAllPeriods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [periods, setPeriods] = useState<DatePeriod[]>([{ start_date: "", end_date: "" }]);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -34,9 +54,18 @@ export default function VacationPublic() {
       if (error) throw error;
       if (data?.vacation) {
         setVacation(data.vacation);
-        if (data.vacation.start_date) setStartDate(new Date(data.vacation.start_date + "T00:00:00"));
-        if (data.vacation.end_date) setEndDate(new Date(data.vacation.end_date + "T00:00:00"));
         if (data.vacation.employee_confirmed) setSubmitted(true);
+        // Load all periods for this employee
+        if (data.all_periods && data.all_periods.length > 0) {
+          setAllPeriods(data.all_periods);
+          const existingPeriods = data.all_periods.map((p: any) => ({
+            start_date: p.start_date || "",
+            end_date: p.end_date || "",
+          }));
+          setPeriods(existingPeriods.length > 0 ? existingPeriods : [{ start_date: "", end_date: "" }]);
+        } else if (data.vacation.start_date) {
+          setPeriods([{ start_date: data.vacation.start_date, end_date: data.vacation.end_date }]);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -45,9 +74,23 @@ export default function VacationPublic() {
     }
   };
 
+  const addPeriod = () => setPeriods((p) => [...p, { start_date: "", end_date: "" }]);
+  const removePeriod = (idx: number) => setPeriods((p) => p.filter((_, i) => i !== idx));
+  const updatePeriod = (idx: number, field: keyof DatePeriod, value: string) => {
+    setPeriods((p) => p.map((period, i) => i === idx ? { ...period, [field]: value } : period));
+  };
+
+  const totalDays = periods.reduce((sum, p) => sum + calcDays(p.start_date, p.end_date), 0);
+  const entitled = vacation?.total_entitled_days || 22;
+
   const handleSuggest = async () => {
-    if (!startDate || !endDate) {
-      toast.error("Selecione as datas de início e fim");
+    const validPeriods = periods.filter((p) => p.start_date && p.end_date);
+    if (validPeriods.length === 0) {
+      toast.error("Adicione pelo menos um período com datas");
+      return;
+    }
+    if (totalDays > entitled) {
+      toast.error(`Total de dias (${totalDays}) excede os dias de direito (${entitled})`);
       return;
     }
     setSubmitting(true);
@@ -56,8 +99,7 @@ export default function VacationPublic() {
         body: {
           token,
           action: "suggest",
-          start_date: format(startDate, "yyyy-MM-dd"),
-          end_date: format(endDate, "yyyy-MM-dd"),
+          periods: validPeriods,
           notes,
         },
       });
@@ -129,31 +171,28 @@ export default function VacationPublic() {
               <p className="text-sm text-muted-foreground">
                 As suas datas foram enviadas. O RH irá analisar e confirmar.
               </p>
-              {vacation.start_date && vacation.end_date && (
-                <div className="flex justify-center gap-2">
-                  <Badge variant="outline">
-                    {format(new Date(vacation.start_date + "T00:00:00"), "dd/MM/yyyy")} - {format(new Date(vacation.end_date + "T00:00:00"), "dd/MM/yyyy")}
-                  </Badge>
-                </div>
-              )}
             </div>
           ) : (
             <>
               <div className="bg-muted rounded-lg p-3 space-y-1 text-sm">
                 <p><strong>Dias de direito:</strong> {vacation.total_entitled_days}</p>
-                {vacation.start_date && vacation.end_date && (
-                  <p>
-                    <strong>Período sugerido pelo RH:</strong>{" "}
-                    {format(new Date(vacation.start_date + "T00:00:00"), "dd/MM/yyyy")} a{" "}
-                    {format(new Date(vacation.end_date + "T00:00:00"), "dd/MM/yyyy")}
-                  </p>
+                {allPeriods.length > 0 && (
+                  <div>
+                    <strong>Períodos sugeridos pelo RH:</strong>
+                    {allPeriods.map((p: any, i: number) => (
+                      <div key={i} className="ml-2">
+                        • {format(new Date(p.start_date + "T00:00:00"), "dd/MM/yyyy")} a{" "}
+                        {format(new Date(p.end_date + "T00:00:00"), "dd/MM/yyyy")} ({p.days_count}d)
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {vacation.notes && <p><strong>Notas:</strong> {vacation.notes}</p>}
               </div>
 
-              {vacation.admin_confirmed && vacation.start_date && (
+              {vacation.admin_confirmed && allPeriods.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm">O RH definiu as datas acima. Deseja aceitar?</p>
+                  <p className="text-sm">O RH definiu os períodos acima. Deseja aceitar?</p>
                   <Button onClick={handleAccept} disabled={submitting} className="w-full">
                     {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
                     Aceitar Férias
@@ -161,27 +200,77 @@ export default function VacationPublic() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label>Ou sugira as suas datas:</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Início</Label>
-                    <Calendar
-                      mode="single"
-                      selected={startDate}
-                      onSelect={setStartDate}
-                      className="rounded-md border pointer-events-auto"
-                    />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Ou sugira os seus períodos:</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addPeriod}>
+                    <Plus className="h-3 w-3 mr-1" /> Adicionar
+                  </Button>
+                </div>
+
+                {periods.map((period, idx) => (
+                  <div key={idx} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Período {idx + 1}</span>
+                      {periods.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removePeriod(idx)}>
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Início</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs", !period.start_date && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-1 h-3 w-3" />
+                              {period.start_date ? format(new Date(period.start_date + "T00:00:00"), "dd/MM/yyyy") : "Selecionar"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={period.start_date ? new Date(period.start_date + "T00:00:00") : undefined}
+                              onSelect={(d) => updatePeriod(idx, "start_date", d ? format(d, "yyyy-MM-dd") : "")}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fim</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-xs", !period.end_date && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-1 h-3 w-3" />
+                              {period.end_date ? format(new Date(period.end_date + "T00:00:00"), "dd/MM/yyyy") : "Selecionar"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={period.end_date ? new Date(period.end_date + "T00:00:00") : undefined}
+                              onSelect={(d) => updatePeriod(idx, "end_date", d ? format(d, "yyyy-MM-dd") : "")}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                    {period.start_date && period.end_date && (
+                      <p className="text-xs text-muted-foreground">Dias úteis: <strong>{calcDays(period.start_date, period.end_date)}</strong></p>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Fim</Label>
-                    <Calendar
-                      mode="single"
-                      selected={endDate}
-                      onSelect={setEndDate}
-                      className="rounded-md border pointer-events-auto"
-                    />
-                  </div>
+                ))}
+
+                <div className="flex items-center justify-between bg-muted rounded-lg p-3">
+                  <span className="text-sm font-medium">Total de dias</span>
+                  <span className={cn("text-sm font-bold", totalDays > entitled ? "text-destructive" : "text-foreground")}>
+                    {totalDays} / {entitled}
+                  </span>
                 </div>
               </div>
 
