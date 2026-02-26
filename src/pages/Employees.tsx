@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Search, Pencil, Trash2, Loader2, AlertTriangle, CheckCircle, Palmtree } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Loader2, AlertTriangle, CheckCircle, Palmtree, Eye } from "lucide-react";
 import { useEmployees, useDeleteEmployee, type Employee } from "@/hooks/useEmployees";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EmployeeFormDialog } from "@/components/employees/EmployeeFormDialog";
@@ -27,6 +28,7 @@ export default function Employees() {
   const [editing, setEditing] = useState<Employee | null>(null);
   const { data: employees, isLoading, error } = useEmployees(search);
   const deleteMutation = useDeleteEmployee();
+  const navigate = useNavigate();
 
   // Fetch absence counts per employee
   const { data: absenceCounts } = useQuery({
@@ -257,6 +259,14 @@ export default function Employees() {
                         <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => navigate(`/funcionarios/${emp.id}`)}>
+                                  <Eye className="h-4 w-4 text-primary" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Ver Saúde</TooltipContent>
+                            </Tooltip>
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(emp)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
