@@ -276,14 +276,16 @@ export default function TimeClockReport() {
                     <TableHead>Retorno Almoço</TableHead>
                     <TableHead>Saída</TableHead>
                     <TableHead>Total Horas</TableHead>
+                    <TableHead>Hora Extra</TableHead>
+                    <TableHead>Atraso</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
                   ) : reportRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
                   ) : (
                     reportRows.map((row) => (
                       <TableRow key={row.date} className={row.isDayOff ? "opacity-50" : row.status === "absent" ? "bg-destructive/5" : ""}>
@@ -293,6 +295,12 @@ export default function TimeClockReport() {
                         <TableCell>{formatTime(row.lunchIn)}</TableCell>
                         <TableCell>{formatTime(row.clockOut)}</TableCell>
                         <TableCell>{row.workedMinutes > 0 ? minutesToHHMM(row.workedMinutes) : "—"}</TableCell>
+                        <TableCell className={row.overtimeMinutes > 0 ? "text-amber-600 font-medium" : ""}>
+                          {row.overtimeMinutes > 0 ? minutesToHHMM(row.overtimeMinutes) : "—"}
+                        </TableCell>
+                        <TableCell className={row.lateMinutes > 0 ? "text-destructive font-medium" : ""}>
+                          {row.lateMinutes > 0 ? minutesToHHMM(row.lateMinutes) : "—"}
+                        </TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
                       </TableRow>
                     ))
