@@ -1,58 +1,83 @@
 
-# Venda de Dias de Ferias pelo Colaborador
+# Avaliacao de Funcionarios - Sistema de Avaliacao por Lider
 
-## Objetivo
-Permitir que o colaborador, atraves do link publico de ferias, possa "vender" dias de ferias a empresa. O pedido de venda fica como sugestao pendente para o RH aprovar.
+## Resumo
+Criar um sistema onde o Admin pode solicitar a um lider (manager/funcionario com cargo de chefia) que avalie um funcionario. O lider recebe a tarefa, preenche a avaliacao, e ao concluir ela fica disponivel para o Admin que a solicitou.
 
-## Alteracoes Necessarias
+## 1. Base de Dados
 
-### 1. Migracaoo de Base de Dados
-Adicionar uma nova coluna `sold_days` (integer, default 0) na tabela `vacation_requests` para registar quantos dias o colaborador pretende vender naquele ano. Tambem adicionar um campo `sell_status` (text, default null) com valores possiveis: `pending_sell`, `sell_approved`, `sell_rejected` para controlar o fluxo de aprovacao.
+Criar tabela `employee_evaluations`:
 
-### 2. Edge Function `vacation-public/index.ts`
-- Adicionar nova acao `sell` que recebe o numero de dias a vender e cria/atualiza um registo de venda:
-  - Valida que os dias a vender nao excedem os dias disponiveis (entitled - dias ja agendados)
-  - Cria um `vacation_request` com `category: "individual"`, `days_count` igual aos dias vendidos, `status: "pending"`, e `sold_days` preenchido
-  - Ou alternativamente, usa o registo existente e atualiza `sold_days` e `sell_status: "pending_sell"`
-- Na acao `get`, retornar tambem informacao sobre dias ja vendidos
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid (PK) | Identificador |
+| employee_id | uuid (FK employees) | Funcionario avaliado |
+| evaluator_id | uuid (FK employees) | Lider que avalia |
+| requested_by | uuid (FK auth.users) | Admin que solicitou |
+| status | text | `pending`, `in_progress`, `completed` |
+| rating | integer | Nota geral 1-5 |
+| performance_rating | integer | Desempenho 1-5 |
+| teamwork_rating | integer | Trabalho em equipa 1-5 |
+| punctuality_rating | integer | Pontualidade 1-5 |
+| communication_rating | integer | Comunicacao 1-5 |
+| strengths | text | Pontos fortes |
+| improvements | text | Pontos a melhorar |
+| comments | text | Comentarios gerais |
+| completed_at | timestamptz | Data de conclusao |
+| created_at | timestamptz | Data de criacao |
 
-### 3. Pagina Publica `VacationPublic.tsx`
-- Adicionar uma seccao "Vender Dias de Ferias" com:
-  - Input numerico para selecionar quantos dias quer vender
-  - Indicacao do saldo disponivel (dias de direito - dias agendados - dias ja vendidos)
-  - Botao "Solicitar Venda" que envia o pedido
-  - Mensagem informativa de que a venda depende de aprovacao do RH
-- Mostrar estado da venda se ja houver pedido (pendente, aprovado, rejeitado)
+RLS Policies:
+- Admins podem gerir tudo (ALL)
+- Avaliadores podem ver e atualizar as suas avaliacoes atribuidas (SELECT/UPDATE where evaluator employee matches user)
 
-### 4. Pagina Admin `Vacations.tsx`
-- No grupo de cada funcionario, mostrar badge com dias vendidos (se houver)
-- Adicionar botao para aprovar/rejeitar pedidos de venda pendentes
-- Ao aprovar a venda, subtrair os dias do saldo total disponivel do funcionario (reduzindo `total_entitled_days` ou ajustando o calculo)
+## 2. Nova Pagina: `/avaliacoes`
 
-### 5. Calculo de Saldo
-- O saldo restante passa a ser: `total_entitled_days - dias_agendados - sold_days_approved`
-- Validacao no `VacationFormDialog.tsx` tambem deve considerar dias vendidos aprovados
+**Vista Admin:**
+- Botao "Nova Avaliacao" abre dialog para:
+  - Selecionar funcionario a avaliar
+  - Selecionar lider avaliador
+- Lista de todas as avaliacoes com tabs: Todas / Pendentes / Concluidas
+- Cards com status visual (pendente = amarelo, concluida = verde)
+- Ao clicar numa avaliacao concluida, ver detalhes completos com as notas por categoria em estrelas
+
+**Vista Avaliador (via portal ou pagina):**
+- O lider avaliador acede via Edge Function no portal do funcionario (acao `get_pending_evaluations` e `submit_evaluation`)
+- Formulario com:
+  - Notas de 1-5 estrelas para cada categoria
+  - Campos de texto para pontos fortes, melhorias e comentarios
+  - Botao concluir
+
+## 3. Edge Function: Atualizar `employee-portal`
+
+Adicionar duas novas acoes:
+- `get_pending_evaluations`: retorna avaliacoes pendentes atribuidas ao funcionario logado
+- `submit_evaluation`: preenche e conclui a avaliacao
+
+## 4. Integracao
+
+- Adicionar item "Avaliacoes" no sidebar (`ClipboardCheck` icon, rota `/avaliacoes`)
+- Registar rota `/avaliacoes` no `App.tsx` como rota protegida
+- Na pagina de perfil do funcionario (`EmployeeProfile.tsx`), adicionar seccao mostrando avaliacoes recebidas
+
+## 5. Ficheiros a Criar/Modificar
+
+| Acao | Ficheiro |
+|------|---------|
+| Criar | `src/pages/Evaluations.tsx` - Pagina principal de avaliacoes |
+| Criar | `src/components/evaluations/EvaluationFormDialog.tsx` - Dialog para criar avaliacao |
+| Criar | `src/components/evaluations/EvaluationDetailDialog.tsx` - Dialog para ver detalhes |
+| Criar | `src/components/evaluations/EvaluationCard.tsx` - Card visual de avaliacao |
+| Modificar | `src/App.tsx` - Adicionar rota |
+| Modificar | `src/components/layout/AppSidebar.tsx` - Adicionar menu |
+| Modificar | `supabase/functions/employee-portal/index.ts` - Acoes de avaliacao |
+| Modificar | `src/pages/EmployeePortal.tsx` - Seccao de avaliacoes pendentes |
+| Modificar | `src/pages/EmployeeProfile.tsx` - Mostrar avaliacoes recebidas |
+| Migracoes | Nova tabela + RLS policies |
 
 ## Detalhes Tecnicos
 
-### Migracao SQL
-```sql
-ALTER TABLE public.vacation_requests 
-  ADD COLUMN sold_days integer NOT NULL DEFAULT 0,
-  ADD COLUMN sell_status text DEFAULT NULL;
-```
-
-### Fluxo
-1. Colaborador abre link publico -> ve seccao "Vender Dias"
-2. Seleciona quantidade de dias -> clica "Solicitar Venda"
-3. Edge function cria registo com `sold_days = N`, `sell_status = 'pending_sell'`
-4. RH ve pedido pendente na pagina de ferias -> aprova ou rejeita
-5. Se aprovado, os dias sao subtraidos do saldo disponivel
-
-### Ficheiros a Modificar
-- `supabase/functions/vacation-public/index.ts` - nova acao "sell"
-- `src/pages/VacationPublic.tsx` - UI de venda para o colaborador
-- `src/pages/Vacations.tsx` - gestao de vendas pelo admin
-- `src/hooks/useVacations.ts` - tipos atualizados
-- `src/components/vacations/VacationFormDialog.tsx` - validacao atualizada
-- Nova migracao SQL para colunas `sold_days` e `sell_status`
+- A tabela usa `requested_by` referenciando o user admin (nao FK direta a auth.users para seguranca)
+- `evaluator_id` referencia `employees.id` para identificar o lider
+- O portal do funcionario mostra avaliacoes pendentes apenas para quem e avaliador
+- Quando o avaliador submete, o status muda para `completed` e `completed_at` e preenchido
+- O admin ve todas as avaliacoes e pode filtrar por status
