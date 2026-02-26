@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ExternalLink, CheckCircle, Play, Pause, PlayCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, CheckCircle, Play, Pause, PlayCircle, FileDown } from "lucide-react";
+import { generateMeetingPdf } from "@/lib/generateMeetingPdf";
 import { useMeeting, useMeetingAgendas, useAddAgenda, useUpdateAgenda, useFinalizeMeeting, useStartMeeting, useToggleParticipantPresence, usePauseMeeting, useResumeMeeting } from "@/hooks/useMeetings";
 import { MeetingTimer } from "@/components/meetings/MeetingTimer";
 import { AgendaCard } from "@/components/meetings/AgendaCard";
@@ -111,6 +112,28 @@ export default function MeetingDetail() {
     togglePresence.mutate({ participantId, present });
   };
 
+  const handleDownloadPdf = () => {
+    if (!meeting || !agendas) return;
+    generateMeetingPdf({
+      title: meeting.title,
+      description: meeting.description,
+      meeting_date: meeting.meeting_date,
+      duration_minutes: meeting.duration_minutes,
+      started_at: (meeting as any).started_at,
+      status: meeting.status,
+      agendas: agendas.map((a) => ({
+        title: a.title,
+        description: a.description,
+        decision: a.decision,
+        sort_order: a.sort_order,
+      })),
+      participants: participants.map((p: any) => ({
+        employees: p.employees,
+        present: p.present,
+      })),
+    });
+  };
+
   if (isLoading) {
     return (
       <AppLayout>
@@ -201,6 +224,15 @@ export default function MeetingDetail() {
                 disabled={finalizeMeeting.isPending}
               >
                 <CheckCircle className="h-4 w-4 mr-1" /> Finalizar Reunião
+              </Button>
+            )}
+            {isCompleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPdf}
+              >
+                <FileDown className="h-4 w-4 mr-1" /> Baixar Ata (PDF)
               </Button>
             )}
           </div>
