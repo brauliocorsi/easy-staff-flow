@@ -17,6 +17,7 @@ import MeetingDetail from "./pages/MeetingDetail";
 import MeetingPublic from "./pages/MeetingPublic";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
+import TimeClockReport from "./pages/TimeClockReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/reunioes" element={<ProtectedRoute><Meetings /></ProtectedRoute>} />
             <Route path="/reunioes/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
             <Route path="/reuniao-publica/:id" element={<MeetingPublic />} />
+            <Route path="/relatorios/ponto" element={<ProtectedRoute><TimeClockReport /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

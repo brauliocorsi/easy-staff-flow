@@ -8,6 +8,7 @@ import {
   Palmtree,
   CalendarX,
   Handshake,
+  BarChart3,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -33,6 +34,7 @@ const menuItems = [
   { title: "Mapa de Férias", icon: Palmtree, path: "/ferias" },
   { title: "Registro de Faltas", icon: CalendarX, path: "/faltas" },
   { title: "Reuniões", icon: Handshake, path: "/reunioes" },
+  { title: "Relatório de Ponto", icon: BarChart3, path: "/relatorios/ponto" },
 ];
 
 export function AppSidebar() {

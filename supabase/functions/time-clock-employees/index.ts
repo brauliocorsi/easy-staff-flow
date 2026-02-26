@@ -17,16 +17,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get active employees (without PIN)
     const { data: employees, error: empError } = await supabase
       .from("employees")
-      .select("id, first_name, last_name, position, avatar_url, department_id, schedule_template_id, departments(name), schedule_templates(name)")
+      .select("id, first_name, last_name, position, avatar_url, department_id, schedule_template_id, departments(name), schedule_templates(name, tolerance_late_minutes)")
       .eq("status", "active")
       .order("first_name");
 
     if (empError) throw empError;
 
-    // Get today's time clock records for all active employees
     const today = new Date().toISOString().split("T")[0];
     const dayOfWeek = new Date().getDay();
     const employeeIds = employees.map((e: any) => e.id);
@@ -39,13 +37,12 @@ Deno.serve(async (req) => {
 
     if (recError) throw recError;
 
-    // Get schedule template days for today
     const templateIds = [...new Set(employees.filter((e: any) => e.schedule_template_id).map((e: any) => e.schedule_template_id))];
     let templateDayMap = new Map();
     if (templateIds.length > 0) {
       const { data: tDays } = await supabase
         .from("schedule_template_days")
-        .select("template_id, clock_in_time, clock_out_time, is_day_off")
+        .select("template_id, clock_in_time, clock_out_time, lunch_out_time, lunch_in_time, is_day_off")
         .eq("day_of_week", dayOfWeek)
         .in("template_id", templateIds);
       for (const td of tDays || []) {
@@ -90,6 +87,11 @@ Deno.serve(async (req) => {
         department: emp.departments?.name || null,
         today_status: nextAction,
         schedule_label,
+        scheduled_clock_in: tDay && !tDay.is_day_off ? tDay.clock_in_time : null,
+        scheduled_lunch_out: tDay && !tDay.is_day_off ? tDay.lunch_out_time : null,
+        scheduled_lunch_in: tDay && !tDay.is_day_off ? tDay.lunch_in_time : null,
+        scheduled_clock_out: tDay && !tDay.is_day_off ? tDay.clock_out_time : null,
+        tolerance_late_minutes: emp.schedule_templates?.tolerance_late_minutes ?? null,
       };
     });
 
