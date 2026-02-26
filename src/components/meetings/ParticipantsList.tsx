@@ -1,7 +1,10 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Participant {
+  id: string;
   employee_id: string;
+  present?: boolean;
   employees: {
     first_name: string;
     last_name: string;
@@ -13,9 +16,11 @@ interface Participant {
 interface ParticipantsListProps {
   participants: Participant[];
   showEmail?: boolean;
+  editable?: boolean;
+  onTogglePresence?: (participantId: string, present: boolean) => void;
 }
 
-export function ParticipantsList({ participants, showEmail }: ParticipantsListProps) {
+export function ParticipantsList({ participants, showEmail, editable, onTogglePresence }: ParticipantsListProps) {
   return (
     <div className="space-y-2">
       {participants.map((p) => {
@@ -24,6 +29,17 @@ export function ParticipantsList({ participants, showEmail }: ParticipantsListPr
         const initials = `${emp.first_name[0]}${emp.last_name[0]}`;
         return (
           <div key={p.employee_id} className="flex items-center gap-3">
+            {editable && (
+              <Checkbox
+                checked={p.present ?? false}
+                onCheckedChange={(checked) =>
+                  onTogglePresence?.(p.id, checked === true)
+                }
+              />
+            )}
+            {!editable && p.present !== undefined && (
+              <span className={`h-2 w-2 rounded-full shrink-0 ${p.present ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+            )}
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                 {initials}

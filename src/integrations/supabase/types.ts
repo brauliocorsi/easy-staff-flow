@@ -350,16 +350,19 @@ export type Database = {
           employee_id: string
           id: string
           meeting_id: string
+          present: boolean
         }
         Insert: {
           employee_id: string
           id?: string
           meeting_id: string
+          present?: boolean
         }
         Update: {
           employee_id?: string
           id?: string
           meeting_id?: string
+          present?: boolean
         }
         Relationships: [
           {
@@ -388,6 +391,7 @@ export type Database = {
           end_time: string | null
           id: string
           meeting_date: string
+          started_at: string | null
           status: string
           title: string
           updated_at: string
@@ -401,6 +405,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           meeting_date: string
+          started_at?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -414,6 +419,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           meeting_date?: string
+          started_at?: string | null
           status?: string
           title?: string
           updated_at?: string

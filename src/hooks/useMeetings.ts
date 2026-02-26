@@ -171,6 +171,40 @@ export function useUpdateAgenda() {
   });
 }
 
+export function useStartMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (meetingId: string) => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("meetings")
+        .update({ status: "in_progress", started_at: now })
+        .eq("id", meetingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meetings"] });
+      qc.invalidateQueries({ queryKey: ["meeting"] });
+    },
+  });
+}
+
+export function useToggleParticipantPresence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ participantId, present }: { participantId: string; present: boolean }) => {
+      const { error } = await supabase
+        .from("meeting_participants")
+        .update({ present })
+        .eq("id", participantId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meeting"] });
+    },
+  });
+}
+
 export function useFinalizeMeeting() {
   const qc = useQueryClient();
   return useMutation({
