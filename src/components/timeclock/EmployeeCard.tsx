@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Clock, MoonStar } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
 
 export interface EmployeeData {
@@ -21,16 +22,25 @@ interface Props {
 
 export function EmployeeCard({ employee, onClick }: Props) {
   const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
+  const isDayOff = employee.schedule_label?.includes("Folga");
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+      className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+        isDayOff ? "opacity-60 border-dashed border-muted-foreground/30" : ""
+      }`}
       onClick={() => onClick(employee)}
     >
-      <CardContent className="p-4 flex flex-col items-center text-center gap-3">
+      <CardContent className="p-4 flex flex-col items-center text-center gap-3 relative">
+        {isDayOff && (
+          <Badge variant="outline" className="absolute top-2 right-2 text-[10px] gap-1 border-amber-500/50 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+            <MoonStar className="h-3 w-3" />
+            Folga
+          </Badge>
+        )}
         <Avatar className="h-16 w-16">
           <AvatarImage src={employee.avatar_url || undefined} alt={employee.first_name} />
-          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+          <AvatarFallback className={`font-semibold text-lg ${isDayOff ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -42,14 +52,14 @@ export function EmployeeCard({ employee, onClick }: Props) {
           {employee.department && (
             <p className="text-xs text-muted-foreground">{employee.department}</p>
           )}
-          {employee.schedule_label && (
+          {employee.schedule_label && !isDayOff && (
             <p className="text-xs text-primary/80 flex items-center justify-center gap-1">
               <Clock className="h-3 w-3" />
               {employee.schedule_label}
             </p>
           )}
         </div>
-        <TodayStatus status={employee.today_status} />
+        {!isDayOff && <TodayStatus status={employee.today_status} />}
       </CardContent>
     </Card>
   );
