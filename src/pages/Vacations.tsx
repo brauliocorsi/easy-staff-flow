@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Link2, ToggleRight, ChevronDown, Trash2, CalendarDays } from "lucide-react";
+import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Link2, ToggleRight, ChevronDown, Trash2, CalendarDays, DollarSign, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useVacationRequests, useUpdateVacationRequest, useGetVacationPublicLink, useDeleteVacationRequest, VacationRequest } from "@/hooks/useVacations";
@@ -31,6 +31,9 @@ interface EmployeeGroup {
   totalDays: number;
   approvedDays: number;
   enjoyedDays: number;
+  soldDaysApproved: number;
+  soldDaysPending: number;
+  sellRequests: VacationRequest[];
 }
 
 function groupByEmployee(vacations: VacationRequest[]): EmployeeGroup[] {
@@ -46,11 +49,22 @@ function groupByEmployee(vacations: VacationRequest[]): EmployeeGroup[] {
         totalDays: 0,
         approvedDays: 0,
         enjoyedDays: 0,
+        soldDaysApproved: 0,
+        soldDaysPending: 0,
+        sellRequests: [],
       });
     }
     const g = map.get(v.employee_id)!;
+
+    // Track sell requests separately
+    if (v.sell_status) {
+      g.sellRequests.push(v);
+      if (v.sell_status === "sell_approved") g.soldDaysApproved += (v.sold_days || 0);
+      if (v.sell_status === "pending_sell") g.soldDaysPending += (v.sold_days || 0);
+      continue; // Don't count sell records as regular vacation requests
+    }
+
     g.requests.push(v);
-    // Use the max total_entitled_days across records (main record has 22, swaps have 0)
     if (v.total_entitled_days > g.totalEntitled) {
       g.totalEntitled = v.total_entitled_days;
     }
@@ -115,9 +129,23 @@ export default function Vacations() {
     } catch { toast.error("Falha ao obter link"); }
   };
 
+  const handleApproveSell = async (id: string) => {
+    try {
+      await updateMutation.mutateAsync({ id, sell_status: "sell_approved" });
+      toast.success("Venda de dias aprovada");
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleRejectSell = async (id: string) => {
+    try {
+      await updateMutation.mutateAsync({ id, sell_status: "sell_rejected" });
+      toast.success("Venda de dias rejeitada");
+    } catch (err: any) { toast.error(err.message); }
+  };
+
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-  const totalPending = (vacations || []).filter((v) => !v.enjoyed && v.status !== "rejected").length;
-  const totalApproved = (vacations || []).filter((v) => v.status === "approved").length;
+  const totalPending = (vacations || []).filter((v) => !v.enjoyed && v.status !== "rejected" && !v.sell_status).length;
+  const totalApproved = (vacations || []).filter((v) => v.status === "approved" && !v.sell_status).length;
   const totalEnjoyed = (vacations || []).filter((v) => v.enjoyed).length;
 
   return (
@@ -201,114 +229,163 @@ export default function Vacations() {
                   <p className="text-sm text-muted-foreground">Nenhum pedido de férias individual para {year}.</p>
                 ) : (
                   <div className="space-y-2">
-                    {employeeGroups.map((group) => (
-                      <Collapsible key={group.employeeId}>
-                        <div className="border rounded-lg">
-                          <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-180" />
-                              <span className="font-medium">{group.employeeName}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {group.requests.length} período{group.requests.length !== 1 ? "s" : ""}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                              <span className="text-muted-foreground">
-                                {group.approvedDays}/{group.totalEntitled}d
-                              </span>
-                              <Badge variant={group.enjoyedDays > 0 ? "default" : "outline"} className="text-xs bg-green-600">
-                                {group.enjoyedDays}d gozados
-                              </Badge>
-                              <Badge variant={(group.totalEntitled - group.approvedDays) > 0 ? "secondary" : "outline"} className="text-xs">
-                                {Math.max(0, group.totalEntitled - group.approvedDays)}d restantes
-                              </Badge>
-                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleApproveAll(group.requests)}>
-                                      <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Aprovar todos</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyLink(group.requests[0].id)}>
-                                      <Link2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Copiar link público</TooltipContent>
-                                </Tooltip>
+                    {employeeGroups.map((group) => {
+                      const remaining = group.totalEntitled - group.approvedDays - group.soldDaysApproved;
+                      return (
+                        <Collapsible key={group.employeeId}>
+                          <div className="border rounded-lg">
+                            <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-180" />
+                                <span className="font-medium">{group.employeeName}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {group.requests.length} período{group.requests.length !== 1 ? "s" : ""}
+                                </Badge>
+                                {(group.soldDaysPending > 0) && (
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <DollarSign className="h-3 w-3" />
+                                    {group.soldDaysPending}d venda pendente
+                                  </Badge>
+                                )}
+                                {(group.soldDaysApproved > 0) && (
+                                  <Badge variant="default" className="text-xs gap-1 bg-amber-600">
+                                    <DollarSign className="h-3 w-3" />
+                                    {group.soldDaysApproved}d vendidos
+                                  </Badge>
+                                )}
                               </div>
-                            </div>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="border-t px-4 pb-3 pt-2 space-y-2">
-                              {group.requests.map((v) => {
-                                const st = statusLabels[v.status] || statusLabels.pending;
-                                return (
-                                  <div key={v.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-md p-2">
-                                    <div className="flex items-center gap-2">
-                                      {v.enjoyed ? (
-                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                      ) : (
-                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                      )}
-                                      <span>
-                                        {v.days_count === 0
-                                          ? "Sem datas — aguarda colaborador"
-                                          : `${format(new Date(v.start_date + "T00:00:00"), "dd/MM")} - ${format(new Date(v.end_date + "T00:00:00"), "dd/MM/yyyy")}`}
-                                      </span>
-                                      {v.days_count > 0 && (
-                                        <span className="text-muted-foreground">({v.days_count}d)</span>
-                                      )}
-                                      {v.category !== "individual" && (
-                                        <Badge variant="secondary" className="text-xs">Coletiva</Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Badge variant={st.variant} className="text-xs">{st.label}</Badge>
-                                      {v.employee_confirmed && <Badge variant="outline" className="text-xs">Func. OK</Badge>}
-                                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => handleToggleEnjoyed(v.id, v.enjoyed)}>
-                                        <ToggleRight className={`h-3.5 w-3.5 mr-1 ${v.enjoyed ? "text-green-600" : "text-muted-foreground"}`} />
-                                        <span className="text-xs">{v.enjoyed ? "Gozada" : "Não gozada"}</span>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="text-muted-foreground">
+                                  {group.approvedDays}/{group.totalEntitled}d
+                                </span>
+                                <Badge variant={group.enjoyedDays > 0 ? "default" : "outline"} className="text-xs bg-green-600">
+                                  {group.enjoyedDays}d gozados
+                                </Badge>
+                                <Badge variant={remaining > 0 ? "secondary" : "outline"} className="text-xs">
+                                  {Math.max(0, remaining)}d restantes
+                                </Badge>
+                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleApproveAll(group.requests)}>
+                                        <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                                       </Button>
-                                      {v.status !== "approved" && (
+                                    </TooltipTrigger>
+                                    <TooltipContent>Aprovar todos</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyLink(group.requests[0].id)}>
+                                        <Link2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Copiar link público</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="border-t px-4 pb-3 pt-2 space-y-2">
+                                {/* Sell requests */}
+                                {group.sellRequests.map((sr) => (
+                                  <div key={sr.id} className="flex items-center justify-between text-sm bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-2">
+                                    <div className="flex items-center gap-2">
+                                      <DollarSign className="h-4 w-4 text-amber-600" />
+                                      <span>Venda de <strong>{sr.sold_days}</strong> dia{sr.sold_days !== 1 ? "s" : ""}</span>
+                                      {sr.sell_status === "pending_sell" && <Badge variant="outline" className="text-xs">Pendente</Badge>}
+                                      {sr.sell_status === "sell_approved" && <Badge variant="default" className="text-xs bg-green-600">Aprovada</Badge>}
+                                      {sr.sell_status === "sell_rejected" && <Badge variant="destructive" className="text-xs">Rejeitada</Badge>}
+                                    </div>
+                                    {sr.sell_status === "pending_sell" && (
+                                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleApprove(v.id)}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleApproveSell(sr.id)}>
                                               <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                                             </Button>
                                           </TooltipTrigger>
-                                          <TooltipContent>Aprovar</TooltipContent>
+                                          <TooltipContent>Aprovar venda</TooltipContent>
                                         </Tooltip>
-                                      )}
-                                      <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7">
-                                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                          </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                            <AlertDialogTitle>Eliminar período?</AlertDialogTitle>
-                                            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDelete(v.id)}>Eliminar</AlertDialogAction>
-                                          </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                      </AlertDialog>
-                                    </div>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRejectSell(sr.id)}>
+                                              <XCircle className="h-3.5 w-3.5 text-destructive" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Rejeitar venda</TooltipContent>
+                                        </Tooltip>
+                                      </div>
+                                    )}
                                   </div>
-                                );
-                              })}
-                            </div>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    ))}
+                                ))}
+
+                                {/* Regular vacation requests */}
+                                {group.requests.map((v) => {
+                                  const st = statusLabels[v.status] || statusLabels.pending;
+                                  return (
+                                    <div key={v.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-md p-2">
+                                      <div className="flex items-center gap-2">
+                                        {v.enjoyed ? (
+                                          <CheckCircle className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                          <Clock className="h-4 w-4 text-muted-foreground" />
+                                        )}
+                                        <span>
+                                          {v.days_count === 0
+                                            ? "Sem datas — aguarda colaborador"
+                                            : `${format(new Date(v.start_date + "T00:00:00"), "dd/MM")} - ${format(new Date(v.end_date + "T00:00:00"), "dd/MM/yyyy")}`}
+                                        </span>
+                                        {v.days_count > 0 && (
+                                          <span className="text-muted-foreground">({v.days_count}d)</span>
+                                        )}
+                                        {v.category !== "individual" && (
+                                          <Badge variant="secondary" className="text-xs">Coletiva</Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Badge variant={st.variant} className="text-xs">{st.label}</Badge>
+                                        {v.employee_confirmed && <Badge variant="outline" className="text-xs">Func. OK</Badge>}
+                                        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => handleToggleEnjoyed(v.id, v.enjoyed)}>
+                                          <ToggleRight className={`h-3.5 w-3.5 mr-1 ${v.enjoyed ? "text-green-600" : "text-muted-foreground"}`} />
+                                          <span className="text-xs">{v.enjoyed ? "Gozada" : "Não gozada"}</span>
+                                        </Button>
+                                        {v.status !== "approved" && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleApprove(v.id)}>
+                                                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Aprovar</TooltipContent>
+                                          </Tooltip>
+                                        )}
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Eliminar período?</AlertDialogTitle>
+                                              <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                              <AlertDialogAction onClick={() => handleDelete(v.id)}>Eliminar</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </CollapsibleContent>
+                          </div>
+                        </Collapsible>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

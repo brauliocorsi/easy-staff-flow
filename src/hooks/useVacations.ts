@@ -17,6 +17,8 @@ export interface VacationRequest {
   admin_confirmed: boolean;
   token: string;
   enjoyed: boolean;
+  sold_days: number;
+  sell_status: string | null;
   created_at: string;
   updated_at: string;
   employees?: {

@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { token, action, periods, notes, start_date, end_date } = await req.json();
+    const { token, action, periods, notes, start_date, end_date, sell_days } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Token is required" }), {
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     if (!action || action === "get") {
       const { data: vacation, error } = await supabase
         .from("vacation_requests")
-        .select("id, start_date, end_date, days_count, status, category, year, total_entitled_days, employee_confirmed, admin_confirmed, notes, employee_id, employees!vacation_requests_employee_id_fkey(first_name, last_name)")
+        .select("id, start_date, end_date, days_count, status, category, year, total_entitled_days, employee_confirmed, admin_confirmed, notes, employee_id, sold_days, sell_status, employees!vacation_requests_employee_id_fkey(first_name, last_name)")
         .eq("token", token)
         .single();
 
@@ -44,12 +44,24 @@ Deno.serve(async (req) => {
       // Also fetch all periods for this employee+year
       const { data: allPeriods } = await supabase
         .from("vacation_requests")
-        .select("id, start_date, end_date, days_count, status, category, enjoyed")
+        .select("id, start_date, end_date, days_count, status, category, enjoyed, sold_days, sell_status")
         .eq("employee_id", vacation.employee_id)
         .eq("year", vacation.year)
         .order("start_date");
 
-      return new Response(JSON.stringify({ vacation, all_periods: allPeriods || [] }), {
+      // Calculate sold days info
+      const soldInfo = {
+        pending_sell: 0,
+        approved_sell: 0,
+        rejected_sell: 0,
+      };
+      for (const p of allPeriods || []) {
+        if (p.sell_status === "pending_sell") soldInfo.pending_sell += (p.sold_days || 0);
+        if (p.sell_status === "sell_approved") soldInfo.approved_sell += (p.sold_days || 0);
+        if (p.sell_status === "sell_rejected") soldInfo.rejected_sell += (p.sold_days || 0);
+      }
+
+      return new Response(JSON.stringify({ vacation, all_periods: allPeriods || [], sold_info: soldInfo }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -165,6 +177,112 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ success: true, message: "All vacations accepted" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Employee requests to sell vacation days
+    if (action === "sell") {
+      if (!sell_days || sell_days <= 0) {
+        return new Response(JSON.stringify({ error: "Número de dias inválido" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: vacation, error: fetchError } = await supabase
+        .from("vacation_requests")
+        .select("id, employee_id, year, total_entitled_days")
+        .eq("token", token)
+        .single();
+
+      if (fetchError || !vacation) {
+        return new Response(JSON.stringify({ error: "Vacation not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get all periods to calculate available days
+      const { data: allPeriods } = await supabase
+        .from("vacation_requests")
+        .select("days_count, status, sold_days, sell_status")
+        .eq("employee_id", vacation.employee_id)
+        .eq("year", vacation.year);
+
+      const scheduledDays = (allPeriods || [])
+        .filter((p: any) => p.status !== "rejected" && p.days_count > 0 && !p.sell_status)
+        .reduce((sum: number, p: any) => sum + p.days_count, 0);
+
+      const alreadySoldApproved = (allPeriods || [])
+        .filter((p: any) => p.sell_status === "sell_approved")
+        .reduce((sum: number, p: any) => sum + (p.sold_days || 0), 0);
+
+      const alreadySoldPending = (allPeriods || [])
+        .filter((p: any) => p.sell_status === "pending_sell")
+        .reduce((sum: number, p: any) => sum + (p.sold_days || 0), 0);
+
+      const available = vacation.total_entitled_days - scheduledDays - alreadySoldApproved - alreadySoldPending;
+
+      if (sell_days > available) {
+        return new Response(JSON.stringify({ 
+          error: `Só pode vender até ${available} dias. Tem ${scheduledDays} agendados e ${alreadySoldApproved + alreadySoldPending} já em venda.` 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if there's already a pending sell request - update it
+      const { data: existingSell } = await supabase
+        .from("vacation_requests")
+        .select("id")
+        .eq("employee_id", vacation.employee_id)
+        .eq("year", vacation.year)
+        .eq("sell_status", "pending_sell")
+        .maybeSingle();
+
+      if (existingSell) {
+        const { error: updateError } = await supabase
+          .from("vacation_requests")
+          .update({ sold_days: sell_days })
+          .eq("id", existingSell.id);
+
+        if (updateError) {
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        // Create a new sell request record
+        const yearStr = String(vacation.year);
+        const { error: insertError } = await supabase
+          .from("vacation_requests")
+          .insert({
+            employee_id: vacation.employee_id,
+            year: vacation.year,
+            start_date: `${yearStr}-01-01`,
+            end_date: `${yearStr}-01-01`,
+            days_count: 0,
+            category: "individual",
+            total_entitled_days: vacation.total_entitled_days,
+            sold_days: sell_days,
+            sell_status: "pending_sell",
+            status: "pending",
+            employee_confirmed: true,
+            notes: `Pedido de venda de ${sell_days} dias de férias`,
+          });
+
+        if (insertError) {
+          return new Response(JSON.stringify({ error: insertError.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, message: "Pedido de venda enviado com sucesso" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

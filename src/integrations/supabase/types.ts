@@ -776,6 +776,8 @@ export type Database = {
           enjoyed: boolean
           id: string
           notes: string | null
+          sell_status: string | null
+          sold_days: number
           start_date: string
           status: string
           token: string
@@ -795,6 +797,8 @@ export type Database = {
           enjoyed?: boolean
           id?: string
           notes?: string | null
+          sell_status?: string | null
+          sold_days?: number
           start_date: string
           status?: string
           token?: string
@@ -814,6 +818,8 @@ export type Database = {
           enjoyed?: boolean
           id?: string
           notes?: string | null
+          sell_status?: string | null
+          sold_days?: number
           start_date?: string
           status?: string
           token?: string
