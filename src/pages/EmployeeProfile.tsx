@@ -11,7 +11,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   ArrowLeft, User, Briefcase, Calendar, MapPin, Phone, Mail, Hash,
   AlertTriangle, CheckCircle, Palmtree, CalendarCheck2, Play, CheckCircle2,
-  Clock, FileText, GraduationCap, Loader2, XCircle, ClipboardCheck, Star
+  Clock, FileText, GraduationCap, Loader2, XCircle, ClipboardCheck, Star,
+  HardHat, Wrench, Settings2
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -165,6 +166,51 @@ export default function EmployeeProfile() {
         .order("training_date", { ascending: false });
       if (error) throw error;
       return data || [];
+    },
+  });
+
+  // EPIs
+  const { data: episData } = useQuery({
+    queryKey: ["employee-epis", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("epi_deliveries" as any)
+        .select("*")
+        .eq("employee_id", id!)
+        .order("delivery_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  // Tools
+  const { data: toolsData } = useQuery({
+    queryKey: ["employee-tools", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tool_assignments" as any)
+        .select("*")
+        .eq("employee_id", id!)
+        .order("assigned_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  // Maintenance Logs
+  const { data: maintenanceData } = useQuery({
+    queryKey: ["employee-maintenance", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("maintenance_logs" as any)
+        .select("*")
+        .eq("employee_id", id!)
+        .order("completed_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as any[];
     },
   });
 
@@ -571,6 +617,99 @@ export default function EmployeeProfile() {
                         </div>
                         <Badge variant={t.status === "signed" ? "default" : "outline"} className="text-xs">
                           {t.status === "signed" ? "Assinada" : "Registada"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* EPIs */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <HardHat className="h-4 w-4 text-primary" />
+                  EPIs Entregues
+                  <Badge variant="secondary" className="ml-auto text-xs">{episData?.length || 0} total</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!episData?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem EPIs registados.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {episData.map((epi: any) => (
+                      <div key={epi.id} className="flex items-center justify-between p-2 rounded-md border">
+                        <div>
+                          <p className="text-sm font-medium">{epi.item_name} (x{epi.quantity})</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(epi.delivery_date + "T00:00:00"), "dd/MM/yyyy")}
+                            {epi.expiry_date && ` · Validade: ${format(new Date(epi.expiry_date + "T00:00:00"), "dd/MM/yyyy")}`}
+                          </p>
+                        </div>
+                        <Badge variant={epi.status === "delivered" ? "default" : epi.status === "expired" ? "destructive" : "secondary"} className="text-xs">
+                          {epi.status === "delivered" ? "Entregue" : epi.status === "expired" ? "Expirado" : "Devolvido"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Ferramentas */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-primary" />
+                  Ferramentas Atribuídas
+                  <Badge variant="secondary" className="ml-auto text-xs">{toolsData?.filter((t: any) => t.status === "assigned").length || 0} ativas</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!toolsData?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem ferramentas atribuídas.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {toolsData.map((tool: any) => (
+                      <div key={tool.id} className="flex items-center justify-between p-2 rounded-md border">
+                        <div>
+                          <p className="text-sm font-medium">{tool.tool_name}{tool.serial_number ? ` (${tool.serial_number})` : ""}</p>
+                          <p className="text-xs text-muted-foreground">{format(new Date(tool.assigned_date + "T00:00:00"), "dd/MM/yyyy")}</p>
+                        </div>
+                        <Badge variant={tool.status === "assigned" ? "default" : "secondary"} className="text-xs">
+                          {tool.status === "assigned" ? "Atribuída" : "Devolvida"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Manutenções */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  Manutenções Realizadas
+                  <Badge variant="secondary" className="ml-auto text-xs">{maintenanceData?.length || 0} total</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!maintenanceData?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem manutenções registadas.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {maintenanceData.map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between p-2 rounded-md border">
+                        <div>
+                          <p className="text-sm font-medium">{format(new Date(log.completed_date + "T00:00:00"), "dd/MM/yyyy")}</p>
+                          <p className="text-xs text-muted-foreground">{log.notes || "Sem observações"}</p>
+                        </div>
+                        <Badge variant={log.status === "completed" ? "default" : "outline"} className="text-xs">
+                          {log.status === "completed" ? "Concluído" : "Pendente"}
                         </Badge>
                       </div>
                     ))}

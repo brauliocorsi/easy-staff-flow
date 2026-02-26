@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ClipboardCheck,
   GraduationCap,
+  HardHat,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const menuItems = [
   { title: "Sugestões", icon: MessageSquare, path: "/sugestoes" },
   { title: "Avaliações", icon: ClipboardCheck, path: "/avaliacoes" },
   { title: "Formações", icon: GraduationCap, path: "/formacoes" },
+  { title: "Equipamentos", icon: HardHat, path: "/equipamentos" },
 ];
 
 export function AppSidebar() {
