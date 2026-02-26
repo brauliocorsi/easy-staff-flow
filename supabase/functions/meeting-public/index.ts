@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     const { data: meeting, error: mErr } = await supabase
       .from("meetings")
-      .select("id, title, description, meeting_date, end_time, status")
+      .select("id, title, description, meeting_date, end_time, started_at, status")
       .eq("id", meeting_id)
       .single();
 
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     const { data: participants } = await supabase
       .from("meeting_participants")
-      .select("employee_id, employees(first_name, last_name, position)")
+      .select("id, employee_id, present, employees(first_name, last_name, position)")
       .eq("meeting_id", meeting_id);
 
     const { data: agendas } = await supabase
@@ -51,7 +51,9 @@ Deno.serve(async (req) => {
 
     // Strip emails from public response
     const safeParticipants = (participants ?? []).map((p: any) => ({
+      id: p.id,
       employee_id: p.employee_id,
+      present: p.present,
       employees: p.employees
         ? {
             first_name: p.employees.first_name,

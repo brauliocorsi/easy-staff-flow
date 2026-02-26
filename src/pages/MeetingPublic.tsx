@@ -13,9 +13,12 @@ interface PublicMeetingData {
   description: string | null;
   meeting_date: string;
   end_time: string | null;
+  started_at: string | null;
   status: string;
   participants: {
+    id: string;
     employee_id: string;
+    present?: boolean;
     employees: { first_name: string; last_name: string; position: string; email: string } | null;
   }[];
   agendas: {
@@ -101,7 +104,7 @@ export default function MeetingPublic() {
 
         {/* Timer */}
         <div className="flex justify-center">
-          <MeetingTimer endTime={data.end_time} status={data.status} large />
+          <MeetingTimer endTime={data.end_time} startedAt={data.started_at} status={data.status} large />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ExternalLink, CheckCircle } from "lucide-react";
-import { useMeeting, useMeetingAgendas, useAddAgenda, useUpdateAgenda, useFinalizeMeeting } from "@/hooks/useMeetings";
+import { ArrowLeft, ExternalLink, CheckCircle, Play } from "lucide-react";
+import { useMeeting, useMeetingAgendas, useAddAgenda, useUpdateAgenda, useFinalizeMeeting, useStartMeeting, useToggleParticipantPresence } from "@/hooks/useMeetings";
 import { MeetingTimer } from "@/components/meetings/MeetingTimer";
 import { AgendaCard } from "@/components/meetings/AgendaCard";
 import { AgendaInput } from "@/components/meetings/AgendaInput";
@@ -33,6 +33,8 @@ export default function MeetingDetail() {
   const addAgenda = useAddAgenda();
   const updateAgenda = useUpdateAgenda();
   const finalizeMeeting = useFinalizeMeeting();
+  const startMeeting = useStartMeeting();
+  const togglePresence = useToggleParticipantPresence();
 
   // Realtime subscription for agendas
   useEffect(() => {
@@ -59,6 +61,16 @@ export default function MeetingDetail() {
     updateAgenda.mutate({ id: agendaId, decision });
   };
 
+  const handleStart = async () => {
+    if (!id) return;
+    try {
+      await startMeeting.mutateAsync(id);
+      toast({ title: "Reunião iniciada!", description: "O cronómetro está a correr." });
+    } catch (err: any) {
+      toast({ title: "Erro ao iniciar", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleFinalize = async () => {
     if (!id) return;
     try {
@@ -67,6 +79,10 @@ export default function MeetingDetail() {
     } catch (err: any) {
       toast({ title: "Erro ao finalizar", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleTogglePresence = (participantId: string, present: boolean) => {
+    togglePresence.mutate({ participantId, present });
   };
 
   if (isLoading) {
@@ -88,6 +104,8 @@ export default function MeetingDetail() {
   const status = statusMap[meeting.status] ?? statusMap.scheduled;
   const participants = (meeting as any).meeting_participants ?? [];
   const isCompleted = meeting.status === "completed";
+  const isScheduled = meeting.status === "scheduled";
+  const isInProgress = meeting.status === "in_progress";
 
   return (
     <AppLayout>
@@ -107,8 +125,8 @@ export default function MeetingDetail() {
             )}
             <p className="text-sm text-muted-foreground">
               {format(new Date(meeting.meeting_date), "dd MMM yyyy 'às' HH:mm", { locale: pt })}
-              {(meeting as any).end_time &&
-                ` — ${format(new Date((meeting as any).end_time), "HH:mm")}`}
+              {meeting.end_time &&
+                ` — ${format(new Date(meeting.end_time), "HH:mm")}`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -119,7 +137,16 @@ export default function MeetingDetail() {
             >
               <ExternalLink className="h-4 w-4 mr-1" /> Página Pública
             </Button>
-            {!isCompleted && (
+            {isScheduled && (
+              <Button
+                size="sm"
+                onClick={handleStart}
+                disabled={startMeeting.isPending}
+              >
+                <Play className="h-4 w-4 mr-1" /> Iniciar Reunião
+              </Button>
+            )}
+            {isInProgress && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -135,7 +162,11 @@ export default function MeetingDetail() {
         {/* Timer */}
         <Card>
           <CardContent className="p-6 flex items-center justify-center">
-            <MeetingTimer endTime={(meeting as any).end_time} status={meeting.status} />
+            <MeetingTimer
+              endTime={meeting.end_time}
+              startedAt={(meeting as any).started_at}
+              status={meeting.status}
+            />
           </CardContent>
         </Card>
 
@@ -177,7 +208,12 @@ export default function MeetingDetail() {
             </CardHeader>
             <CardContent>
               {participants.length > 0 ? (
-                <ParticipantsList participants={participants} showEmail />
+                <ParticipantsList
+                  participants={participants}
+                  showEmail
+                  editable={!isCompleted}
+                  onTogglePresence={handleTogglePresence}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">Sem participantes.</p>
               )}
