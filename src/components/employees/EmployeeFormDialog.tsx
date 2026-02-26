@@ -5,11 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, FileText, AlertTriangle, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { useCreateEmployee, useUpdateEmployee, useEmployees, type Employee } from "@/hooks/useEmployees";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useScheduleTemplates } from "@/hooks/useScheduleTemplates";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { EmployeeContracts } from "./EmployeeContracts";
+import { EmployeeWarnings } from "./EmployeeWarnings";
 
 interface Props {
   open: boolean;
@@ -42,6 +48,8 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     codigo_postal: employee?.codigo_postal || "",
     manager_id: employee?.manager_id || "",
     schedule_template_id: (employee as any)?.schedule_template_id || "",
+    hire_date: employee?.hire_date || new Date().toISOString().split("T")[0],
+    birth_date: employee?.birth_date || "",
     hourly_rate: (employee as any)?.hourly_rate ?? "",
     monthly_salary: (employee as any)?.monthly_salary ?? "",
   });
@@ -62,6 +70,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
       ...rest,
       manager_id: rest.manager_id || null,
       schedule_template_id: rest.schedule_template_id || null,
+      birth_date: rest.birth_date || null,
     };
     if (isAdmin) {
       payload.hourly_rate = hourly_rate ? parseFloat(String(hourly_rate)) : null;
@@ -98,6 +107,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first_name">Nome *</Label>
@@ -108,10 +118,14 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               <Input id="last_name" value={form.last_name} onChange={(e) => handleChange("last_name", e.target.value)} required />
             </div>
           </div>
+
+          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">Email *</Label>
             <Input id="email" type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} required />
           </div>
+
+          {/* Phone & NIF */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Telefone</Label>
@@ -122,10 +136,14 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               <Input id="nif" value={form.nif} onChange={(e) => handleChange("nif", e.target.value)} />
             </div>
           </div>
+
+          {/* NISS */}
           <div className="space-y-2">
             <Label htmlFor="niss">NISS</Label>
             <Input id="niss" value={form.niss} onChange={(e) => handleChange("niss", e.target.value)} />
           </div>
+
+          {/* Position & PIN */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="position">Cargo</Label>
@@ -137,6 +155,52 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
             </div>
           </div>
 
+          {/* Dates: Hire date & Birth date */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Data de Admissão</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.hire_date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.hire_date ? format(new Date(form.hire_date + "T00:00:00"), "dd/MM/yyyy") : "Selecionar"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.hire_date ? new Date(form.hire_date + "T00:00:00") : undefined}
+                    onSelect={(d) => handleChange("hire_date", d ? format(d, "yyyy-MM-dd") : "")}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Data de Nascimento</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.birth_date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.birth_date ? format(new Date(form.birth_date + "T00:00:00"), "dd/MM/yyyy") : "Selecionar"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.birth_date ? new Date(form.birth_date + "T00:00:00") : undefined}
+                    onSelect={(d) => handleChange("birth_date", d ? format(d, "yyyy-MM-dd") : "")}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Manager */}
           <div className="space-y-2">
             <Label>Gestor direto</Label>
             <Select value={form.manager_id || "none"} onValueChange={(v) => handleChange("manager_id", v === "none" ? "" : v)}>
@@ -150,7 +214,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
             </Select>
           </div>
 
-          {/* Schedule template selector */}
+          {/* Schedule template */}
           <div className="space-y-2">
             <Label>Modelo de Horário</Label>
             <Select value={form.schedule_template_id || "none"} onValueChange={(v) => handleChange("schedule_template_id", v === "none" ? "" : v)}>
@@ -162,11 +226,10 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Defina modelos em Configurações → Modelos de Horário
-            </p>
+            <p className="text-xs text-muted-foreground">Defina modelos em Configurações → Modelos de Horário</p>
           </div>
 
+          {/* Address */}
           <div className="space-y-2">
             <Label htmlFor="morada">Morada</Label>
             <Input id="morada" value={form.morada} onChange={(e) => handleChange("morada", e.target.value)} />
@@ -186,6 +249,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
             </div>
           </div>
 
+          {/* Status */}
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={form.status} onValueChange={(v) => handleChange("status", v)}>
@@ -217,6 +281,29 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                     <Input id="monthly_salary" type="number" step="0.01" min="0" placeholder="0.00" value={form.monthly_salary} onChange={(e) => handleChange("monthly_salary", e.target.value)} />
                   </div>
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* Contracts & Warnings (edit only) */}
+          {isEdit && employee && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Contratos
+                </div>
+                <EmployeeContracts employeeId={employee.id} />
+              </div>
+
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  Advertências
+                </div>
+                <EmployeeWarnings employeeId={employee.id} />
               </div>
             </>
           )}
