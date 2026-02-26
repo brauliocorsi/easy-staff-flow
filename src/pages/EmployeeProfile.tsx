@@ -153,6 +153,21 @@ export default function EmployeeProfile() {
     },
   });
 
+  // Trainings
+  const { data: trainingsData } = useQuery({
+    queryKey: ["employee-trainings", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_trainings")
+        .select("*")
+        .eq("employee_id", id!)
+        .order("training_date", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   if (loadingEmp) {
     return (
       <AppLayout>
@@ -516,6 +531,47 @@ export default function EmployeeProfile() {
                         </p>
                         {ev.strengths && <p className="text-xs"><span className="font-medium">Pontos fortes:</span> {ev.strengths}</p>}
                         {ev.improvements && <p className="text-xs"><span className="font-medium">Melhorias:</span> {ev.improvements}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Trainings */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                  Formações
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {(() => {
+                      const curYear = new Date().getFullYear();
+                      const curTrainings = trainingsData?.filter((t: any) => t.year === curYear) || [];
+                      const totalH = curTrainings.reduce((s: number, t: any) => s + Number(t.hours), 0);
+                      const remaining = Math.max(40 - totalH, 0);
+                      return remaining > 0 ? `${totalH}h/40h (${remaining}h restantes)` : `${totalH}h/40h ✓`;
+                    })()}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!trainingsData?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem formações registadas.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {trainingsData.map((t: any) => (
+                      <div key={t.id} className="flex items-center justify-between p-2 rounded-md border">
+                        <div>
+                          <p className="text-sm font-medium">{t.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(t.training_date + "T00:00:00"), "dd/MM/yyyy")} · {t.hours}h · {t.type === "internal" ? "Interna" : "Externa"}
+                            {t.trainer_name && ` · ${t.trainer_name}`}
+                          </p>
+                        </div>
+                        <Badge variant={t.status === "signed" ? "default" : "outline"} className="text-xs">
+                          {t.status === "signed" ? "Assinada" : "Registada"}
+                        </Badge>
                       </div>
                     ))}
                   </div>

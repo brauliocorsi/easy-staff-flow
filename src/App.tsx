@@ -24,6 +24,7 @@ import AttendanceDashboard from "./pages/AttendanceDashboard";
 import EmployeePortal from "./pages/EmployeePortal";
 import Suggestions from "./pages/Suggestions";
 import Evaluations from "./pages/Evaluations";
+import Trainings from "./pages/Trainings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/portal" element={<EmployeePortal />} />
             <Route path="/sugestoes" element={<ProtectedRoute><Suggestions /></ProtectedRoute>} />
             <Route path="/avaliacoes" element={<ProtectedRoute><Evaluations /></ProtectedRoute>} />
+            <Route path="/formacoes" element={<ProtectedRoute><Trainings /></ProtectedRoute>} />
             <Route path="/relatorios/ponto" element={<ProtectedRoute><TimeClockReport /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

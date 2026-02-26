@@ -413,6 +413,81 @@ export type Database = {
           },
         ]
       }
+      employee_trainings: {
+        Row: {
+          certificate_url: string | null
+          created_at: string
+          description: string | null
+          employee_id: string
+          hours: number
+          id: string
+          location: string | null
+          notes: string | null
+          signed_file_url: string | null
+          status: string
+          title: string
+          trainer_id: string | null
+          trainer_name: string | null
+          training_date: string
+          type: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          certificate_url?: string | null
+          created_at?: string
+          description?: string | null
+          employee_id: string
+          hours?: number
+          id?: string
+          location?: string | null
+          notes?: string | null
+          signed_file_url?: string | null
+          status?: string
+          title: string
+          trainer_id?: string | null
+          trainer_name?: string | null
+          training_date?: string
+          type?: string
+          updated_at?: string
+          year?: number
+        }
+        Update: {
+          certificate_url?: string | null
+          created_at?: string
+          description?: string | null
+          employee_id?: string
+          hours?: number
+          id?: string
+          location?: string | null
+          notes?: string | null
+          signed_file_url?: string | null
+          status?: string
+          title?: string
+          trainer_id?: string | null
+          trainer_name?: string | null
+          training_date?: string
+          type?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_trainings_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_trainings_trainer_id_fkey"
+            columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           avatar_url: string | null

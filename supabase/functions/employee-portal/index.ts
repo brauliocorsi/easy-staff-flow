@@ -40,12 +40,13 @@ Deno.serve(async (req) => {
       }
 
       // Fetch related data
-      const [absences, warnings, vacations, meetings, contracts] = await Promise.all([
+      const [absences, warnings, vacations, meetings, contracts, trainings] = await Promise.all([
         supabase.from("absences").select("*").eq("employee_id", emp.id).order("absence_date", { ascending: false }),
         supabase.from("warnings").select("*").eq("employee_id", emp.id).order("warning_date", { ascending: false }),
         supabase.from("vacation_requests").select("*").eq("employee_id", emp.id).order("year", { ascending: false }),
         supabase.from("meeting_participants").select("present, meetings(id, title, meeting_date, status, meeting_type)").eq("employee_id", emp.id),
         supabase.from("contracts").select("*").eq("employee_id", emp.id).order("start_date", { ascending: false }),
+        supabase.from("employee_trainings").select("*").eq("employee_id", emp.id).order("training_date", { ascending: false }),
       ]);
 
       const meetingsList = (meetings.data || [])
@@ -67,6 +68,7 @@ Deno.serve(async (req) => {
         vacations: vacations.data || [],
         meetings: meetingsList,
         contracts: contracts.data || [],
+        trainings: trainings.data || [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
