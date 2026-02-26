@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
 
     const { data: warning, error: wErr } = await supabase
       .from("warnings")
-      .select("*, employees(first_name, last_name, email, position)")
+      .select("*, employees!warnings_employee_id_fkey(first_name, last_name, email, position)")
       .eq("id", warning_id)
       .single();
 
