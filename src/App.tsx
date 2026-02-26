@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 import TimeClockReport from "./pages/TimeClockReport";
 import VacationPublic from "./pages/VacationPublic";
 import AttendanceDashboard from "./pages/AttendanceDashboard";
+import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/reuniao-publica/:id" element={<MeetingPublic />} />
             <Route path="/ferias-publica/:token" element={<VacationPublic />} />
             <Route path="/presenca" element={<AttendanceDashboard />} />
+            <Route path="/portal" element={<EmployeePortal />} />
             <Route path="/relatorios/ponto" element={<ProtectedRoute><TimeClockReport /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

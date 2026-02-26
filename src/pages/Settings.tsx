@@ -10,6 +10,7 @@ export default function Settings() {
   const baseUrl = window.location.origin;
   const attendanceLink = `${baseUrl}/presenca`;
   const timeClockLink = `${baseUrl}/ponto`;
+  const portalLink = `${baseUrl}/portal`;
 
   const copyToClipboard = (link: string, label: string) => {
     navigator.clipboard.writeText(link);
@@ -61,6 +62,21 @@ export default function Settings() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">Terminal de ponto para os funcionários.</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Portal do Funcionário</label>
+              <div className="flex gap-2">
+                <Input value={portalLink} readOnly className="font-mono text-sm" />
+                <Button variant="outline" size="icon" onClick={() => copyToClipboard(portalLink, "Portal")}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" asChild>
+                  <a href={portalLink} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">O funcionário acede com PIN para ver os seus dados e enviar sugestões.</p>
             </div>
           </CardContent>
         </Card>
