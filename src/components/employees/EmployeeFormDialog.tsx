@@ -83,6 +83,14 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
       manager_id: rest.manager_id || null,
       schedule_template_id: rest.schedule_template_id || null,
       birth_date: rest.birth_date || null,
+      nif: rest.nif || null,
+      niss: rest.niss || null,
+      phone: rest.phone || null,
+      pin_code: rest.pin_code || null,
+      morada: rest.morada || null,
+      cidade: rest.cidade || null,
+      distrito: rest.distrito || null,
+      codigo_postal: rest.codigo_postal || null,
     };
     if (isAdmin) {
       payload.hourly_rate = hourly_rate ? parseFloat(String(hourly_rate)) : null;
