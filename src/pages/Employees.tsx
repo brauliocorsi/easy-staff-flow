@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Search, Pencil, Trash2, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { useEmployees, useDeleteEmployee, type Employee } from "@/hooks/useEmployees";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { EmployeeFormDialog } from "@/components/employees/EmployeeFormDialog";
 import { toast } from "sonner";
 
@@ -23,6 +26,24 @@ export default function Employees() {
   const [editing, setEditing] = useState<Employee | null>(null);
   const { data: employees, isLoading, error } = useEmployees(search);
   const deleteMutation = useDeleteEmployee();
+
+  // Fetch absence counts per employee
+  const { data: absenceCounts } = useQuery({
+    queryKey: ["absence-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("employee_id, justified");
+      if (error) throw error;
+      const counts: Record<string, { justified: number; unjustified: number }> = {};
+      for (const a of data || []) {
+        if (!counts[a.employee_id]) counts[a.employee_id] = { justified: 0, unjustified: 0 };
+        if (a.justified) counts[a.employee_id].justified++;
+        else counts[a.employee_id].unjustified++;
+      }
+      return counts;
+    },
+  });
 
   const handleEdit = (emp: Employee) => {
     setEditing(emp);
@@ -90,6 +111,7 @@ export default function Employees() {
                     <TableHead>Funcionário</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Faltas</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-24">Ações</TableHead>
                   </TableRow>
@@ -113,6 +135,34 @@ export default function Employees() {
                         </TableCell>
                         <TableCell>{emp.position}</TableCell>
                         <TableCell className="text-muted-foreground">{emp.email}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1.5">
+                            {absenceCounts?.[emp.id] ? (
+                              <>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="destructive" className="text-xs gap-0.5">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      {absenceCounts[emp.id].unjustified}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Faltas injustificadas</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="outline" className="text-xs gap-0.5 text-green-600 border-green-500">
+                                      <CheckCircle className="h-3 w-3" />
+                                      {absenceCounts[emp.id].justified}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Faltas justificadas</TooltipContent>
+                                </Tooltip>
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">0</span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
