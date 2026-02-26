@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
         .eq("employee_confirmed", false);
 
       // Create new periods
-      const newRecords = periodsToCreate.map((p: any) => {
+      const newRecords = periodsToCreate.map((p: any, idx: number) => {
         const start = new Date(p.start_date);
         const end = new Date(p.end_date);
         let count = 0;
@@ -111,6 +111,8 @@ Deno.serve(async (req) => {
           employee_confirmed: true,
           status: "employee_suggested",
           notes: notes || null,
+          // Preserve the original token on the first record so the link stays valid
+          ...(idx === 0 ? { token } : {}),
         };
       });
 
