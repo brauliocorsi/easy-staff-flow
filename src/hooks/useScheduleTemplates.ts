@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 export interface ScheduleTemplate {
   id: string;
   name: string;
+  tolerance_late_minutes: number;
+  tolerance_overtime_minutes: number;
+  tolerance_early_leave_minutes: number;
   created_at: string;
   updated_at: string;
 }
@@ -55,10 +58,10 @@ export function useScheduleTemplateDays(templateId: string | undefined) {
 export function useCreateScheduleTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ name, days }: { name: string; days: Omit<ScheduleTemplateDay, "id">[] }) => {
+    mutationFn: async ({ name, days, tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes }: { name: string; days: Omit<ScheduleTemplateDay, "id">[]; tolerance_late_minutes: number; tolerance_overtime_minutes: number; tolerance_early_leave_minutes: number }) => {
       const { data: template, error: tErr } = await supabase
         .from("schedule_templates")
-        .insert({ name })
+        .insert({ name, tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes })
         .select()
         .single();
       if (tErr) throw tErr;
@@ -79,10 +82,10 @@ export function useCreateScheduleTemplate() {
 export function useUpdateScheduleTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, days }: { id: string; name: string; days: Omit<ScheduleTemplateDay, "id">[] }) => {
+    mutationFn: async ({ id, name, days, tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes }: { id: string; name: string; days: Omit<ScheduleTemplateDay, "id">[]; tolerance_late_minutes: number; tolerance_overtime_minutes: number; tolerance_early_leave_minutes: number }) => {
       const { error: nErr } = await supabase
         .from("schedule_templates")
-        .update({ name })
+        .update({ name, tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes })
         .eq("id", id);
       if (nErr) throw nErr;
 

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Clock } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Clock, ShieldAlert } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   useScheduleTemplates,
@@ -33,22 +34,33 @@ const defaultRow = (day: number): DayRow => ({
   is_day_off: day === 0,
 });
 
+interface Tolerances {
+  tolerance_late_minutes: number;
+  tolerance_overtime_minutes: number;
+  tolerance_early_leave_minutes: number;
+}
+
 function TemplateEditor({
   initial,
   initialDays,
+  initialTolerances,
   onSave,
   onCancel,
   saving,
 }: {
   initial?: { id: string; name: string };
   initialDays?: DayRow[];
-  onSave: (name: string, days: DayRow[]) => void;
+  initialTolerances?: Tolerances;
+  onSave: (name: string, days: DayRow[], tolerances: Tolerances) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
   const [name, setName] = useState(initial?.name || "");
   const [rows, setRows] = useState<DayRow[]>(
     initialDays || Array.from({ length: 7 }, (_, i) => defaultRow(i))
+  );
+  const [tolerances, setTolerances] = useState<Tolerances>(
+    initialTolerances || { tolerance_late_minutes: 10, tolerance_overtime_minutes: 15, tolerance_early_leave_minutes: 5 }
   );
 
   const updateRow = (day: number, field: keyof DayRow, value: any) => {
@@ -72,7 +84,7 @@ function TemplateEditor({
             size="sm"
             onClick={() => {
               if (!name.trim()) return toast.error("Informe o nome do modelo");
-              onSave(name.trim(), rows);
+              onSave(name.trim(), rows, tolerances);
             }}
             disabled={saving}
           >
@@ -122,6 +134,29 @@ function TemplateEditor({
           );
         })}
       </div>
+
+      {/* Tolerances */}
+      <div className="space-y-2 border rounded-lg p-3 bg-background">
+        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+          <ShieldAlert className="h-4 w-4" />
+          Tolerâncias (minutos)
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Atraso</Label>
+            <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_late_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_late_minutes: parseInt(e.target.value) || 0 }))} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Hora Extra</Label>
+            <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_overtime_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_overtime_minutes: parseInt(e.target.value) || 0 }))} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Saída Antecipada</Label>
+            <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_early_leave_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_early_leave_minutes: parseInt(e.target.value) || 0 }))} />
+          </div>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Atraso: minutos tolerados antes de marcar atraso · Hora Extra: minutos após saída antes de contar hora extra · Saída Antecipada: minutos tolerados para sair mais cedo</p>
+      </div>
     </div>
   );
 }
@@ -157,10 +192,12 @@ function TemplateCard({ template, onEdit, onDelete }: { template: any; onEdit: (
         </div>
         <div>
           <p className="font-medium text-sm">{template.name}</p>
-          <div className="flex gap-2 mt-0.5">
+          <div className="flex gap-2 mt-0.5 flex-wrap">
             <Badge variant="secondary" className="text-xs">{weeklyHours}/semana</Badge>
             <Badge variant="secondary" className="text-xs">{workDays} dias trabalho</Badge>
             <Badge variant="outline" className="text-xs">{offDays} folgas</Badge>
+            <Badge variant="outline" className="text-xs">Atraso: {template.tolerance_late_minutes ?? 10}min</Badge>
+            <Badge variant="outline" className="text-xs">HE: {template.tolerance_overtime_minutes ?? 15}min</Badge>
           </div>
         </div>
       </div>
@@ -181,11 +218,12 @@ export function ScheduleTemplateManager() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleCreate = async (name: string, days: DayRow[]) => {
+  const handleCreate = async (name: string, days: DayRow[], tolerances: Tolerances) => {
     try {
       await createMut.mutateAsync({
         name,
         days: days.map((d) => ({ ...d, template_id: "" })),
+        ...tolerances,
       });
       toast.success("Modelo de horário criado!");
       setCreating(false);
@@ -267,12 +305,13 @@ function EditingTemplate({ template, onDone, updateMut }: { template: any; onDon
       : defaultRow(i);
   });
 
-  const handleSave = async (name: string, days: DayRow[]) => {
+  const handleSave = async (name: string, days: DayRow[], tolerances: Tolerances) => {
     try {
       await updateMut.mutateAsync({
         id: template.id,
         name,
         days: days.map((d) => ({ ...d, template_id: template.id })),
+        ...tolerances,
       });
       toast.success("Modelo atualizado!");
       onDone();
@@ -285,6 +324,11 @@ function EditingTemplate({ template, onDone, updateMut }: { template: any; onDon
     <TemplateEditor
       initial={template}
       initialDays={initialDays}
+      initialTolerances={{
+        tolerance_late_minutes: template.tolerance_late_minutes ?? 10,
+        tolerance_overtime_minutes: template.tolerance_overtime_minutes ?? 15,
+        tolerance_early_leave_minutes: template.tolerance_early_leave_minutes ?? 5,
+      }}
       onSave={handleSave}
       onCancel={onDone}
       saving={updateMut.isPending}
