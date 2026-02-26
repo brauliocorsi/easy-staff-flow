@@ -11,7 +11,7 @@ interface MeetingTimerProps {
 
 export function MeetingTimer({ endTime, startedAt, status, className, large }: MeetingTimerProps) {
   const [display, setDisplay] = useState("");
-  const [isExpired, setIsExpired] = useState(false);
+  const [isWarning, setIsWarning] = useState(false);
 
   useEffect(() => {
     if (status === "completed") {
@@ -20,24 +20,32 @@ export function MeetingTimer({ endTime, startedAt, status, className, large }: M
     }
 
     if (status === "scheduled" || !startedAt) {
+      // Show total duration as countdown preview if end_time exists
+      if (endTime && startedAt === undefined) {
+        // not started yet
+      }
       setDisplay("Não iniciada");
       return;
     }
 
-    // Meeting is in_progress – show elapsed time since started_at
+    // Meeting is in_progress – countdown to end_time
+    if (!endTime) {
+      setDisplay("Sem limite");
+      return;
+    }
+
     const update = () => {
-      const elapsed = Date.now() - new Date(startedAt).getTime();
-      if (endTime) {
-        const remaining = new Date(endTime).getTime() - Date.now();
-        if (remaining <= 0) {
-          setIsExpired(true);
-        } else {
-          setIsExpired(false);
-        }
+      const remaining = new Date(endTime).getTime() - Date.now();
+      if (remaining <= 0) {
+        setDisplay("00:00:00");
+        setIsWarning(true);
+        return;
       }
-      const h = Math.floor(elapsed / 3600000);
-      const m = Math.floor((elapsed % 3600000) / 60000);
-      const s = Math.floor((elapsed % 60000) / 1000);
+      // Warning at 5 minutes
+      setIsWarning(remaining <= 5 * 60 * 1000);
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
       setDisplay(
         `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
       );
@@ -54,7 +62,7 @@ export function MeetingTimer({ endTime, startedAt, status, className, large }: M
       <span
         className={`font-mono font-bold tabular-nums ${
           large ? "text-5xl" : "text-2xl"
-        } ${isExpired ? "text-destructive" : "text-foreground"}`}
+        } ${isWarning ? "text-destructive animate-pulse" : "text-foreground"}`}
       >
         {display}
       </span>
