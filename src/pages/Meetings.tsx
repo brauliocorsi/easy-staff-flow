@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Clock, Users, ExternalLink } from "lucide-react";
+import { Plus, Calendar, Clock, Users, ExternalLink, Pencil } from "lucide-react";
 import { useMeetings } from "@/hooks/useMeetings";
 import { MeetingFormDialog } from "@/components/meetings/MeetingFormDialog";
 import { format } from "date-fns";
@@ -18,8 +18,19 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
 
 export default function Meetings() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<any>(null);
   const { data: meetings, isLoading } = useMeetings();
   const navigate = useNavigate();
+
+  const handleEdit = (meeting: any) => {
+    setEditingMeeting(meeting);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setEditingMeeting(null);
+  };
 
   return (
     <AppLayout>
@@ -29,7 +40,7 @@ export default function Meetings() {
             <h1 className="font-display text-3xl font-bold tracking-tight">Reuniões</h1>
             <p className="text-muted-foreground mt-1">Agende e gerencie reuniões com pautas</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={() => { setEditingMeeting(null); setDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Reunião
           </Button>
@@ -48,6 +59,7 @@ export default function Meetings() {
             {meetings.map((m) => {
               const status = statusMap[m.status] ?? statusMap.scheduled;
               const participantCount = (m as any).meeting_participants?.length ?? 0;
+              const isCompleted = m.status === "completed";
 
               return (
                 <Card
@@ -77,17 +89,32 @@ export default function Meetings() {
                         </span>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(`/reuniao-publica/${m.id}`, "_blank");
-                      }}
-                      title="Abrir página pública"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      {!isCompleted && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(m);
+                          }}
+                          title="Editar reunião"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`/reuniao-publica/${m.id}`, "_blank");
+                        }}
+                        title="Abrir página pública"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -96,7 +123,7 @@ export default function Meetings() {
         )}
       </div>
 
-      <MeetingFormDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <MeetingFormDialog open={dialogOpen} onClose={handleCloseDialog} meeting={editingMeeting} />
     </AppLayout>
   );
 }

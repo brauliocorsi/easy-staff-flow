@@ -86,6 +86,53 @@ export function useCreateMeeting() {
   });
 }
 
+export function useUpdateMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      meeting,
+      participantIds,
+    }: {
+      id: string;
+      meeting: Partial<Tables<"meetings">> & { end_time?: string | null };
+      participantIds: string[];
+    }) => {
+      const { data, error } = await supabase
+        .from("meetings")
+        .update(meeting)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+
+      // Replace participants: delete existing, insert new
+      const { error: delErr } = await supabase
+        .from("meeting_participants")
+        .delete()
+        .eq("meeting_id", id);
+      if (delErr) throw delErr;
+
+      if (participantIds.length > 0) {
+        const participants = participantIds.map((employee_id) => ({
+          meeting_id: id,
+          employee_id,
+        }));
+        const { error: pError } = await supabase
+          .from("meeting_participants")
+          .insert(participants);
+        if (pError) throw pError;
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meetings"] });
+      qc.invalidateQueries({ queryKey: ["meeting"] });
+    },
+  });
+}
+
 export function useAddAgenda() {
   const qc = useQueryClient();
   return useMutation({
