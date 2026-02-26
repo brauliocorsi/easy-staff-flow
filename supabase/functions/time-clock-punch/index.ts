@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     // Validate PIN
     const { data: employee, error: empError } = await supabase
       .from("employees")
-      .select("id, first_name, last_name, pin_code")
+      .select("id, first_name, last_name, pin_code, schedule_template_id")
       .eq("id", employee_id)
       .eq("status", "active")
       .single();
@@ -52,13 +52,25 @@ Deno.serve(async (req) => {
     const today = now.toISOString().split("T")[0];
     const dayOfWeek = now.getDay(); // 0=Sunday
 
-    // Get schedule
-    const { data: schedule } = await supabase
-      .from("employee_schedules")
-      .select("*")
-      .eq("employee_id", employee_id)
-      .eq("day_of_week", dayOfWeek)
-      .maybeSingle();
+    // Get schedule from template or individual
+    let schedule = null;
+    if (employee.schedule_template_id) {
+      const { data } = await supabase
+        .from("schedule_template_days")
+        .select("*")
+        .eq("template_id", employee.schedule_template_id)
+        .eq("day_of_week", dayOfWeek)
+        .maybeSingle();
+      schedule = data;
+    } else {
+      const { data } = await supabase
+        .from("employee_schedules")
+        .select("*")
+        .eq("employee_id", employee_id)
+        .eq("day_of_week", dayOfWeek)
+        .maybeSingle();
+      schedule = data;
+    }
 
     // Get today's record
     const { data: existingRecord } = await supabase

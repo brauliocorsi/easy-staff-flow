@@ -9,7 +9,7 @@ import { Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateEmployee, useUpdateEmployee, useEmployees, type Employee } from "@/hooks/useEmployees";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { EmployeeScheduleEditor } from "./EmployeeScheduleEditor";
+import { useScheduleTemplates } from "@/hooks/useScheduleTemplates";
 
 interface Props {
   open: boolean;
@@ -24,6 +24,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
   const loading = createMutation.isPending || updateMutation.isPending;
   const { data: allEmployees } = useEmployees("");
   const { data: isAdmin } = useIsAdmin();
+  const { data: scheduleTemplates } = useScheduleTemplates();
 
   const [form, setForm] = useState({
     first_name: employee?.first_name || "",
@@ -40,6 +41,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     distrito: employee?.distrito || "",
     codigo_postal: employee?.codigo_postal || "",
     manager_id: employee?.manager_id || "",
+    schedule_template_id: (employee as any)?.schedule_template_id || "",
     hourly_rate: (employee as any)?.hourly_rate ?? "",
     monthly_salary: (employee as any)?.monthly_salary ?? "",
   });
@@ -59,6 +61,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     const payload: any = {
       ...rest,
       manager_id: rest.manager_id || null,
+      schedule_template_id: rest.schedule_template_id || null,
     };
     if (isAdmin) {
       payload.hourly_rate = hourly_rate ? parseFloat(String(hourly_rate)) : null;
@@ -79,7 +82,6 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     }
   };
 
-  // Filter out current employee from manager list
   const managerOptions = (allEmployees || []).filter(
     (e) => e.id !== employee?.id && e.status === "active"
   );
@@ -138,18 +140,31 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
           <div className="space-y-2">
             <Label>Gestor direto</Label>
             <Select value={form.manager_id || "none"} onValueChange={(v) => handleChange("manager_id", v === "none" ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sem gestor" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Sem gestor" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sem gestor</SelectItem>
                 {managerOptions.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.first_name} {m.last_name}
-                  </SelectItem>
+                  <SelectItem key={m.id} value={m.id}>{m.first_name} {m.last_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Schedule template selector */}
+          <div className="space-y-2">
+            <Label>Modelo de Horário</Label>
+            <Select value={form.schedule_template_id || "none"} onValueChange={(v) => handleChange("schedule_template_id", v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Sem modelo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem modelo de horário</SelectItem>
+                {(scheduleTemplates || []).map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Defina modelos em Configurações → Modelos de Horário
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -174,9 +189,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={form.status} onValueChange={(v) => handleChange("status", v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">Ativo</SelectItem>
                 <SelectItem value="inactive">Inativo</SelectItem>
@@ -197,38 +210,14 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="hourly_rate">Salário/Hora (€)</Label>
-                    <Input
-                      id="hourly_rate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={form.hourly_rate}
-                      onChange={(e) => handleChange("hourly_rate", e.target.value)}
-                    />
+                    <Input id="hourly_rate" type="number" step="0.01" min="0" placeholder="0.00" value={form.hourly_rate} onChange={(e) => handleChange("hourly_rate", e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="monthly_salary">Salário Mensal (€)</Label>
-                    <Input
-                      id="monthly_salary"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={form.monthly_salary}
-                      onChange={(e) => handleChange("monthly_salary", e.target.value)}
-                    />
+                    <Input id="monthly_salary" type="number" step="0.01" min="0" placeholder="0.00" value={form.monthly_salary} onChange={(e) => handleChange("monthly_salary", e.target.value)} />
                   </div>
                 </div>
               </div>
-            </>
-          )}
-
-          {/* Schedule editor (only when editing existing employee) */}
-          {isEdit && employee && (
-            <>
-              <Separator />
-              <EmployeeScheduleEditor employeeId={employee.id} />
             </>
           )}
 

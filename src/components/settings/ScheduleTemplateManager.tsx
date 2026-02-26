@@ -1,0 +1,261 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Clock } from "lucide-react";
+import { toast } from "sonner";
+import {
+  useScheduleTemplates,
+  useScheduleTemplateDays,
+  useCreateScheduleTemplate,
+  useUpdateScheduleTemplate,
+  useDeleteScheduleTemplate,
+  DAY_NAMES,
+} from "@/hooks/useScheduleTemplates";
+
+interface DayRow {
+  day_of_week: number;
+  clock_in_time: string;
+  clock_out_time: string;
+  lunch_out_time: string;
+  lunch_in_time: string;
+  is_day_off: boolean;
+}
+
+const defaultRow = (day: number): DayRow => ({
+  day_of_week: day,
+  clock_in_time: "08:00",
+  clock_out_time: "17:00",
+  lunch_out_time: "12:00",
+  lunch_in_time: "13:00",
+  is_day_off: day === 0,
+});
+
+function TemplateEditor({
+  initial,
+  initialDays,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initial?: { id: string; name: string };
+  initialDays?: DayRow[];
+  onSave: (name: string, days: DayRow[]) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [name, setName] = useState(initial?.name || "");
+  const [rows, setRows] = useState<DayRow[]>(
+    initialDays || Array.from({ length: 7 }, (_, i) => defaultRow(i))
+  );
+
+  const updateRow = (day: number, field: keyof DayRow, value: any) => {
+    setRows((prev) => prev.map((r) => (r.day_of_week === day ? { ...r, [field]: value } : r)));
+  };
+
+  return (
+    <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+      <div className="flex items-center gap-3">
+        <Input
+          placeholder="Nome do modelo (ex: Fábrica, Loja...)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="max-w-xs font-medium"
+        />
+        <div className="ml-auto flex gap-2">
+          <Button size="sm" variant="outline" onClick={onCancel} disabled={saving}>
+            <X className="h-4 w-4 mr-1" /> Cancelar
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!name.trim()) return toast.error("Informe o nome do modelo");
+              onSave(name.trim(), rows);
+            }}
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+            Salvar
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="grid grid-cols-[100px_1fr_1fr_1fr_1fr_70px] gap-2 text-xs font-semibold text-muted-foreground px-1">
+          <span>Dia</span>
+          <span>Entrada</span>
+          <span>Saída Almoço</span>
+          <span>Volta Almoço</span>
+          <span>Saída</span>
+          <span>Folga</span>
+        </div>
+        {rows.map((row) => (
+          <div
+            key={row.day_of_week}
+            className={`grid grid-cols-[100px_1fr_1fr_1fr_1fr_70px] gap-2 items-center rounded-md p-1.5 ${
+              row.is_day_off ? "opacity-50 bg-muted/50" : ""
+            }`}
+          >
+            <span className="text-sm font-medium">{DAY_NAMES[row.day_of_week]}</span>
+            <Input type="time" value={row.clock_in_time} onChange={(e) => updateRow(row.day_of_week, "clock_in_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+            <Input type="time" value={row.lunch_out_time} onChange={(e) => updateRow(row.day_of_week, "lunch_out_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+            <Input type="time" value={row.lunch_in_time} onChange={(e) => updateRow(row.day_of_week, "lunch_in_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+            <Input type="time" value={row.clock_out_time} onChange={(e) => updateRow(row.day_of_week, "clock_out_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+            <div className="flex items-center justify-center">
+              <Switch checked={row.is_day_off} onCheckedChange={(v) => updateRow(row.day_of_week, "is_day_off", v)} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateCard({ template, onEdit, onDelete }: { template: any; onEdit: () => void; onDelete: () => void }) {
+  const { data: days } = useScheduleTemplateDays(template.id);
+  const workDays = days?.filter((d: any) => !d.is_day_off).length ?? 0;
+  const offDays = days?.filter((d: any) => d.is_day_off).length ?? 0;
+
+  return (
+    <div className="flex items-center justify-between border rounded-lg p-3">
+      <div className="flex items-center gap-3">
+        <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
+          <Clock className="h-4 w-4 text-primary" />
+        </div>
+        <div>
+          <p className="font-medium text-sm">{template.name}</p>
+          <div className="flex gap-2 mt-0.5">
+            <Badge variant="secondary" className="text-xs">{workDays} dias trabalho</Badge>
+            <Badge variant="outline" className="text-xs">{offDays} folgas</Badge>
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-1">
+        <Button variant="ghost" size="icon" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+      </div>
+    </div>
+  );
+}
+
+export function ScheduleTemplateManager() {
+  const { data: templates, isLoading } = useScheduleTemplates();
+  const createMut = useCreateScheduleTemplate();
+  const updateMut = useUpdateScheduleTemplate();
+  const deleteMut = useDeleteScheduleTemplate();
+
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleCreate = async (name: string, days: DayRow[]) => {
+    try {
+      await createMut.mutateAsync({
+        name,
+        days: days.map((d) => ({ ...d, template_id: "" })),
+      });
+      toast.success("Modelo de horário criado!");
+      setCreating(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar modelo");
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Remover o modelo "${name}"?`)) return;
+    try {
+      await deleteMut.mutateAsync(id);
+      toast.success("Modelo removido");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-display flex items-center gap-2">
+          <Clock className="h-5 w-5" /> Modelos de Horário
+        </CardTitle>
+        {!creating && (
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Modelo
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {creating && (
+          <TemplateEditor
+            onSave={handleCreate}
+            onCancel={() => setCreating(false)}
+            saving={createMut.isPending}
+          />
+        )}
+
+        {isLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+        ) : !templates?.length && !creating ? (
+          <p className="text-sm text-muted-foreground">Nenhum modelo criado ainda. Crie modelos como "Fábrica", "Loja", "Armazém" para vincular aos funcionários.</p>
+        ) : (
+          templates?.map((t) =>
+            editingId === t.id ? (
+              <EditingTemplate key={t.id} template={t} onDone={() => setEditingId(null)} updateMut={updateMut} />
+            ) : (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                onEdit={() => setEditingId(t.id)}
+                onDelete={() => handleDelete(t.id, t.name)}
+              />
+            )
+          )
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditingTemplate({ template, onDone, updateMut }: { template: any; onDone: () => void; updateMut: any }) {
+  const { data: existingDays } = useScheduleTemplateDays(template.id);
+
+  if (!existingDays) return <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>;
+
+  const initialDays: DayRow[] = Array.from({ length: 7 }, (_, i) => {
+    const ex = existingDays.find((d: any) => d.day_of_week === i);
+    return ex
+      ? {
+          day_of_week: i,
+          clock_in_time: ex.clock_in_time.slice(0, 5),
+          clock_out_time: ex.clock_out_time.slice(0, 5),
+          lunch_out_time: ex.lunch_out_time.slice(0, 5),
+          lunch_in_time: ex.lunch_in_time.slice(0, 5),
+          is_day_off: ex.is_day_off,
+        }
+      : defaultRow(i);
+  });
+
+  const handleSave = async (name: string, days: DayRow[]) => {
+    try {
+      await updateMut.mutateAsync({
+        id: template.id,
+        name,
+        days: days.map((d) => ({ ...d, template_id: template.id })),
+      });
+      toast.success("Modelo atualizado!");
+      onDone();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar");
+    }
+  };
+
+  return (
+    <TemplateEditor
+      initial={template}
+      initialDays={initialDays}
+      onSave={handleSave}
+      onCancel={onDone}
+      saving={updateMut.isPending}
+    />
+  );
+}
