@@ -5,15 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ExternalLink, CheckCircle, Play, Pause, PlayCircle, FileDown } from "lucide-react";
+import { ArrowLeft, ExternalLink, CheckCircle, Play, Pause, PlayCircle, FileDown, UserPlus, X } from "lucide-react";
 import { generateMeetingPdf } from "@/lib/generateMeetingPdf";
 import { useMeeting, useMeetingAgendas, useAddAgenda, useUpdateAgenda, useFinalizeMeeting, useStartMeeting, useToggleParticipantPresence, usePauseMeeting, useResumeMeeting } from "@/hooks/useMeetings";
 import { MeetingTimer } from "@/components/meetings/MeetingTimer";
 import { AgendaCard } from "@/components/meetings/AgendaCard";
 import { AgendaInput } from "@/components/meetings/AgendaInput";
 import { ParticipantsList } from "@/components/meetings/ParticipantsList";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEmployees } from "@/hooks/useEmployees";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -110,6 +113,34 @@ export default function MeetingDetail() {
 
   const handleTogglePresence = (participantId: string, present: boolean) => {
     togglePresence.mutate({ participantId, present });
+  };
+
+  const { data: allEmployees } = useEmployees("");
+
+  const handleAddParticipant = async (employeeId: string) => {
+    if (!id) return;
+    try {
+      const { error } = await supabase
+        .from("meeting_participants")
+        .insert({ meeting_id: id, employee_id: employeeId });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["meeting", id] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleRemoveParticipant = async (participantId: string) => {
+    try {
+      const { error } = await supabase
+        .from("meeting_participants")
+        .delete()
+        .eq("id", participantId);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["meeting", id] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleDownloadPdf = () => {
@@ -288,17 +319,77 @@ export default function MeetingDetail() {
 
           {/* Participants */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="font-display text-base">Participantes</CardTitle>
+              {isScheduled && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <UserPlus className="h-4 w-4 mr-1" /> Adicionar
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 max-h-64 overflow-y-auto p-2" align="end">
+                    {allEmployees
+                      ?.filter((e) => !participants.some((p: any) => p.employee_id === e.id))
+                      .map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={() => handleAddParticipant(e.id)}
+                          className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                              {e.first_name[0]}{e.last_name[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          {e.first_name} {e.last_name}
+                        </button>
+                      ))}
+                    {allEmployees?.filter((e) => !participants.some((p: any) => p.employee_id === e.id)).length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">Todos já adicionados</p>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
             </CardHeader>
             <CardContent>
               {participants.length > 0 ? (
-                <ParticipantsList
-                  participants={participants}
-                  showEmail
-                  editable={!isCompleted}
-                  onTogglePresence={handleTogglePresence}
-                />
+                isScheduled ? (
+                  <div className="space-y-2">
+                    {participants.map((p: any) => {
+                      const emp = p.employees;
+                      if (!emp) return null;
+                      return (
+                        <div key={p.employee_id} className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                              {emp.first_name[0]}{emp.last_name[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-sm flex-1">
+                            <p className="font-medium">{emp.first_name} {emp.last_name}</p>
+                            <p className="text-muted-foreground text-xs">{emp.position} · {emp.email}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemoveParticipant(p.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <ParticipantsList
+                    participants={participants}
+                    showEmail
+                    editable={!isCompleted}
+                    onTogglePresence={handleTogglePresence}
+                  />
+                )
               ) : (
                 <p className="text-sm text-muted-foreground">Sem participantes.</p>
               )}
