@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   HardHat, Wrench, Settings2, Plus, Trash2, Upload, RotateCcw,
-  Loader2, Cog, ClipboardList, ListChecks
+  Loader2, Cog, ClipboardList, ListChecks, FileText, FileCheck2
 } from "lucide-react";
+import { generateEpiPdf } from "@/lib/generateEpiPdf";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useEmployees } from "@/hooks/useEmployees";
@@ -156,6 +157,21 @@ export default function Equipment() {
     e.target.value = "";
   };
 
+  const handleDownloadEpiPdf = (epi: any) => {
+    const emp = employees?.find((e) => e.id === epi.employee_id);
+    if (!emp) return toast.error("Funcionário não encontrado");
+    generateEpiPdf({
+      employeeName: `${emp.first_name} ${emp.last_name}`,
+      employeePosition: emp.position || "—",
+      employeeDepartment: (emp as any).departments?.name || "—",
+      itemName: epi.item_name,
+      quantity: epi.quantity,
+      deliveryDate: epi.delivery_date,
+      expiryDate: epi.expiry_date,
+      notes: epi.notes,
+    });
+  };
+
   const filteredEpis = filterEmp === "all" ? epis : (epis || []).filter((e: any) => e.employee_id === filterEmp);
   const filteredTools = filterEmp === "all" ? tools : (tools || []).filter((t: any) => t.employee_id === filterEmp);
   const activeEmployees = employees?.filter((e) => e.status === "active") || [];
@@ -211,7 +227,7 @@ export default function Equipment() {
                         <TableHead>Qtd</TableHead>
                         <TableHead>Data Entrega</TableHead>
                         <TableHead>Validade</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Assinado</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -225,9 +241,20 @@ export default function Equipment() {
                             <TableCell>{epi.quantity}</TableCell>
                             <TableCell>{format(new Date(epi.delivery_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
                             <TableCell>{epi.expiry_date ? format(new Date(epi.expiry_date + "T00:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
-                            <TableCell><Badge variant={s.variant}>{s.label}</Badge></TableCell>
+                            <TableCell>
+                              {epi.signed_file_url ? (
+                                <a href={epi.signed_file_url} target="_blank" rel="noopener noreferrer">
+                                  <Badge variant="default" className="gap-1 cursor-pointer"><FileCheck2 className="h-3 w-3" /> Sim</Badge>
+                                </a>
+                              ) : (
+                                <Badge variant="outline">Não</Badge>
+                              )}
+                            </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Imprimir PDF" onClick={() => handleDownloadEpiPdf(epi)}>
+                                  <FileText className="h-3.5 w-3.5" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" title="Upload assinado"
                                   onClick={() => { setUploadTarget({ table: "epi_deliveries", id: epi.id }); document.getElementById("equip-file-input")?.click(); }}>
                                   <Upload className="h-3.5 w-3.5" />
