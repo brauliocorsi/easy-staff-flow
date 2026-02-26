@@ -1,123 +1,70 @@
 
 
-# Modulo Completo de Reunioes
+## Plano: Alerta visual de ponto pendente + Relatorio de registros
 
-## Resumo
+### 1. Card vermelho quando o ponto deveria ter sido picado
 
-Implementar o fluxo completo de reunioes: criar reuniao com participantes e horarios, pagina de reuniao aberta para registrar pautas em tempo real, pagina publica com timer e pautas, e envio automatico de ata por email ao finalizar.
+**Objetivo:** Quando o horario agendado de entrada ja passou e o funcionario ainda nao picou o ponto, o card aparece com borda/fundo vermelho como alerta visual.
+
+**Alteracoes:**
+
+**Edge Function `time-clock-employees`:**
+- Alem do `schedule_label` e `today_status`, retornar tambem os horarios agendados do dia (`scheduled_clock_in`, `scheduled_lunch_out`, `scheduled_lunch_in`, `scheduled_clock_out`) e as tolerancias do template (`tolerance_late_minutes`).
+- Isso permite ao frontend calcular se o funcionario esta atrasado.
+
+**Componente `EmployeeCard.tsx`:**
+- Receber os novos campos de horario agendado e tolerancia.
+- Comparar a hora atual com o proximo horario esperado + tolerancia. Se ja passou e o ponto nao foi registrado, aplicar estilo vermelho:
+  - Borda vermelha (`border-red-500`)
+  - Badge "Atrasado" com icone de alerta
+  - Fundo levemente vermelho (`bg-red-50`)
+- A logica de "atrasado" considera: se `today_status === "clock_in"` e a hora atual > `scheduled_clock_in + tolerance_late_minutes`, marcar como atrasado. Mesma logica para lunch_out, lunch_in e clock_out.
+
+**Interface `EmployeeData`:**
+- Adicionar campos opcionais: `scheduled_clock_in`, `scheduled_lunch_out`, `scheduled_lunch_in`, `scheduled_clock_out`, `tolerance_late_minutes`.
 
 ---
 
-## 1. Alteracoes no Banco de Dados
+### 2. Pagina de Relatorio de Registros de Ponto
 
-Adicionar coluna `end_time` na tabela `meetings` para registrar hora de termino (a `meeting_date` ja serve como inicio):
+**Objetivo:** Nova pagina `/relatorios/ponto` (protegida) com relatorio completo de registros de ponto por funcionario, por dia/semana, com contagem de horas trabalhadas.
 
+**Nova pagina `src/pages/TimeClockReport.tsx`:**
+- Filtros no topo:
+  - Selecionar funcionario (dropdown com todos os ativos)
+  - Periodo: dia, semana, mes (com date pickers)
+- Tabela com colunas: Data, Entrada, Saida Almoco, Retorno Almoco, Saida, Total Horas, Status (atrasado/hora extra/normal)
+- Calculo de horas: diferenca entre clock_out e clock_in, descontando tempo de almoco (lunch_out a lunch_in)
+- Resumo na parte inferior:
+  - Total de horas trabalhadas no periodo
+  - Total de horas extras (quando clock_out > scheduled_clock_out + tolerance_overtime)
+  - Total de atrasos
+- Os dados sao buscados diretamente da tabela `time_clock_records` com join em `employees` e `schedule_templates`/`schedule_template_days`
+
+**Rota e navegacao:**
+- Adicionar rota `/relatorios/ponto` no `App.tsx`
+- Adicionar link no sidebar (`AppSidebar.tsx`)
+
+---
+
+### Detalhes Tecnicos
+
+**Arquivos a criar:**
+- `src/pages/TimeClockReport.tsx` - pagina de relatorio
+
+**Arquivos a modificar:**
+- `supabase/functions/time-clock-employees/index.ts` - retornar horarios agendados e tolerancias
+- `src/components/timeclock/EmployeeCard.tsx` - logica de card vermelho + estilos
+- `src/components/timeclock/TodayStatus.tsx` - adicionar status "Atrasado"
+- `src/App.tsx` - nova rota
+- `src/components/layout/AppSidebar.tsx` - link para relatorio
+
+**Calculo de horas trabalhadas:**
 ```text
-ALTER TABLE meetings ADD COLUMN end_time timestamptz;
+horas_trabalhadas = (clock_out - clock_in) - (lunch_in - lunch_out)
+horas_extras = max(0, clock_out - scheduled_clock_out - tolerance_overtime)
+atraso = max(0, clock_in - scheduled_clock_in - tolerance_late)
 ```
 
-Adicionar policy de SELECT publico na tabela `meetings`, `meeting_agendas` e `meeting_participants` para a URL publica (usando uma rota especifica via edge function para nao expor tudo).
-
-Habilitar realtime nas tabelas `meetings`, `meeting_agendas` e `meeting_participants` para atualizacoes em tempo real na pagina publica.
-
----
-
-## 2. Componentes e Paginas
-
-### 2a. Pagina `/reunioes` - Lista de Reunioes (admin, protegida)
-
-- Botao "Nova Reuniao" abre dialog de criacao
-- Formulario com: titulo, descricao, data/hora inicio, data/hora termino, selecao de participantes (multi-select de funcionarios)
-- Tabela/cards listando reunioes com status (agendada, em andamento, concretizada)
-- Clicar numa reuniao abre a pagina de detalhe
-
-### 2b. Dialog de Criacao `MeetingFormDialog`
-
-- Campos: titulo, descricao, data/hora inicio, data/hora termino, departamento (opcional)
-- Multi-select de participantes (lista de funcionarios ativos)
-- Ao salvar: insere em `meetings` + `meeting_participants`
-
-### 2c. Pagina `/reunioes/:id` - Detalhe da Reuniao (admin, protegida)
-
-- Cabecalho com titulo, status, horarios, participantes
-- Timer mostrando tempo restante ate `end_time`
-- Area de pautas: input para adicionar novas pautas em tempo real
-- Cada pauta aparece como card com titulo e descricao
-- Campo "decisao" em cada pauta para registrar o que foi decidido
-- Botao "Finalizar Reuniao" que muda status para "completed" e dispara envio de email
-
-### 2d. Pagina `/reuniao-publica/:id` - Vista Publica (sem autenticacao)
-
-- Timer grande com contagem regressiva ate o fim da reuniao
-- Lista de participantes com nome e cargo
-- Cards das pautas adicionadas em tempo real (via realtime subscription)
-- Sem possibilidade de editar, apenas visualizar
-- Layout limpo e focado na apresentacao
-
----
-
-## 3. Edge Function `send-meeting-minutes`
-
-Funcao backend chamada ao finalizar a reuniao:
-
-1. Recebe `meeting_id`
-2. Busca dados da reuniao, participantes (com emails) e pautas
-3. Gera o conteudo da ata (HTML formatado)
-4. Envia email para cada participante usando Resend (via LOVABLE_API_KEY)
-5. Atualiza status da reuniao para "completed"
-
----
-
-## 4. Rota Publica via Edge Function `meeting-public`
-
-Edge function que retorna dados da reuniao sem autenticacao:
-- Recebe `meeting_id` como parametro
-- Retorna: titulo, descricao, horarios, participantes (nome + cargo), pautas
-- Nao expoe emails ou dados sensiveis
-
----
-
-## 5. Fluxo do Usuario
-
-```text
-1. Admin cria reuniao com titulo, horarios, participantes
-2. No dia da reuniao, abre /reunioes/:id
-3. Ve o timer com contagem regressiva
-4. Vai digitando pautas conforme a reuniao acontece
-5. Pode partilhar o link /reuniao-publica/:id num ecra para todos verem
-6. A pagina publica mostra timer + pautas em tempo real
-7. Ao finalizar, clica "Finalizar Reuniao"
-8. Sistema envia ata por email a todos os participantes
-9. Status muda para "concretizada", pautas ficam no historico
-```
-
----
-
-## 6. Estrutura de Ficheiros
-
-```text
-src/pages/Meetings.tsx              -- Lista de reunioes (reescrita)
-src/pages/MeetingDetail.tsx         -- Detalhe/conducao da reuniao
-src/pages/MeetingPublic.tsx         -- Pagina publica com timer
-src/components/meetings/
-  MeetingFormDialog.tsx             -- Dialog criar/editar reuniao
-  MeetingTimer.tsx                  -- Timer com contagem regressiva
-  AgendaCard.tsx                    -- Card de pauta individual
-  AgendaInput.tsx                   -- Input para nova pauta
-  ParticipantsList.tsx              -- Lista de participantes
-src/hooks/useMeetings.ts            -- Hooks CRUD reunioes
-supabase/functions/meeting-public/  -- Edge function dados publicos
-supabase/functions/send-meeting-minutes/ -- Edge function envio ata
-```
-
----
-
-## Detalhes Tecnicos
-
-- Realtime via `supabase.channel()` para `meeting_agendas` filtrado por `meeting_id`
-- Timer usa `setInterval` com calculo baseado em `end_time - now()`
-- Email da ata enviado via Resend usando `LOVABLE_API_KEY` (ja configurado)
-- A pagina publica `/reuniao-publica/:id` nao requer login
-- Rotas protegidas usam `ProtectedRoute` existente
-- Multi-select de participantes usando checkboxes dentro de um Popover
+**Sem alteracoes no banco de dados** - todos os dados necessarios ja existem nas tabelas `time_clock_records`, `schedule_templates` e `schedule_template_days`.
 
