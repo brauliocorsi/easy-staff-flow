@@ -1,83 +1,174 @@
 
-# Avaliacao de Funcionarios - Sistema de Avaliacao por Lider
+
+# Gestao de EPIs, Ferramentas e Manutencoes
 
 ## Resumo
-Criar um sistema onde o Admin pode solicitar a um lider (manager/funcionario com cargo de chefia) que avalie um funcionario. O lider recebe a tarefa, preenche a avaliacao, e ao concluir ela fica disponivel para o Admin que a solicitou.
+Criar tres modulos vinculados a funcionarios: (1) EPIs - registo de equipamentos de seguranca entregues, (2) Ferramentas - ferramentas da empresa sob responsabilidade do colaborador, (3) Manutencoes - tarefas de manutencao de maquinas com frequencia (diaria/semanal/mensal), templates de formulario por maquina, e notificacao automatica por email.
 
-## 1. Base de Dados
+---
 
-Criar tabela `employee_evaluations`:
+## 1. Base de Dados - Novas Tabelas
 
+### `epi_deliveries` - Entregas de EPIs
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
-| id | uuid (PK) | Identificador |
-| employee_id | uuid (FK employees) | Funcionario avaliado |
-| evaluator_id | uuid (FK employees) | Lider que avalia |
-| requested_by | uuid (FK auth.users) | Admin que solicitou |
-| status | text | `pending`, `in_progress`, `completed` |
-| rating | integer | Nota geral 1-5 |
-| performance_rating | integer | Desempenho 1-5 |
-| teamwork_rating | integer | Trabalho em equipa 1-5 |
-| punctuality_rating | integer | Pontualidade 1-5 |
-| communication_rating | integer | Comunicacao 1-5 |
-| strengths | text | Pontos fortes |
-| improvements | text | Pontos a melhorar |
-| comments | text | Comentarios gerais |
-| completed_at | timestamptz | Data de conclusao |
-| created_at | timestamptz | Data de criacao |
+| id | uuid PK | |
+| employee_id | uuid FK employees | Colaborador |
+| item_name | text | Nome do EPI (ex: Capacete, Luvas) |
+| quantity | integer | Quantidade entregue |
+| delivery_date | date | Data da entrega |
+| expiry_date | date nullable | Validade do EPI |
+| signed_file_url | text nullable | Comprovativo assinado |
+| notes | text nullable | Observacoes |
+| status | text | `delivered`, `returned`, `expired` |
+| created_at | timestamptz | |
 
-RLS Policies:
+### `tool_assignments` - Ferramentas atribuidas
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid PK | |
+| employee_id | uuid FK employees | Responsavel |
+| tool_name | text | Nome da ferramenta |
+| serial_number | text nullable | Numero de serie |
+| assigned_date | date | Data de atribuicao |
+| returned_date | date nullable | Data de devolucao |
+| condition | text | `new`, `good`, `fair`, `damaged` |
+| signed_file_url | text nullable | Comprovativo assinado |
+| notes | text nullable | |
+| status | text | `assigned`, `returned` |
+| created_at | timestamptz | |
+
+### `machines` - Registo de maquinas
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid PK | |
+| name | text | Nome da maquina (ex: Compressor) |
+| location | text nullable | Localizacao |
+| description | text nullable | |
+| checklist_template | jsonb | Template de campos do formulario de manutencao |
+| created_at | timestamptz | |
+
+### `maintenance_tasks` - Tarefas de manutencao recorrentes
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid PK | |
+| machine_id | uuid FK machines | Maquina |
+| employee_id | uuid FK employees | Responsavel |
+| frequency | text | `daily`, `weekly`, `monthly` |
+| day_of_week | integer nullable | 0-6 para weekly |
+| day_of_month | integer nullable | 1-31 para monthly |
+| title | text | Descricao da tarefa |
+| is_active | boolean | Ativa ou nao |
+| created_at | timestamptz | |
+
+### `maintenance_logs` - Registos de manutencao realizados
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid PK | |
+| task_id | uuid FK maintenance_tasks | Tarefa |
+| employee_id | uuid FK employees | Quem fez |
+| machine_id | uuid FK machines | Maquina |
+| completed_date | date | Data de conclusao |
+| checklist_data | jsonb | Formulario preenchido conforme template da maquina |
+| notes | text nullable | Observacoes |
+| status | text | `completed`, `pending`, `skipped` |
+| created_at | timestamptz | |
+
+### RLS em todas as tabelas:
 - Admins podem gerir tudo (ALL)
-- Avaliadores podem ver e atualizar as suas avaliacoes atribuidas (SELECT/UPDATE where evaluator employee matches user)
+- Funcionarios podem ver os seus proprios registos (SELECT com `can_access_employee`)
 
-## 2. Nova Pagina: `/avaliacoes`
+---
 
-**Vista Admin:**
-- Botao "Nova Avaliacao" abre dialog para:
-  - Selecionar funcionario a avaliar
-  - Selecionar lider avaliador
-- Lista de todas as avaliacoes com tabs: Todas / Pendentes / Concluidas
-- Cards com status visual (pendente = amarelo, concluida = verde)
-- Ao clicar numa avaliacao concluida, ver detalhes completos com as notas por categoria em estrelas
+## 2. Nova Pagina: `/equipamentos`
 
-**Vista Avaliador (via portal ou pagina):**
-- O lider avaliador acede via Edge Function no portal do funcionario (acao `get_pending_evaluations` e `submit_evaluation`)
-- Formulario com:
-  - Notas de 1-5 estrelas para cada categoria
-  - Campos de texto para pontos fortes, melhorias e comentarios
-  - Botao concluir
+Pagina com 3 tabs principais: **EPIs**, **Ferramentas**, **Manutencoes**
 
-## 3. Edge Function: Atualizar `employee-portal`
+### Tab EPIs
+- Botao "Registar Entrega"
+- Tabela com: Funcionario, Item, Quantidade, Data Entrega, Validade, Status
+- Acoes: PDF, Upload assinado, Eliminar
+- Filtro por funcionario
 
-Adicionar duas novas acoes:
-- `get_pending_evaluations`: retorna avaliacoes pendentes atribuidas ao funcionario logado
-- `submit_evaluation`: preenche e conclui a avaliacao
+### Tab Ferramentas
+- Botao "Atribuir Ferramenta"
+- Tabela com: Funcionario, Ferramenta, N Serie, Data Atribuicao, Condicao, Status
+- Acoes: Marcar devolvida, PDF, Upload assinado, Eliminar
 
-## 4. Integracao
+### Tab Manutencoes
+- Sub-tabs: **Maquinas** | **Tarefas** | **Registos**
+- **Maquinas**: CRUD de maquinas com template de checklist personalizavel (campos dinamicos tipo checkbox, texto, numero)
+- **Tarefas**: Criar tarefa recorrente associando maquina + funcionario + frequencia
+- **Registos**: Lista de manutencoes realizadas com formulario preenchido, filtro por maquina/funcionario/periodo
 
-- Adicionar item "Avaliacoes" no sidebar (`ClipboardCheck` icon, rota `/avaliacoes`)
-- Registar rota `/avaliacoes` no `App.tsx` como rota protegida
-- Na pagina de perfil do funcionario (`EmployeeProfile.tsx`), adicionar seccao mostrando avaliacoes recebidas
+---
 
-## 5. Ficheiros a Criar/Modificar
+## 3. Template de Checklist por Maquina
+
+O campo `checklist_template` em `machines` armazena um array JSON com a definicao dos campos:
+```text
+[
+  { "field": "pressao_verificada", "label": "Pressao Verificada?", "type": "checkbox" },
+  { "field": "nivel_oleo", "label": "Nivel de Oleo", "type": "select", "options": ["OK", "Baixo", "Critico"] },
+  { "field": "observacoes", "label": "Observacoes", "type": "text" }
+]
+```
+
+Quando o funcionario preenche a manutencao, um formulario dinamico e gerado a partir deste template.
+
+---
+
+## 4. Edge Function: `send-maintenance-reminder`
+
+- Funcao que envia emails de lembrete automatico aos funcionarios com tarefas de manutencao previstas
+- Consulta `maintenance_tasks` ativas, verifica a frequencia e se a proxima execucao e hoje
+- Envia email para o `employee.email` com detalhes da maquina e tarefa
+- Pode ser agendada via cron job (diario)
+
+---
+
+## 5. Portal do Funcionario
+
+Atualizar `employee-portal` Edge Function e `EmployeePortal.tsx` para mostrar:
+- EPIs recebidos
+- Ferramentas sob responsabilidade
+- Tarefas de manutencao pendentes com formulario de preenchimento
+
+---
+
+## 6. Perfil do Funcionario
+
+Adicionar seccoes em `EmployeeProfile.tsx`:
+- EPIs entregues
+- Ferramentas atribuidas
+- Historico de manutencoes realizadas
+
+---
+
+## 7. Navegacao
+
+- Novo item no sidebar: "Equipamentos" com icone `HardHat` ou `Wrench`, rota `/equipamentos`
+- Rota protegida em `App.tsx`
+
+---
+
+## 8. Ficheiros a Criar/Modificar
 
 | Acao | Ficheiro |
 |------|---------|
-| Criar | `src/pages/Evaluations.tsx` - Pagina principal de avaliacoes |
-| Criar | `src/components/evaluations/EvaluationFormDialog.tsx` - Dialog para criar avaliacao |
-| Criar | `src/components/evaluations/EvaluationDetailDialog.tsx` - Dialog para ver detalhes |
-| Criar | `src/components/evaluations/EvaluationCard.tsx` - Card visual de avaliacao |
-| Modificar | `src/App.tsx` - Adicionar rota |
-| Modificar | `src/components/layout/AppSidebar.tsx` - Adicionar menu |
-| Modificar | `supabase/functions/employee-portal/index.ts` - Acoes de avaliacao |
-| Modificar | `src/pages/EmployeePortal.tsx` - Seccao de avaliacoes pendentes |
-| Modificar | `src/pages/EmployeeProfile.tsx` - Mostrar avaliacoes recebidas |
-| Migracoes | Nova tabela + RLS policies |
+| Criar | Migracao SQL - 5 tabelas + RLS |
+| Criar | `src/pages/Equipment.tsx` - Pagina principal com 3 tabs |
+| Criar | `src/components/equipment/EpiFormDialog.tsx` |
+| Criar | `src/components/equipment/ToolFormDialog.tsx` |
+| Criar | `src/components/equipment/MachineFormDialog.tsx` |
+| Criar | `src/components/equipment/MaintenanceTaskFormDialog.tsx` |
+| Criar | `src/components/equipment/MaintenanceLogDialog.tsx` - Formulario dinamico |
+| Criar | `src/components/equipment/ChecklistTemplateEditor.tsx` - Editor de template |
+| Criar | `supabase/functions/send-maintenance-reminder/index.ts` |
+| Modificar | `src/App.tsx` - Nova rota |
+| Modificar | `src/components/layout/AppSidebar.tsx` - Novo menu |
+| Modificar | `src/pages/EmployeeProfile.tsx` - Seccoes EPIs/Ferramentas/Manutencoes |
+| Modificar | `src/pages/EmployeePortal.tsx` - Seccoes no portal |
+| Modificar | `supabase/functions/employee-portal/index.ts` - Novos dados |
+| Modificar | `supabase/config.toml` - Nova funcao |
 
-## Detalhes Tecnicos
-
-- A tabela usa `requested_by` referenciando o user admin (nao FK direta a auth.users para seguranca)
-- `evaluator_id` referencia `employees.id` para identificar o lider
-- O portal do funcionario mostra avaliacoes pendentes apenas para quem e avaliador
-- Quando o avaliador submete, o status muda para `completed` e `completed_at` e preenchido
-- O admin ve todas as avaliacoes e pode filtrar por status
