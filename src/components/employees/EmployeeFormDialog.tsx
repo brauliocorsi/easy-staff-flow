@@ -55,7 +55,17 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
   });
 
   const handleChange = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      // Auto-calc hourly_rate from monthly_salary (40h/week ≈ 173.33h/month)
+      if (field === "monthly_salary" && value) {
+        const monthly = parseFloat(value);
+        if (!isNaN(monthly) && monthly > 0) {
+          next.hourly_rate = (monthly / 173.33).toFixed(2);
+        }
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -301,12 +311,13 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="hourly_rate">Salário/Hora (€)</Label>
-                    <Input id="hourly_rate" type="number" step="0.01" min="0" placeholder="0.00" value={form.hourly_rate} onChange={(e) => handleChange("hourly_rate", e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="monthly_salary">Salário Mensal (€)</Label>
                     <Input id="monthly_salary" type="number" step="0.01" min="0" placeholder="0.00" value={form.monthly_salary} onChange={(e) => handleChange("monthly_salary", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hourly_rate">Valor/Hora (€)</Label>
+                    <Input id="hourly_rate" type="number" step="0.01" min="0" placeholder="0.00" value={form.hourly_rate} onChange={(e) => handleChange("hourly_rate", e.target.value)} readOnly={!!form.monthly_salary} className={form.monthly_salary ? "bg-muted" : ""} />
+                    {form.monthly_salary && <p className="text-xs text-muted-foreground">Calculado automático (40h/semana)</p>}
                   </div>
                 </div>
               </div>
