@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { employee_id, pin_code } = await req.json();
+    const { employee_id, pin_code, confirm_early_leave } = await req.json();
 
     if (!employee_id || !pin_code) {
       return new Response(
@@ -50,18 +50,27 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const today = now.toISOString().split("T")[0];
-    const dayOfWeek = now.getDay(); // 0=Sunday
+    const dayOfWeek = now.getDay();
 
-    // Get schedule from template or individual
+    // Get schedule
     let schedule = null;
+    let tolerances = null;
     if (employee.schedule_template_id) {
-      const { data } = await supabase
-        .from("schedule_template_days")
-        .select("*")
-        .eq("template_id", employee.schedule_template_id)
-        .eq("day_of_week", dayOfWeek)
-        .maybeSingle();
-      schedule = data;
+      const [{ data: schedData }, { data: templateData }] = await Promise.all([
+        supabase
+          .from("schedule_template_days")
+          .select("*")
+          .eq("template_id", employee.schedule_template_id)
+          .eq("day_of_week", dayOfWeek)
+          .maybeSingle(),
+        supabase
+          .from("schedule_templates")
+          .select("tolerance_early_leave_minutes, tolerance_overtime_minutes")
+          .eq("id", employee.schedule_template_id)
+          .single(),
+      ]);
+      schedule = schedData;
+      tolerances = templateData;
     } else {
       const { data } = await supabase
         .from("employee_schedules")
@@ -99,17 +108,62 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check for early leave on clock_out
+    if (action === "clock_out" && schedule && !schedule.is_day_off && tolerances) {
+      const [schH, schM] = schedule.clock_out_time.split(":").map(Number);
+      const earlyLeaveToleranceMin = tolerances.tolerance_early_leave_minutes || 0;
+      const scheduledOutMinutes = schH * 60 + schM - earlyLeaveToleranceMin;
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      if (currentMinutes < scheduledOutMinutes) {
+        const minutesEarly = scheduledOutMinutes - currentMinutes;
+        const actualTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+
+        if (!confirm_early_leave) {
+          // Return early leave warning - frontend must confirm
+          return new Response(
+            JSON.stringify({
+              early_leave_warning: true,
+              minutes_early: minutesEarly,
+              scheduled_clock_out: schedule.clock_out_time.slice(0, 5),
+              current_time: actualTime.slice(0, 5),
+              message: `Saída antecipada de ${minutesEarly} minutos. Horário previsto: ${schedule.clock_out_time.slice(0, 5)}. Deseja confirmar?`,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // User confirmed early leave - record attempt and notify admin
+        const { data: attempt } = await supabase
+          .from("early_leave_attempts")
+          .insert({
+            employee_id,
+            attempt_date: today,
+            scheduled_clock_out: schedule.clock_out_time,
+            actual_attempt_time: actualTime,
+            minutes_early: minutesEarly,
+            confirmed: true,
+          })
+          .select()
+          .single();
+
+        // Create admin notification
+        await supabase.from("admin_notifications").insert({
+          title: "Saída Antecipada",
+          message: `${employee.first_name} ${employee.last_name} saiu ${minutesEarly} min antes do horário (${actualTime.slice(0, 5)} em vez de ${schedule.clock_out_time.slice(0, 5)}).`,
+          type: "early_leave",
+          reference_id: attempt?.id || null,
+        });
+      }
+    }
+
     const timestamp = now.toISOString();
     let record;
 
     if (!existingRecord) {
       const { data, error } = await supabase
         .from("time_clock_records")
-        .insert({
-          employee_id,
-          record_date: today,
-          clock_in: timestamp,
-        })
+        .insert({ employee_id, record_date: today, clock_in: timestamp })
         .select()
         .single();
       if (error) throw error;
