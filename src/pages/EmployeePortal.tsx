@@ -14,7 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   Loader2, Lock, AlertTriangle, CheckCircle, XCircle, Palmtree,
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
-  MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash
+  MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
+  ClipboardCheck
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -42,6 +43,16 @@ export default function EmployeePortal() {
     rating: 0,
     is_anonymous: false,
   });
+  // Evaluations
+  const [pendingEvals, setPendingEvals] = useState<any[]>([]);
+  const [evalDialogOpen, setEvalDialogOpen] = useState(false);
+  const [activeEval, setActiveEval] = useState<any>(null);
+  const [evalSubmitting, setEvalSubmitting] = useState(false);
+  const [evalForm, setEvalForm] = useState({
+    rating: 0, performance_rating: 0, teamwork_rating: 0,
+    punctuality_rating: 0, communication_rating: 0,
+    strengths: "", improvements: "", comments: "",
+  });
 
   const handleLogin = async () => {
     if (pin.length !== 4) return;
@@ -53,6 +64,11 @@ export default function EmployeePortal() {
       if (error) throw error;
       if (res?.error) throw new Error(res.error);
       setData(res);
+      // Fetch pending evaluations
+      const { data: evalRes } = await supabase.functions.invoke("employee-portal", {
+        body: { action: "get_pending_evaluations", employee_id: res.employee.id },
+      });
+      if (evalRes?.evaluations) setPendingEvals(evalRes.evaluations);
     } catch (err: any) {
       toast.error(err.message || "PIN inválido");
     } finally {
@@ -83,6 +99,35 @@ export default function EmployeePortal() {
       toast.error(err.message || "Erro ao enviar");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmitEvaluation = async () => {
+    if (!activeEval || evalForm.rating === 0) {
+      toast.error("Preencha pelo menos a nota geral");
+      return;
+    }
+    setEvalSubmitting(true);
+    try {
+      const { data: res, error } = await supabase.functions.invoke("employee-portal", {
+        body: {
+          action: "submit_evaluation",
+          employee_id: data?.employee?.id,
+          evaluation_id: activeEval.id,
+          evaluation_data: evalForm,
+        },
+      });
+      if (error) throw error;
+      if (res?.error) throw new Error(res.error);
+      toast.success("Avaliação submetida com sucesso!");
+      setPendingEvals((prev) => prev.filter((e) => e.id !== activeEval.id));
+      setEvalDialogOpen(false);
+      setActiveEval(null);
+      setEvalForm({ rating: 0, performance_rating: 0, teamwork_rating: 0, punctuality_rating: 0, communication_rating: 0, strengths: "", improvements: "", comments: "" });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao submeter");
+    } finally {
+      setEvalSubmitting(false);
     }
   };
 
@@ -290,6 +335,24 @@ export default function EmployeePortal() {
             </div>
           )}
         </SectionCard>
+
+        {/* Pending Evaluations */}
+        {pendingEvals.length > 0 && (
+          <SectionCard title="Avaliações Pendentes" icon={ClipboardCheck} iconClass="text-primary" count={pendingEvals.length}>
+            <div className="space-y-2">
+              {pendingEvals.map((ev: any) => (
+                <div key={ev.id} className="flex items-center justify-between p-2 rounded-md border cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => { setActiveEval(ev); setEvalDialogOpen(true); }}>
+                  <div>
+                    <p className="text-sm font-medium">{ev.employee?.first_name} {ev.employee?.last_name}</p>
+                    <p className="text-xs text-muted-foreground">{ev.employee?.position}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">Preencher</Badge>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        )}
       </div>
 
       {/* Suggestion Dialog */}
@@ -310,7 +373,6 @@ export default function EmployeePortal() {
                 </SelectContent>
               </Select>
             </div>
-
             {suggestion.type === "leadership_evaluation" && (
               <div className="space-y-2">
                 <Label>Classificação</Label>
@@ -324,26 +386,16 @@ export default function EmployeePortal() {
                 </div>
               </div>
             )}
-
             <div className="space-y-2">
               <Label>Mensagem *</Label>
-              <Textarea
-                placeholder={suggestion.type === "suggestion" ? "Escreva a sua sugestão..." : "Descreva a sua avaliação..."}
-                value={suggestion.message}
-                onChange={(e) => setSuggestion((s) => ({ ...s, message: e.target.value }))}
-                rows={4}
-              />
+              <Textarea placeholder={suggestion.type === "suggestion" ? "Escreva a sua sugestão..." : "Descreva a sua avaliação..."} value={suggestion.message} onChange={(e) => setSuggestion((s) => ({ ...s, message: e.target.value }))} rows={4} />
             </div>
-
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <p className="text-sm font-medium">Enviar anonimamente</p>
                 <p className="text-xs text-muted-foreground">O seu nome não será associado</p>
               </div>
-              <Switch
-                checked={suggestion.is_anonymous}
-                onCheckedChange={(v) => setSuggestion((s) => ({ ...s, is_anonymous: v }))}
-              />
+              <Switch checked={suggestion.is_anonymous} onCheckedChange={(v) => setSuggestion((s) => ({ ...s, is_anonymous: v }))} />
             </div>
           </div>
           <DialogFooter>
@@ -351,6 +403,59 @@ export default function EmployeePortal() {
             <Button onClick={handleSubmitSuggestion} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Evaluation Form Dialog */}
+      <Dialog open={evalDialogOpen} onOpenChange={(v) => { if (!v) { setEvalDialogOpen(false); setActiveEval(null); } }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">Avaliar Funcionário</DialogTitle>
+            <DialogDescription>
+              {activeEval?.employee && `${activeEval.employee.first_name} ${activeEval.employee.last_name} — ${activeEval.employee.position}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {[
+              { key: "rating", label: "Nota Geral *" },
+              { key: "performance_rating", label: "Desempenho" },
+              { key: "teamwork_rating", label: "Trabalho em Equipa" },
+              { key: "punctuality_rating", label: "Pontualidade" },
+              { key: "communication_rating", label: "Comunicação" },
+            ].map(({ key, label }) => (
+              <div key={key} className="space-y-1">
+                <Label>{label}</Label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" onClick={() => setEvalForm((f) => ({ ...f, [key]: n }))}
+                      className="p-1 hover:scale-110 transition-transform">
+                      <Star className={`h-5 w-5 ${n <= (evalForm as any)[key] ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <Separator />
+            <div className="space-y-2">
+              <Label>Pontos Fortes</Label>
+              <Textarea value={evalForm.strengths} onChange={(e) => setEvalForm((f) => ({ ...f, strengths: e.target.value }))} rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>Pontos a Melhorar</Label>
+              <Textarea value={evalForm.improvements} onChange={(e) => setEvalForm((f) => ({ ...f, improvements: e.target.value }))} rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>Comentários</Label>
+              <Textarea value={evalForm.comments} onChange={(e) => setEvalForm((f) => ({ ...f, comments: e.target.value }))} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEvalDialogOpen(false); setActiveEval(null); }}>Cancelar</Button>
+            <Button onClick={handleSubmitEvaluation} disabled={evalSubmitting}>
+              {evalSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Submeter Avaliação
             </Button>
           </DialogFooter>
         </DialogContent>

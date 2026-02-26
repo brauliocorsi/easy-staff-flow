@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   ArrowLeft, User, Briefcase, Calendar, MapPin, Phone, Mail, Hash,
   AlertTriangle, CheckCircle, Palmtree, CalendarCheck2, Play, CheckCircle2,
-  Clock, FileText, GraduationCap, Loader2, XCircle
+  Clock, FileText, GraduationCap, Loader2, XCircle, ClipboardCheck, Star
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -132,6 +132,22 @@ export default function EmployeeProfile() {
         .select("*")
         .eq("employee_id", id!)
         .order("start_date", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Evaluations
+  const { data: evaluations } = useQuery({
+    queryKey: ["employee-evaluations", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_evaluations")
+        .select("*, evaluator:evaluator_id(first_name, last_name)")
+        .eq("employee_id", id!)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -462,6 +478,44 @@ export default function EmployeeProfile() {
                         <Badge variant={c.is_active ? "default" : "secondary"} className="text-xs">
                           {c.is_active ? "Ativo" : "Inativo"}
                         </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Evaluations */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <ClipboardCheck className="h-4 w-4 text-primary" />
+                  Avaliações
+                  <Badge variant="secondary" className="ml-auto text-xs">{evaluations?.length || 0} concluídas</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!evaluations?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem avaliações concluídas.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {evaluations.map((ev: any) => (
+                      <div key={ev.id} className="p-2 rounded-md border space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">
+                            Avaliador: {ev.evaluator?.first_name} {ev.evaluator?.last_name}
+                          </span>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <Star key={n} className={`h-3.5 w-3.5 ${n <= (ev.rating || 0) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {ev.completed_at && format(new Date(ev.completed_at), "dd/MM/yyyy")}
+                        </p>
+                        {ev.strengths && <p className="text-xs"><span className="font-medium">Pontos fortes:</span> {ev.strengths}</p>}
+                        {ev.improvements && <p className="text-xs"><span className="font-medium">Melhorias:</span> {ev.improvements}</p>}
                       </div>
                     ))}
                   </div>

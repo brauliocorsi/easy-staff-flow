@@ -259,6 +259,75 @@ export type Database = {
           },
         ]
       }
+      employee_evaluations: {
+        Row: {
+          comments: string | null
+          communication_rating: number | null
+          completed_at: string | null
+          created_at: string
+          employee_id: string
+          evaluator_id: string
+          id: string
+          improvements: string | null
+          performance_rating: number | null
+          punctuality_rating: number | null
+          rating: number | null
+          requested_by: string
+          status: string
+          strengths: string | null
+          teamwork_rating: number | null
+        }
+        Insert: {
+          comments?: string | null
+          communication_rating?: number | null
+          completed_at?: string | null
+          created_at?: string
+          employee_id: string
+          evaluator_id: string
+          id?: string
+          improvements?: string | null
+          performance_rating?: number | null
+          punctuality_rating?: number | null
+          rating?: number | null
+          requested_by: string
+          status?: string
+          strengths?: string | null
+          teamwork_rating?: number | null
+        }
+        Update: {
+          comments?: string | null
+          communication_rating?: number | null
+          completed_at?: string | null
+          created_at?: string
+          employee_id?: string
+          evaluator_id?: string
+          id?: string
+          improvements?: string | null
+          performance_rating?: number | null
+          punctuality_rating?: number | null
+          rating?: number | null
+          requested_by?: string
+          status?: string
+          strengths?: string | null
+          teamwork_rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_evaluations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_evaluations_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_schedules: {
         Row: {
           clock_in_time: string
