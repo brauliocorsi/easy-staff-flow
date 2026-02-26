@@ -17,28 +17,40 @@ export type Database = {
       absences: {
         Row: {
           absence_date: string
+          auto_detected: boolean
           created_at: string
           employee_id: string
           file_url: string | null
           id: string
+          justification_date: string | null
+          justification_deadline: string | null
+          justified: boolean
           reason: string | null
           type: string
         }
         Insert: {
           absence_date: string
+          auto_detected?: boolean
           created_at?: string
           employee_id: string
           file_url?: string | null
           id?: string
+          justification_date?: string | null
+          justification_deadline?: string | null
+          justified?: boolean
           reason?: string | null
           type?: string
         }
         Update: {
           absence_date?: string
+          auto_detected?: boolean
           created_at?: string
           employee_id?: string
           file_url?: string | null
           id?: string
+          justification_date?: string | null
+          justification_deadline?: string | null
+          justified?: boolean
           reason?: string | null
           type?: string
         }
