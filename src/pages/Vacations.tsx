@@ -251,9 +251,13 @@ export default function Vacations() {
                                         <Clock className="h-4 w-4 text-muted-foreground" />
                                       )}
                                       <span>
-                                        {format(new Date(v.start_date + "T00:00:00"), "dd/MM")} - {format(new Date(v.end_date + "T00:00:00"), "dd/MM/yyyy")}
+                                        {v.days_count === 0
+                                          ? "Sem datas — aguarda colaborador"
+                                          : `${format(new Date(v.start_date + "T00:00:00"), "dd/MM")} - ${format(new Date(v.end_date + "T00:00:00"), "dd/MM/yyyy")}`}
                                       </span>
-                                      <span className="text-muted-foreground">({v.days_count}d)</span>
+                                      {v.days_count > 0 && (
+                                        <span className="text-muted-foreground">({v.days_count}d)</span>
+                                      )}
                                       {v.category !== "individual" && (
                                         <Badge variant="secondary" className="text-xs">Coletiva</Badge>
                                       )}
