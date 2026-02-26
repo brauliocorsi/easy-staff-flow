@@ -6,13 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Trash2, FileDown, Upload, FileText, Loader2, AlertTriangle,
-  MessageSquareWarning, Ban, ShieldAlert
+  MessageSquareWarning, Ban, ShieldAlert, Calendar, User, Briefcase, Building2, ClipboardList
 } from "lucide-react";
 import { useWarnings, useDeleteWarning, useUpdateWarningFile } from "@/hooks/useWarnings";
 import { useEmployees } from "@/hooks/useEmployees";
@@ -35,6 +37,7 @@ export default function Warnings() {
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedWarning, setSelectedWarning] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
@@ -191,7 +194,7 @@ export default function Warnings() {
                     const cfg = typeConfig[w.type] || typeConfig.verbal;
                     const Icon = cfg.icon;
                     return (
-                      <TableRow key={w.id}>
+                      <TableRow key={w.id} className="cursor-pointer" onClick={() => setSelectedWarning(w)}>
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(w.warning_date), "dd/MM/yyyy")}
                         </TableCell>
@@ -205,7 +208,7 @@ export default function Warnings() {
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">{w.reason}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                             {w.type !== "verbal" && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -238,7 +241,7 @@ export default function Warnings() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" onClick={() => setDeleteId(w.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -256,6 +259,135 @@ export default function Warnings() {
       <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileChange} />
 
       <WarningFormDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+
+      {/* Detail Sheet */}
+      <Sheet open={!!selectedWarning} onOpenChange={(o) => !o && setSelectedWarning(null)}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          {selectedWarning && (() => {
+            const w = selectedWarning;
+            const emp = w.employees;
+            const cfg = typeConfig[w.type] || typeConfig.verbal;
+            const Icon = cfg.icon;
+            return (
+              <>
+                <SheetHeader>
+                  <SheetTitle className="font-display flex items-center gap-2">
+                    <Icon className="h-5 w-5" />
+                    Detalhes da Advertência
+                  </SheetTitle>
+                  <SheetDescription>Informações completas do registro</SheetDescription>
+                </SheetHeader>
+
+                <div className="mt-6 space-y-5">
+                  {/* Type badge */}
+                  <div>
+                    <Badge variant={cfg.variant} className="gap-1 text-sm px-3 py-1">
+                      <Icon className="h-3.5 w-3.5" />{cfg.label}
+                    </Badge>
+                  </div>
+
+                  <Separator />
+
+                  {/* Employee info */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Colaborador</h4>
+                    {emp && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{emp.first_name} {emp.last_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{emp.position}</span>
+                        </div>
+                        {emp.departments?.name && (
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">{emp.departments.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Warning details */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Detalhes</h4>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{format(new Date(w.warning_date), "dd 'de' MMMM 'de' yyyy", { locale: pt })}</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium mb-1">Motivo</p>
+                      <p className="text-sm text-muted-foreground">{w.reason}</p>
+                    </div>
+                    {w.description && (
+                      <div>
+                        <p className="text-sm font-medium mb-1">Descrição</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{w.description}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Document status */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Documento</h4>
+                    {w.type === "verbal" ? (
+                      <p className="text-sm text-muted-foreground italic">Advertência verbal — sem documento formal.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">
+                            {w.file_url ? "Documento assinado carregado" : "Aguardando documento assinado"}
+                          </span>
+                          {w.file_url ? (
+                            <Badge variant="default" className="text-xs">Assinado</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">Pendente</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <Separator />
+                  <div className="flex flex-wrap gap-2">
+                    {w.type !== "verbal" && (
+                      <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(w)}>
+                        <FileDown className="h-4 w-4 mr-2" />Baixar PDF
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedWarning(null); handleUploadClick(w.id); }}>
+                      <Upload className="h-4 w-4 mr-2" />Carregar Assinatura
+                    </Button>
+                    {w.file_url && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={w.file_url} target="_blank" rel="noopener noreferrer">
+                          <FileText className="h-4 w-4 mr-2" />Ver Documento
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="pt-2">
+                    <p className="text-xs text-muted-foreground">
+                      Registrada em {format(new Date(w.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: pt })}
+                    </p>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
