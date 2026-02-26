@@ -15,7 +15,7 @@ import {
   Loader2, Lock, AlertTriangle, CheckCircle, XCircle, Palmtree,
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
   MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
-  ClipboardCheck, GraduationCap
+  ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -356,6 +356,67 @@ export default function EmployeePortal() {
                   </div>
                   <Badge variant={t.status === "signed" ? "default" : "outline"} className="text-xs">
                     {t.status === "signed" ? "Assinada" : "Registada"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* EPIs */}
+        <SectionCard title="EPIs" icon={HardHat} iconClass="text-primary" count={(data.epis || []).length}>
+          {(data.epis || []).length === 0 ? <EmptyText /> : (
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {(data.epis || []).map((epi: any) => (
+                <div key={epi.id} className="flex items-center justify-between p-2 rounded-md border">
+                  <div>
+                    <p className="text-sm font-medium">{epi.item_name} (x{epi.quantity})</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(epi.delivery_date + "T00:00:00"), "dd/MM/yyyy")}
+                      {epi.expiry_date && ` · Validade: ${format(new Date(epi.expiry_date + "T00:00:00"), "dd/MM/yyyy")}`}
+                    </p>
+                  </div>
+                  <Badge variant={epi.status === "delivered" ? "default" : epi.status === "expired" ? "destructive" : "secondary"} className="text-xs">
+                    {epi.status === "delivered" ? "Entregue" : epi.status === "expired" ? "Expirado" : "Devolvido"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Ferramentas */}
+        <SectionCard title="Ferramentas" icon={Wrench} iconClass="text-primary" count={(data.tools || []).filter((t: any) => t.status === "assigned").length}
+          extra={`${(data.tools || []).filter((t: any) => t.status === "assigned").length} atribuídas`}>
+          {(data.tools || []).length === 0 ? <EmptyText /> : (
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {(data.tools || []).map((tool: any) => (
+                <div key={tool.id} className="flex items-center justify-between p-2 rounded-md border">
+                  <div>
+                    <p className="text-sm font-medium">{tool.tool_name}{tool.serial_number ? ` (${tool.serial_number})` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{format(new Date(tool.assigned_date + "T00:00:00"), "dd/MM/yyyy")}</p>
+                  </div>
+                  <Badge variant={tool.status === "assigned" ? "default" : "secondary"} className="text-xs">
+                    {tool.status === "assigned" ? "Atribuída" : "Devolvida"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Manutenções */}
+        <SectionCard title="Manutenções" icon={Settings2} iconClass="text-primary" count={(data.maintenance_logs || []).length}>
+          {(data.maintenance_logs || []).length === 0 ? <EmptyText /> : (
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {(data.maintenance_logs || []).map((log: any) => (
+                <div key={log.id} className="flex items-center justify-between p-2 rounded-md border">
+                  <div>
+                    <p className="text-sm font-medium">{format(new Date(log.completed_date + "T00:00:00"), "dd/MM/yyyy")}</p>
+                    <p className="text-xs text-muted-foreground">{log.notes || "Sem observações"}</p>
+                  </div>
+                  <Badge variant={log.status === "completed" ? "default" : "outline"} className="text-xs">
+                    {log.status === "completed" ? "Concluído" : "Pendente"}
                   </Badge>
                 </div>
               ))}

@@ -594,6 +594,189 @@ export type Database = {
           },
         ]
       }
+      epi_deliveries: {
+        Row: {
+          created_at: string
+          delivery_date: string
+          employee_id: string
+          expiry_date: string | null
+          id: string
+          item_name: string
+          notes: string | null
+          quantity: number
+          signed_file_url: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string
+          employee_id: string
+          expiry_date?: string | null
+          id?: string
+          item_name: string
+          notes?: string | null
+          quantity?: number
+          signed_file_url?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string
+          employee_id?: string
+          expiry_date?: string | null
+          id?: string
+          item_name?: string
+          notes?: string | null
+          quantity?: number
+          signed_file_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epi_deliveries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machines: {
+        Row: {
+          checklist_template: Json
+          created_at: string
+          description: string | null
+          id: string
+          location: string | null
+          name: string
+        }
+        Insert: {
+          checklist_template?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          name: string
+        }
+        Update: {
+          checklist_template?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      maintenance_logs: {
+        Row: {
+          checklist_data: Json
+          completed_date: string
+          created_at: string
+          employee_id: string
+          id: string
+          machine_id: string
+          notes: string | null
+          status: string
+          task_id: string
+        }
+        Insert: {
+          checklist_data?: Json
+          completed_date?: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          machine_id: string
+          notes?: string | null
+          status?: string
+          task_id: string
+        }
+        Update: {
+          checklist_data?: Json
+          completed_date?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          machine_id?: string
+          notes?: string | null
+          status?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_tasks: {
+        Row: {
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          employee_id: string
+          frequency: string
+          id: string
+          is_active: boolean
+          machine_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          employee_id: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          machine_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          employee_id?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          machine_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_tasks_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_tasks_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_agendas: {
         Row: {
           created_at: string
@@ -917,6 +1100,56 @@ export type Database = {
           },
           {
             foreignKeyName: "time_clock_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_assignments: {
+        Row: {
+          assigned_date: string
+          condition: string
+          created_at: string
+          employee_id: string
+          id: string
+          notes: string | null
+          returned_date: string | null
+          serial_number: string | null
+          signed_file_url: string | null
+          status: string
+          tool_name: string
+        }
+        Insert: {
+          assigned_date?: string
+          condition?: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+          returned_date?: string | null
+          serial_number?: string | null
+          signed_file_url?: string | null
+          status?: string
+          tool_name: string
+        }
+        Update: {
+          assigned_date?: string
+          condition?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          returned_date?: string | null
+          serial_number?: string | null
+          signed_file_url?: string | null
+          status?: string
+          tool_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_assignments_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
