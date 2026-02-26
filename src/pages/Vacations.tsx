@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Send, ToggleRight, ChevronDown, Trash2 } from "lucide-react";
+import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Send, ToggleRight, ChevronDown, Trash2, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useVacationRequests, useUpdateVacationRequest, useSendVacationEmail, useDeleteVacationRequest, VacationRequest } from "@/hooks/useVacations";
 import { VacationFormDialog } from "@/components/vacations/VacationFormDialog";
 import { CollectiveVacationForm } from "@/components/vacations/CollectiveVacationForm";
+import { VacationMap } from "@/components/vacations/VacationMap";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -169,12 +170,17 @@ export default function Vacations() {
           </Card>
         </div>
 
-        <Tabs defaultValue="individual">
+        <Tabs defaultValue="map">
           <TabsList>
+            <TabsTrigger value="map" className="gap-1"><CalendarDays className="h-4 w-4" /> Mapa Anual</TabsTrigger>
             <TabsTrigger value="individual" className="gap-1"><Palmtree className="h-4 w-4" /> Individual</TabsTrigger>
             <TabsTrigger value="factory" className="gap-1"><Factory className="h-4 w-4" /> Fábrica</TabsTrigger>
             <TabsTrigger value="warehouse" className="gap-1"><Warehouse className="h-4 w-4" /> Armazém</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="map">
+            <VacationMap vacations={vacations || []} year={year} isLoading={isLoading} />
+          </TabsContent>
 
           <TabsContent value="individual">
             <Card>
