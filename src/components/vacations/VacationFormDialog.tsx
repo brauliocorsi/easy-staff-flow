@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Loader2, Send, Plus, Trash2 } from "lucide-react";
+import { CalendarIcon, Loader2, Plus, Trash2, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -63,24 +63,36 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
     if (!employeeId) { toast.error("Selecione um funcionário"); return; }
 
     const validPeriods = periods.filter((p) => p.start_date && p.end_date);
-    if (validPeriods.length === 0) { toast.error("Adicione pelo menos um período com datas"); return; }
+    const hasDates = validPeriods.length > 0;
 
-    if (totalDays > entitled) {
+    if (hasDates && totalDays > entitled) {
       toast.error(`Total de dias (${totalDays}) excede os dias de direito (${entitled})`);
       return;
     }
 
     try {
-      const payloads = validPeriods.map((p) => ({
-        employee_id: employeeId,
-        start_date: p.start_date,
-        end_date: p.end_date,
-        days_count: calcDays(p.start_date, p.end_date),
-        category: "individual",
-        year,
-        total_entitled_days: entitled,
-        notes: notes || undefined,
-      }));
+      // If no dates filled, create a placeholder record so the employee can fill in via public link
+      const payloads = hasDates
+        ? validPeriods.map((p) => ({
+            employee_id: employeeId,
+            start_date: p.start_date,
+            end_date: p.end_date,
+            days_count: calcDays(p.start_date, p.end_date),
+            category: "individual",
+            year,
+            total_entitled_days: entitled,
+            notes: notes || undefined,
+          }))
+        : [{
+            employee_id: employeeId,
+            start_date: `${year}-01-01`,
+            end_date: `${year}-01-01`,
+            days_count: 0,
+            category: "individual",
+            year,
+            total_entitled_days: entitled,
+            notes: notes || "Aguarda preenchimento pelo colaborador",
+          }];
 
       const results = await createBulkMutation.mutateAsync(payloads);
 
@@ -90,15 +102,20 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
           const linkData = await getLinkMutation.mutateAsync(results[0].id);
           if (linkData?.public_link) {
             await navigator.clipboard.writeText(linkData.public_link);
-            toast.success(`${validPeriods.length} período(s) criado(s) — link copiado!`, {
-              description: "Partilhe o link com o colaborador para confirmar as férias.",
-              duration: 6000,
-            });
+            toast.success(
+              hasDates
+                ? `${validPeriods.length} período(s) criado(s) — link copiado!`
+                : "Pedido criado sem datas — link copiado!",
+              {
+                description: "Partilhe o link com o colaborador para preencher/confirmar as férias.",
+                duration: 6000,
+              }
+            );
           } else {
-            toast.success(`${validPeriods.length} período(s) criado(s)`);
+            toast.success(hasDates ? `${validPeriods.length} período(s) criado(s)` : "Pedido criado sem datas");
           }
         } catch {
-          toast.success(`${validPeriods.length} período(s) criado(s)`);
+          toast.success(hasDates ? `${validPeriods.length} período(s) criado(s)` : "Pedido criado sem datas");
         }
       }
 
@@ -147,11 +164,14 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Períodos de Férias</Label>
+              <Label>Períodos de Férias <span className="text-muted-foreground font-normal">(opcional)</span></Label>
               <Button type="button" variant="outline" size="sm" onClick={addPeriod}>
                 <Plus className="h-3 w-3 mr-1" /> Adicionar Período
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Deixe em branco para o colaborador preencher as datas pelo link público.
+            </p>
 
             {periods.map((period, idx) => (
               <div key={idx} className="border rounded-lg p-3 space-y-2">
@@ -230,7 +250,7 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-              <Plus className="mr-2 h-4 w-4" />
+              <Link2 className="mr-2 h-4 w-4" />
               Criar e Copiar Link
             </Button>
           </DialogFooter>
