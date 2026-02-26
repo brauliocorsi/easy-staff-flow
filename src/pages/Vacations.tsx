@@ -7,10 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Send, ToggleRight, ChevronDown, Trash2, CalendarDays } from "lucide-react";
+import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Link2, ToggleRight, ChevronDown, Trash2, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useVacationRequests, useUpdateVacationRequest, useSendVacationEmail, useDeleteVacationRequest, VacationRequest } from "@/hooks/useVacations";
+import { useVacationRequests, useUpdateVacationRequest, useGetVacationPublicLink, useDeleteVacationRequest, VacationRequest } from "@/hooks/useVacations";
 import { VacationFormDialog } from "@/components/vacations/VacationFormDialog";
 import { CollectiveVacationForm } from "@/components/vacations/CollectiveVacationForm";
 import { VacationMap } from "@/components/vacations/VacationMap";
@@ -64,7 +64,7 @@ export default function Vacations() {
   const { data: vacations, isLoading } = useVacationRequests(year);
   const updateMutation = useUpdateVacationRequest();
   const deleteMutation = useDeleteVacationRequest();
-  const sendEmailMutation = useSendVacationEmail();
+  const getLinkMutation = useGetVacationPublicLink();
 
   const individualVacations = (vacations || []).filter((v) => v.category === "individual");
   const employeeGroups = groupByEmployee(individualVacations);
@@ -101,11 +101,14 @@ export default function Vacations() {
     } catch (err: any) { toast.error(err.message); }
   };
 
-  const handleResendEmail = async (id: string) => {
+  const handleCopyLink = async (id: string) => {
     try {
-      await sendEmailMutation.mutateAsync(id);
-      toast.success("E-mail reenviado");
-    } catch { toast.error("Falha ao enviar e-mail"); }
+      const data = await getLinkMutation.mutateAsync(id);
+      if (data?.public_link) {
+        await navigator.clipboard.writeText(data.public_link);
+        toast.success("Link copiado!", { description: "Partilhe com o colaborador." });
+      }
+    } catch { toast.error("Falha ao obter link"); }
   };
 
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -226,11 +229,11 @@ export default function Vacations() {
                                 </Tooltip>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResendEmail(group.requests[0].id)}>
-                                      <Send className="h-3.5 w-3.5" />
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyLink(group.requests[0].id)}>
+                                      <Link2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Reenviar e-mail</TooltipContent>
+                                  <TooltipContent>Copiar link público</TooltipContent>
                                 </Tooltip>
                               </div>
                             </div>
