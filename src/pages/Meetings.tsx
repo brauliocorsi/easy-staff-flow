@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Clock, Users, ExternalLink, Pencil } from "lucide-react";
+import { Plus, Calendar, Clock, Users, ExternalLink, Pencil, User } from "lucide-react";
 import { useMeetings } from "@/hooks/useMeetings";
 import { MeetingFormDialog } from "@/components/meetings/MeetingFormDialog";
 import { format } from "date-fns";
@@ -60,6 +60,21 @@ export default function Meetings() {
               const status = statusMap[m.status] ?? statusMap.scheduled;
               const participantCount = (m as any).meeting_participants?.length ?? 0;
               const isCompleted = m.status === "completed";
+              const createdByEmp = (m as any).created_by_employee;
+              const responsibleName = createdByEmp
+                ? `${createdByEmp.first_name} ${createdByEmp.last_name}`
+                : null;
+
+              // Build time display
+              const scheduledTime = (m as any).scheduled_time
+                ? (m as any).scheduled_time.slice(0, 5)
+                : format(new Date(m.meeting_date), "HH:mm");
+              const startedTime = (m as any).started_at
+                ? format(new Date((m as any).started_at), "HH:mm")
+                : null;
+              const endedTime = (m as any).end_time
+                ? format(new Date((m as any).end_time), "HH:mm")
+                : null;
 
               return (
                 <Card
@@ -68,20 +83,27 @@ export default function Meetings() {
                   onClick={() => navigate(`/reunioes/${m.id}`)}
                 >
                   <CardContent className="p-5 flex items-center justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-3">
                         <h3 className="font-display font-semibold text-lg">{m.title}</h3>
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      {responsibleName && (
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
+                          <User className="h-3.5 w-3.5" />
+                          Responsável: {responsibleName}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3.5 w-3.5" />
                           {format(new Date(m.meeting_date), "dd MMM yyyy", { locale: pt })}
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          {format(new Date(m.meeting_date), "HH:mm")}
-                          {(m as any).end_time && ` - ${format(new Date((m as any).end_time), "HH:mm")}`}
+                          {startedTime
+                            ? `${startedTime}${endedTime ? ` - ${endedTime}` : " (em curso)"}`
+                            : `Agendada: ${scheduledTime}`}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
