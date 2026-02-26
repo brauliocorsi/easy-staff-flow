@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -10,17 +10,27 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useCreateMeeting } from "@/hooks/useMeetings";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCreateMeeting, useUpdateMeeting } from "@/hooks/useMeetings";
 import { toast } from "@/hooks/use-toast";
 import { Users } from "lucide-react";
+import { format } from "date-fns";
+
+interface MeetingData {
+  id: string;
+  title: string;
+  description: string | null;
+  meeting_date: string;
+  end_time?: string | null;
+  meeting_participants?: { employee_id: string }[];
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  meeting?: MeetingData | null;
 }
 
-export function MeetingFormDialog({ open, onClose }: Props) {
+export function MeetingFormDialog({ open, onClose, meeting }: Props) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -31,9 +41,34 @@ export function MeetingFormDialog({ open, onClose }: Props) {
 
   const { data: employees } = useEmployees("");
   const createMeeting = useCreateMeeting();
-  const { user } = useAuth();
+  const updateMeeting = useUpdateMeeting();
 
+  const isEditing = !!meeting;
   const activeEmployees = employees?.filter((e) => e.status === "active") ?? [];
+
+  // Populate form when editing
+  useEffect(() => {
+    if (meeting && open) {
+      setTitle(meeting.title);
+      setDescription(meeting.description ?? "");
+      const start = new Date(meeting.meeting_date);
+      setStartDate(format(start, "yyyy-MM-dd"));
+      setStartTime(format(start, "HH:mm"));
+      if (meeting.end_time) {
+        const end = new Date(meeting.end_time);
+        setEndDate(format(end, "yyyy-MM-dd"));
+        setEndTime(format(end, "HH:mm"));
+      } else {
+        setEndDate("");
+        setEndTime("");
+      }
+      setSelectedEmployees(
+        (meeting.meeting_participants ?? []).map((p) => p.employee_id)
+      );
+    } else if (!meeting && open) {
+      reset();
+    }
+  }, [meeting, open]);
 
   const toggleEmployee = (id: string) => {
     setSelectedEmployees((prev) =>
@@ -59,33 +94,49 @@ export function MeetingFormDialog({ open, onClose }: Props) {
     }
 
     const meetingDate = new Date(`${startDate}T${startTime}`).toISOString();
-    const endTimeISO = endDate && endTime ? new Date(`${endDate}T${endTime}`).toISOString() : undefined;
+    const endTimeISO = endDate && endTime ? new Date(`${endDate}T${endTime}`).toISOString() : null;
 
     try {
-      await createMeeting.mutateAsync({
-        meeting: {
-          title,
-          description: description || null,
-          meeting_date: meetingDate,
-          end_time: endTimeISO,
-          created_by: null, // Will be set based on user context
-        },
-        participantIds: selectedEmployees,
-      });
-      toast({ title: "Reunião criada com sucesso!" });
+      if (isEditing) {
+        await updateMeeting.mutateAsync({
+          id: meeting.id,
+          meeting: {
+            title,
+            description: description || null,
+            meeting_date: meetingDate,
+            end_time: endTimeISO,
+          },
+          participantIds: selectedEmployees,
+        });
+        toast({ title: "Reunião atualizada com sucesso!" });
+      } else {
+        await createMeeting.mutateAsync({
+          meeting: {
+            title,
+            description: description || null,
+            meeting_date: meetingDate,
+            end_time: endTimeISO,
+            created_by: null,
+          },
+          participantIds: selectedEmployees,
+        });
+        toast({ title: "Reunião criada com sucesso!" });
+      }
       reset();
       onClose();
     } catch (err: any) {
-      toast({ title: "Erro ao criar reunião", description: err.message, variant: "destructive" });
+      toast({ title: isEditing ? "Erro ao atualizar" : "Erro ao criar reunião", description: err.message, variant: "destructive" });
     }
   };
+
+  const isPending = createMeeting.isPending || updateMeeting.isPending;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display">Nova Reunião</DialogTitle>
-          <DialogDescription>Preencha os dados para agendar uma reunião</DialogDescription>
+          <DialogTitle className="font-display">{isEditing ? "Editar Reunião" : "Nova Reunião"}</DialogTitle>
+          <DialogDescription>{isEditing ? "Altere os dados da reunião" : "Preencha os dados para agendar uma reunião"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -157,7 +208,7 @@ export function MeetingFormDialog({ open, onClose }: Props) {
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={createMeeting.isPending}>Agendar</Button>
+            <Button type="submit" disabled={isPending}>{isEditing ? "Salvar" : "Agendar"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
