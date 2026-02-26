@@ -189,6 +189,45 @@ export function useStartMeeting() {
   });
 }
 
+export function usePauseMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (meetingId: string) => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("meetings")
+        .update({ paused_at: now })
+        .eq("id", meetingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meetings"] });
+      qc.invalidateQueries({ queryKey: ["meeting"] });
+    },
+  });
+}
+
+export function useResumeMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ meetingId, pausedAt, currentPausedSeconds }: { meetingId: string; pausedAt: string; currentPausedSeconds: number }) => {
+      const additionalSeconds = Math.floor((Date.now() - new Date(pausedAt).getTime()) / 1000);
+      const { error } = await supabase
+        .from("meetings")
+        .update({
+          paused_at: null,
+          paused_seconds: currentPausedSeconds + additionalSeconds,
+        })
+        .eq("id", meetingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meetings"] });
+      qc.invalidateQueries({ queryKey: ["meeting"] });
+    },
+  });
+}
+
 export function useToggleParticipantPresence() {
   const qc = useQueryClient();
   return useMutation({

@@ -4,12 +4,14 @@ import { Clock } from "lucide-react";
 interface MeetingTimerProps {
   endTime: string | null | undefined;
   startedAt: string | null | undefined;
+  pausedAt: string | null | undefined;
+  pausedSeconds: number;
   status: string;
   className?: string;
   large?: boolean;
 }
 
-export function MeetingTimer({ endTime, startedAt, status, className, large }: MeetingTimerProps) {
+export function MeetingTimer({ endTime, startedAt, pausedAt, pausedSeconds, status, className, large }: MeetingTimerProps) {
   const [display, setDisplay] = useState("");
   const [isWarning, setIsWarning] = useState(false);
 
@@ -20,28 +22,29 @@ export function MeetingTimer({ endTime, startedAt, status, className, large }: M
     }
 
     if (status === "scheduled" || !startedAt) {
-      // Show total duration as countdown preview if end_time exists
-      if (endTime && startedAt === undefined) {
-        // not started yet
-      }
       setDisplay("Não iniciada");
       return;
     }
 
-    // Meeting is in_progress – countdown to end_time
     if (!endTime) {
       setDisplay("Sem limite");
       return;
     }
 
     const update = () => {
-      const remaining = new Date(endTime).getTime() - Date.now();
+      // Total paused time = saved seconds + current pause duration (if paused now)
+      let totalPausedMs = (pausedSeconds ?? 0) * 1000;
+      if (pausedAt) {
+        totalPausedMs += Date.now() - new Date(pausedAt).getTime();
+      }
+
+      const remaining = new Date(endTime).getTime() + totalPausedMs - Date.now();
+
       if (remaining <= 0) {
         setDisplay("00:00:00");
         setIsWarning(true);
         return;
       }
-      // Warning at 5 minutes
       setIsWarning(remaining <= 5 * 60 * 1000);
       const h = Math.floor(remaining / 3600000);
       const m = Math.floor((remaining % 3600000) / 60000);
@@ -52,9 +55,10 @@ export function MeetingTimer({ endTime, startedAt, status, className, large }: M
     };
 
     update();
-    const interval = setInterval(update, 1000);
+    // If paused, update less frequently (display is static-ish)
+    const interval = setInterval(update, pausedAt ? 5000 : 1000);
     return () => clearInterval(interval);
-  }, [endTime, startedAt, status]);
+  }, [endTime, startedAt, pausedAt, pausedSeconds, status]);
 
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`}>
