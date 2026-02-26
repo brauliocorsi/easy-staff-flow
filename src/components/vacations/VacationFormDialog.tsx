@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useCreateBulkVacationRequests, useGetVacationPublicLink } from "@/hooks/useVacations";
+import { useCreateBulkVacationRequests, useGetVacationPublicLink, useVacationRequests } from "@/hooks/useVacations";
 
 interface DatePeriod {
   start_date: string;
@@ -40,6 +40,7 @@ function calcDays(start: string, end: string): number {
 
 export function VacationFormDialog({ open, onClose, year }: Props) {
   const { data: employees } = useEmployees("");
+  const { data: allVacations } = useVacationRequests(year);
   const createBulkMutation = useCreateBulkVacationRequests();
   const getLinkMutation = useGetVacationPublicLink();
   const loading = createBulkMutation.isPending;
@@ -58,6 +59,14 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
   const totalDays = periods.reduce((sum, p) => sum + calcDays(p.start_date, p.end_date), 0);
   const entitled = parseInt(totalEntitledDays) || 22;
 
+  // Calculate already used days for selected employee
+  const usedDays = employeeId
+    ? (allVacations || [])
+        .filter((v) => v.employee_id === employeeId && (v.status === "approved" || v.status === "pending" || v.status === "employee_suggested"))
+        .reduce((sum, v) => sum + v.days_count, 0)
+    : 0;
+  const availableDays = entitled - usedDays;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeId) { toast.error("Selecione um funcionário"); return; }
@@ -65,8 +74,8 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
     const validPeriods = periods.filter((p) => p.start_date && p.end_date);
     const hasDates = validPeriods.length > 0;
 
-    if (hasDates && totalDays > entitled) {
-      toast.error(`Total de dias (${totalDays}) excede os dias de direito (${entitled})`);
+    if (hasDates && totalDays > availableDays) {
+      toast.error(`Total de dias (${totalDays}) excede os dias disponíveis (${availableDays}). Já existem ${usedDays} dias agendados.`);
       return;
     }
 
@@ -233,11 +242,31 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
               </div>
             ))}
 
-            <div className="flex items-center justify-between bg-muted rounded-lg p-3">
-              <span className="text-sm font-medium">Total de dias</span>
-              <span className={cn("text-sm font-bold", totalDays > entitled ? "text-destructive" : "text-foreground")}>
-                {totalDays} / {entitled}
-              </span>
+            <div className="space-y-1 bg-muted rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Dias de direito</span>
+                <span className="text-sm font-bold">{entitled}</span>
+              </div>
+              {employeeId && usedDays > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Já agendados</span>
+                  <span className="text-sm">{usedDays}d</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Disponíveis</span>
+                <span className={cn("text-sm font-bold", availableDays <= 0 ? "text-destructive" : "text-foreground")}>
+                  {employeeId ? `${availableDays}d` : `${entitled}d`}
+                </span>
+              </div>
+              {totalDays > 0 && (
+                <div className="flex items-center justify-between border-t pt-1 mt-1">
+                  <span className="text-sm font-medium">Este pedido</span>
+                  <span className={cn("text-sm font-bold", totalDays > availableDays ? "text-destructive" : "text-foreground")}>
+                    {totalDays}d
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -21,7 +21,7 @@ export function EmployeeVacations({ employeeId }: Props) {
 
   if (isLoading) return <p className="text-xs text-muted-foreground">A carregar férias...</p>;
 
-  const totalEntitled = vacations?.[0]?.total_entitled_days || 22;
+  const totalEntitled = Math.max(...(vacations || []).map(v => v.total_entitled_days), 22);
   const approvedDays = (vacations || [])
     .filter((v) => v.status === "approved" || v.enjoyed)
     .reduce((sum, v) => sum + v.days_count, 0);
