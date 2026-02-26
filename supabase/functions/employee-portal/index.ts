@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       }
 
       // Fetch related data
-      const [absences, warnings, vacations, meetings, contracts, trainings, epis, tools, maintenanceLogs] = await Promise.all([
+      const [absences, warnings, vacations, meetings, contracts, trainings, epis, tools, maintenanceLogs, maintenanceTasks] = await Promise.all([
         supabase.from("absences").select("*").eq("employee_id", emp.id).order("absence_date", { ascending: false }),
         supabase.from("warnings").select("*").eq("employee_id", emp.id).order("warning_date", { ascending: false }),
         supabase.from("vacation_requests").select("*").eq("employee_id", emp.id).order("year", { ascending: false }),
@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
         supabase.from("epi_deliveries").select("*").eq("employee_id", emp.id).order("delivery_date", { ascending: false }),
         supabase.from("tool_assignments").select("*").eq("employee_id", emp.id).order("assigned_date", { ascending: false }),
         supabase.from("maintenance_logs").select("*").eq("employee_id", emp.id).order("completed_date", { ascending: false }),
+        supabase.from("maintenance_tasks").select("*, machines(id, name, location, checklist_template)").eq("employee_id", emp.id).eq("is_active", true).order("created_at", { ascending: false }),
       ]);
 
       const meetingsList = (meetings.data || [])
@@ -75,6 +76,7 @@ Deno.serve(async (req) => {
         epis: epis.data || [],
         tools: tools.data || [],
         maintenance_logs: maintenanceLogs.data || [],
+        maintenance_tasks: maintenanceTasks.data || [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
