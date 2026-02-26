@@ -391,6 +391,8 @@ export type Database = {
           end_time: string | null
           id: string
           meeting_date: string
+          paused_at: string | null
+          paused_seconds: number
           started_at: string | null
           status: string
           title: string
@@ -405,6 +407,8 @@ export type Database = {
           end_time?: string | null
           id?: string
           meeting_date: string
+          paused_at?: string | null
+          paused_seconds?: number
           started_at?: string | null
           status?: string
           title: string
@@ -419,6 +423,8 @@ export type Database = {
           end_time?: string | null
           id?: string
           meeting_date?: string
+          paused_at?: string | null
+          paused_seconds?: number
           started_at?: string | null
           status?: string
           title?: string

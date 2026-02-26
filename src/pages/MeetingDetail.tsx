@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ExternalLink, CheckCircle, Play } from "lucide-react";
-import { useMeeting, useMeetingAgendas, useAddAgenda, useUpdateAgenda, useFinalizeMeeting, useStartMeeting, useToggleParticipantPresence } from "@/hooks/useMeetings";
+import { ArrowLeft, ExternalLink, CheckCircle, Play, Pause, PlayCircle } from "lucide-react";
+import { useMeeting, useMeetingAgendas, useAddAgenda, useUpdateAgenda, useFinalizeMeeting, useStartMeeting, useToggleParticipantPresence, usePauseMeeting, useResumeMeeting } from "@/hooks/useMeetings";
 import { MeetingTimer } from "@/components/meetings/MeetingTimer";
 import { AgendaCard } from "@/components/meetings/AgendaCard";
 import { AgendaInput } from "@/components/meetings/AgendaInput";
@@ -34,6 +34,8 @@ export default function MeetingDetail() {
   const updateAgenda = useUpdateAgenda();
   const finalizeMeeting = useFinalizeMeeting();
   const startMeeting = useStartMeeting();
+  const pauseMeeting = usePauseMeeting();
+  const resumeMeeting = useResumeMeeting();
   const togglePresence = useToggleParticipantPresence();
 
   // Realtime subscription for agendas
@@ -81,6 +83,30 @@ export default function MeetingDetail() {
     }
   };
 
+  const handlePause = async () => {
+    if (!id) return;
+    try {
+      await pauseMeeting.mutateAsync(id);
+      toast({ title: "Reunião pausada" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleResume = async () => {
+    if (!id || !meeting) return;
+    try {
+      await resumeMeeting.mutateAsync({
+        meetingId: id,
+        pausedAt: (meeting as any).paused_at,
+        currentPausedSeconds: (meeting as any).paused_seconds ?? 0,
+      });
+      toast({ title: "Reunião retomada" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleTogglePresence = (participantId: string, present: boolean) => {
     togglePresence.mutate({ participantId, present });
   };
@@ -106,6 +132,7 @@ export default function MeetingDetail() {
   const isCompleted = meeting.status === "completed";
   const isScheduled = meeting.status === "scheduled";
   const isInProgress = meeting.status === "in_progress";
+  const isPaused = !!(meeting as any).paused_at;
 
   return (
     <AppLayout>
@@ -146,6 +173,25 @@ export default function MeetingDetail() {
                 <Play className="h-4 w-4 mr-1" /> Iniciar Reunião
               </Button>
             )}
+            {isInProgress && !isPaused && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePause}
+                disabled={pauseMeeting.isPending}
+              >
+                <Pause className="h-4 w-4 mr-1" /> Pausar
+              </Button>
+            )}
+            {isInProgress && isPaused && (
+              <Button
+                size="sm"
+                onClick={handleResume}
+                disabled={resumeMeeting.isPending}
+              >
+                <PlayCircle className="h-4 w-4 mr-1" /> Retomar
+              </Button>
+            )}
             {isInProgress && (
               <Button
                 variant="destructive"
@@ -165,6 +211,8 @@ export default function MeetingDetail() {
             <MeetingTimer
               endTime={meeting.end_time}
               startedAt={(meeting as any).started_at}
+              pausedAt={(meeting as any).paused_at}
+              pausedSeconds={(meeting as any).paused_seconds ?? 0}
               status={meeting.status}
             />
           </CardContent>

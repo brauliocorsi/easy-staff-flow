@@ -14,6 +14,8 @@ interface PublicMeetingData {
   meeting_date: string;
   end_time: string | null;
   started_at: string | null;
+  paused_at: string | null;
+  paused_seconds: number;
   status: string;
   participants: {
     id: string;
@@ -104,7 +106,7 @@ export default function MeetingPublic() {
 
         {/* Timer */}
         <div className="flex justify-center">
-          <MeetingTimer endTime={data.end_time} startedAt={data.started_at} status={data.status} large />
+          <MeetingTimer endTime={data.end_time} startedAt={data.started_at} pausedAt={data.paused_at} pausedSeconds={data.paused_seconds ?? 0} status={data.status} large />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
