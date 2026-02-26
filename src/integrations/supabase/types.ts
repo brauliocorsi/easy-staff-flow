@@ -306,6 +306,44 @@ export type Database = {
           },
         ]
       }
+      employee_suggestions: {
+        Row: {
+          created_at: string
+          employee_id: string | null
+          id: string
+          is_anonymous: boolean
+          message: string
+          rating: number | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          is_anonymous?: boolean
+          message: string
+          rating?: number | null
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          is_anonymous?: boolean
+          message?: string
+          rating?: number | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_suggestions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           avatar_url: string | null
