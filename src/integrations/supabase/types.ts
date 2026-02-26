@@ -568,18 +568,27 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          tolerance_early_leave_minutes: number
+          tolerance_late_minutes: number
+          tolerance_overtime_minutes: number
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          tolerance_early_leave_minutes?: number
+          tolerance_late_minutes?: number
+          tolerance_overtime_minutes?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          tolerance_early_leave_minutes?: number
+          tolerance_late_minutes?: number
+          tolerance_overtime_minutes?: number
           updated_at?: string
         }
         Relationships: []
