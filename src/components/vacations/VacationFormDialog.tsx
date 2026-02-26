@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useCreateBulkVacationRequests, useSendVacationEmail } from "@/hooks/useVacations";
+import { useCreateBulkVacationRequests, useGetVacationPublicLink } from "@/hooks/useVacations";
 
 interface DatePeriod {
   start_date: string;
@@ -41,7 +41,7 @@ function calcDays(start: string, end: string): number {
 export function VacationFormDialog({ open, onClose, year }: Props) {
   const { data: employees } = useEmployees("");
   const createBulkMutation = useCreateBulkVacationRequests();
-  const sendEmailMutation = useSendVacationEmail();
+  const getLinkMutation = useGetVacationPublicLink();
   const loading = createBulkMutation.isPending;
 
   const [employeeId, setEmployeeId] = useState("");
@@ -84,13 +84,21 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
 
       const results = await createBulkMutation.mutateAsync(payloads);
 
-      // Send email for first created request
+      // Get public link for the first created request
       if (results && results.length > 0) {
         try {
-          await sendEmailMutation.mutateAsync(results[0].id);
-          toast.success(`${validPeriods.length} período(s) criado(s) e e-mail enviado`);
+          const linkData = await getLinkMutation.mutateAsync(results[0].id);
+          if (linkData?.public_link) {
+            await navigator.clipboard.writeText(linkData.public_link);
+            toast.success(`${validPeriods.length} período(s) criado(s) — link copiado!`, {
+              description: "Partilhe o link com o colaborador para confirmar as férias.",
+              duration: 6000,
+            });
+          } else {
+            toast.success(`${validPeriods.length} período(s) criado(s)`);
+          }
         } catch {
-          toast.success(`${validPeriods.length} período(s) criado(s) (falha ao enviar e-mail)`);
+          toast.success(`${validPeriods.length} período(s) criado(s)`);
         }
       }
 
@@ -222,8 +230,8 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-              <Send className="mr-2 h-4 w-4" />
-              Criar e Enviar
+              <Plus className="mr-2 h-4 w-4" />
+              Criar e Copiar Link
             </Button>
           </DialogFooter>
         </form>

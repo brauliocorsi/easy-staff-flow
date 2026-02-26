@@ -196,7 +196,19 @@ export function useSendVacationEmail() {
         body: { vacation_id: vacationId },
       });
       if (error) throw error;
-      return data;
+      return data as { success: boolean; public_link: string; employee_name: string; employee_email: string | null };
+    },
+  });
+}
+
+export function useGetVacationPublicLink() {
+  return useMutation({
+    mutationFn: async (vacationId: string) => {
+      const { data, error } = await supabase.functions.invoke("send-vacation-email", {
+        body: { vacation_id: vacationId },
+      });
+      if (error) throw error;
+      return data as { success: boolean; public_link: string; employee_name: string; employee_email: string | null };
     },
   });
 }

@@ -40,79 +40,17 @@ Deno.serve(async (req) => {
     }
 
     const employee = vacation.employees;
-    if (!employee?.email) {
-      return new Response(JSON.stringify({ error: "Employee email not found" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : "Colaborador";
 
-    // Build public link
-    const siteUrl = Deno.env.get("SUPABASE_URL")!.replace(".supabase.co", "").replace("https://", "");
-    // We use the frontend URL pattern
+    // Build public link using the project preview URL
     const publicLink = `https://id-preview--5c74799d-8e88-41dc-a444-033e3436fb75.lovable.app/ferias-publica/${vacation.token}`;
 
-    const formatDate = (d: string) => {
-      const date = new Date(d + "T00:00:00");
-      return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-    };
-
-    const startFormatted = vacation.start_date ? formatDate(vacation.start_date) : "A definir";
-    const endFormatted = vacation.end_date ? formatDate(vacation.end_date) : "A definir";
-
-    const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #1a1a2e;">Pedido de Férias ${vacation.year}</h2>
-        <p>Olá <strong>${employee.first_name} ${employee.last_name}</strong>,</p>
-        <p>Foi criado um pedido de férias para si. Por favor, aceda ao link abaixo para escolher ou confirmar as suas datas de férias.</p>
-        
-        <div style="background: #f4f4f8; border-radius: 8px; padding: 16px; margin: 16px 0;">
-          <p><strong>Período sugerido:</strong> ${startFormatted} a ${endFormatted}</p>
-          <p><strong>Dias:</strong> ${vacation.days_count || "A definir"}</p>
-          <p><strong>Dias de direito:</strong> ${vacation.total_entitled_days}</p>
-          ${vacation.notes ? `<p><strong>Observações:</strong> ${vacation.notes}</p>` : ""}
-        </div>
-        
-        <a href="${publicLink}" 
-           style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-          Escolher / Confirmar Férias
-        </a>
-        
-        <p style="margin-top: 24px; color: #666; font-size: 14px;">
-          Se não conseguir clicar no botão, copie e cole este link no seu navegador:<br/>
-          <a href="${publicLink}">${publicLink}</a>
-        </p>
-      </div>
-    `;
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (LOVABLE_API_KEY) {
-      const emailRes = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: "Férias RH <onboarding@resend.dev>",
-          to: [employee.email],
-          subject: `Pedido de Férias ${vacation.year} - Escolha as suas datas`,
-          html: htmlBody,
-        }),
-      });
-
-      if (!emailRes.ok) {
-        const errText = await emailRes.text();
-        console.error("Email send error:", errText);
-        return new Response(JSON.stringify({ error: "Failed to send email", details: errText }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      public_link: publicLink,
+      employee_name: employeeName,
+      employee_email: employee?.email || null,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
