@@ -15,7 +15,7 @@ import {
   Loader2, Lock, AlertTriangle, CheckCircle, XCircle, Palmtree,
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
   MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
-  ClipboardCheck
+  ClipboardCheck, GraduationCap
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -172,6 +172,9 @@ export default function EmployeePortal() {
   const vacEntitled = curVac[0]?.total_entitled_days || 22;
   const meetingsCompleted = data.meetings.filter((m: any) => m.status === "completed").length;
   const meetingsPresent = data.meetings.filter((m: any) => m.present && m.status === "completed").length;
+  const curTrainings = (data.trainings || []).filter((t: any) => t.year === currentYear);
+  const trainingHours = curTrainings.reduce((s: number, t: any) => s + Number(t.hours), 0);
+  const trainingRemaining = Math.max(40 - trainingHours, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -200,11 +203,12 @@ export default function EmployeePortal() {
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <SummaryCard icon={AlertTriangle} iconClass="text-destructive" bgClass="bg-destructive/10" value={unjustified} label="Faltas Injustif." />
           <SummaryCard icon={FileText} iconClass="text-destructive" bgClass="bg-destructive/10" value={data.warnings.length} label="Advertências" />
           <SummaryCard icon={Palmtree} iconClass="text-primary" bgClass="bg-primary/10" value={`${vacEnjoyed}/${vacEntitled}`} label="Férias Gozadas" />
           <SummaryCard icon={CalendarCheck2} iconClass="text-primary" bgClass="bg-primary/10" value={data.meetings.length} label="Reuniões" />
+          <SummaryCard icon={GraduationCap} iconClass="text-primary" bgClass="bg-primary/10" value={`${trainingHours}h/40h`} label="Formação" />
         </div>
 
         {/* Personal Info */}
@@ -330,6 +334,29 @@ export default function EmployeePortal() {
                     </p>
                   </div>
                   <Badge variant={c.is_active ? "default" : "secondary"} className="text-xs">{c.is_active ? "Ativo" : "Inativo"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Trainings */}
+        <SectionCard title="Formações" icon={GraduationCap} iconClass="text-primary" count={(data.trainings || []).length}
+          extra={trainingRemaining > 0 ? `${trainingHours}h/40h (${trainingRemaining}h restantes)` : `${trainingHours}h/40h ✓`}>
+          {(data.trainings || []).length === 0 ? <EmptyText /> : (
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {(data.trainings || []).map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between p-2 rounded-md border">
+                  <div>
+                    <p className="text-sm font-medium">{t.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(t.training_date + "T00:00:00"), "dd/MM/yyyy")} · {t.hours}h · {t.type === "internal" ? "Interna" : "Externa"}
+                      {t.trainer_name && ` · ${t.trainer_name}`}
+                    </p>
+                  </div>
+                  <Badge variant={t.status === "signed" ? "default" : "outline"} className="text-xs">
+                    {t.status === "signed" ? "Assinada" : "Registada"}
+                  </Badge>
                 </div>
               ))}
             </div>
