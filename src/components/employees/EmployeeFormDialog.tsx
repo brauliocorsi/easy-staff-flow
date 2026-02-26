@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EmployeeContracts } from "./EmployeeContracts";
 import { EmployeeWarnings } from "./EmployeeWarnings";
+import { EmployeeVacations } from "./EmployeeVacations";
 
 interface Props {
   open: boolean;
@@ -343,6 +344,15 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                   Advertências
                 </div>
                 <EmployeeWarnings employeeId={employee.id} />
+              </div>
+
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <CalendarIcon className="h-4 w-4 text-primary" />
+                  Férias
+                </div>
+                <EmployeeVacations employeeId={employee.id} />
               </div>
             </>
           )}
