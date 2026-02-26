@@ -15,7 +15,7 @@ import {
   Loader2, Lock, AlertTriangle, CheckCircle, XCircle, Palmtree,
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
   MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
-  ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2
+  ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2, ClipboardList
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -30,6 +30,12 @@ const meetingStatusConfig: Record<string, { label: string; icon: typeof Calendar
 const warningTypeMap: Record<string, string> = {
   verbal: "Verbal", written: "Escrita", suspension: "Suspensão", termination: "Justa Causa",
 };
+
+const freqMap: Record<string, string> = {
+  daily: "Diária", weekly: "Semanal", monthly: "Mensal",
+};
+
+const DAYS_OF_WEEK = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function EmployeePortal() {
   const [pin, setPin] = useState("");
@@ -405,8 +411,8 @@ export default function EmployeePortal() {
           )}
         </SectionCard>
 
-        {/* Manutenções */}
-        <SectionCard title="Manutenções" icon={Settings2} iconClass="text-primary" count={(data.maintenance_logs || []).length}>
+        {/* Manutenções Realizadas */}
+        <SectionCard title="Manutenções Realizadas" icon={Settings2} iconClass="text-primary" count={(data.maintenance_logs || []).length}>
           {(data.maintenance_logs || []).length === 0 ? <EmptyText /> : (
             <div className="space-y-2 max-h-52 overflow-y-auto">
               {(data.maintenance_logs || []).map((log: any) => (
@@ -420,6 +426,42 @@ export default function EmployeePortal() {
                   </Badge>
                 </div>
               ))}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Tarefas de Manutenção */}
+        <SectionCard title="Tarefas de Manutenção" icon={ClipboardList} iconClass="text-primary" count={(data.maintenance_tasks || []).length}
+          extra={`${(data.maintenance_tasks || []).length} ativas`}>
+          {(data.maintenance_tasks || []).length === 0 ? <EmptyText /> : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {(data.maintenance_tasks || []).map((task: any) => {
+                const freqLabel = freqMap[task.frequency] || task.frequency;
+                let scheduleDetail = "";
+                if (task.frequency === "weekly" && task.day_of_week != null) {
+                  scheduleDetail = ` · ${DAYS_OF_WEEK[task.day_of_week]}`;
+                } else if (task.frequency === "monthly" && task.day_of_month != null) {
+                  scheduleDetail = ` · Dia ${task.day_of_month}`;
+                }
+                return (
+                  <div key={task.id} className="p-3 rounded-md border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">{task.title}</p>
+                      <Badge variant="outline" className="text-xs">{freqLabel}{scheduleDetail}</Badge>
+                    </div>
+                    {task.machines && (
+                      <p className="text-xs text-muted-foreground">
+                        🔧 {task.machines.name}{task.machines.location ? ` · ${task.machines.location}` : ""}
+                      </p>
+                    )}
+                    {task.machines?.checklist_template && (task.machines.checklist_template as any[]).length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        📋 {(task.machines.checklist_template as any[]).length} campos no checklist
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </SectionCard>
