@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Lock, FileText, AlertTriangle, CalendarIcon } from "lucide-react";
+import { Loader2, Lock, FileText, AlertTriangle, CalendarIcon, CalendarCheck2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { EmployeeContracts } from "./EmployeeContracts";
 import { EmployeeWarnings } from "./EmployeeWarnings";
 import { EmployeeVacations } from "./EmployeeVacations";
+import { EmployeeMeetings } from "./EmployeeMeetings";
 
 interface Props {
   open: boolean;
@@ -353,6 +354,15 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                   Férias
                 </div>
                 <EmployeeVacations employeeId={employee.id} />
+              </div>
+
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <CalendarCheck2 className="h-4 w-4 text-primary" />
+                  Reuniões
+                </div>
+                <EmployeeMeetings employeeId={employee.id} />
               </div>
             </>
           )}
