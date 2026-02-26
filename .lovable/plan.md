@@ -1,87 +1,58 @@
 
+# Venda de Dias de Ferias pelo Colaborador
 
-## Plano: Ferias com Multiplos Periodos por Colaborador
+## Objetivo
+Permitir que o colaborador, atraves do link publico de ferias, possa "vender" dias de ferias a empresa. O pedido de venda fica como sugestao pendente para o RH aprovar.
 
-### Problema Atual
+## Alteracoes Necessarias
 
-O sistema atual permite apenas um periodo continuo de ferias por pedido (data inicio - data fim). Na realidade, os colaboradores dividem as ferias em varios periodos ao longo do ano (ex: 1 dia em fevereiro, 2 em agosto, 15 em setembro). Alem disso, as ferias coletivas nao ficam registadas como pedidos individuais de cada colaborador.
+### 1. Migracaoo de Base de Dados
+Adicionar uma nova coluna `sold_days` (integer, default 0) na tabela `vacation_requests` para registar quantos dias o colaborador pretende vender naquele ano. Tambem adicionar um campo `sell_status` (text, default null) com valores possiveis: `pending_sell`, `sell_approved`, `sell_rejected` para controlar o fluxo de aprovacao.
 
----
+### 2. Edge Function `vacation-public/index.ts`
+- Adicionar nova acao `sell` que recebe o numero de dias a vender e cria/atualiza um registo de venda:
+  - Valida que os dias a vender nao excedem os dias disponiveis (entitled - dias ja agendados)
+  - Cria um `vacation_request` com `category: "individual"`, `days_count` igual aos dias vendidos, `status: "pending"`, e `sold_days` preenchido
+  - Ou alternativamente, usa o registo existente e atualiza `sold_days` e `sell_status: "pending_sell"`
+- Na acao `get`, retornar tambem informacao sobre dias ja vendidos
 
-### 1. Formulario de Ferias com Multiplos Periodos (VacationFormDialog)
+### 3. Pagina Publica `VacationPublic.tsx`
+- Adicionar uma seccao "Vender Dias de Ferias" com:
+  - Input numerico para selecionar quantos dias quer vender
+  - Indicacao do saldo disponivel (dias de direito - dias agendados - dias ja vendidos)
+  - Botao "Solicitar Venda" que envia o pedido
+  - Mensagem informativa de que a venda depende de aprovacao do RH
+- Mostrar estado da venda se ja houver pedido (pendente, aprovado, rejeitado)
 
-Reescrever o formulario para permitir adicionar varios periodos antes de submeter:
+### 4. Pagina Admin `Vacations.tsx`
+- No grupo de cada funcionario, mostrar badge com dias vendidos (se houver)
+- Adicionar botao para aprovar/rejeitar pedidos de venda pendentes
+- Ao aprovar a venda, subtrair os dias do saldo total disponivel do funcionario (reduzindo `total_entitled_days` ou ajustando o calculo)
 
-- Selecionar funcionario e dias de direito (como agora)
-- Adicionar periodos: botao "+ Adicionar Periodo" que mostra pares de data inicio/fim
-- Lista dos periodos adicionados com contagem de dias uteis e botao de remover
-- Totalizador: soma de dias de todos os periodos vs dias de direito
-- Ao submeter: cria um `vacation_request` por cada periodo (todos com o mesmo employee_id, year, category)
-- Envia um unico e-mail ao funcionario com link para confirmar/sugerir alteracoes
+### 5. Calculo de Saldo
+- O saldo restante passa a ser: `total_entitled_days - dias_agendados - sold_days_approved`
+- Validacao no `VacationFormDialog.tsx` tambem deve considerar dias vendidos aprovados
 
----
+## Detalhes Tecnicos
 
-### 2. Pagina de Ferias Agrupada por Colaborador (Vacations.tsx)
+### Migracao SQL
+```sql
+ALTER TABLE public.vacation_requests 
+  ADD COLUMN sold_days integer NOT NULL DEFAULT 0,
+  ADD COLUMN sell_status text DEFAULT NULL;
+```
 
-Na aba Individual, agrupar os pedidos por colaborador:
+### Fluxo
+1. Colaborador abre link publico -> ve seccao "Vender Dias"
+2. Seleciona quantidade de dias -> clica "Solicitar Venda"
+3. Edge function cria registo com `sold_days = N`, `sell_status = 'pending_sell'`
+4. RH ve pedido pendente na pagina de ferias -> aprova ou rejeita
+5. Se aprovado, os dias sao subtraidos do saldo disponivel
 
-- Cada linha principal mostra: nome do colaborador, total de dias aprovados/pendentes, total de dias de direito, status geral
-- Ao expandir (accordion/collapsible), mostra todos os periodos desse colaborador com datas, dias, status e acoes individuais
-- Acoes por colaborador: aprovar todos, reenviar e-mail
-- Acoes por periodo: marcar como gozada, aprovar individualmente, eliminar
-
----
-
-### 3. Pagina Publica com Multiplos Periodos (VacationPublic.tsx)
-
-Reescrever para o colaborador poder sugerir varios periodos:
-
-- Mostrar dias de direito e periodos ja definidos pelo RH
-- Botao "+ Adicionar Periodo" com selecao de data inicio/fim para cada
-- Lista dos periodos com totalizador de dias
-- Validacao: soma dos dias nao pode exceder dias de direito
-- Ao submeter: atualiza os periodos existentes ou cria novos via edge function
-
----
-
-### 4. Ferias Coletivas Registadas por Colaborador (CollectiveVacationForm)
-
-Quando o admin guarda o periodo coletivo:
-
-- Alem de guardar em `vacation_settings`, criar automaticamente um `vacation_request` para cada funcionario ativo dessa categoria (fabrica/armazem)
-- Verificar se ja existe registro para evitar duplicados
-- Adicionar hook `useCreateBulkVacationRequests` para inserir em lote
-- Na listagem de ferias individuais de cada colaborador, as ferias coletivas tambem aparecem com badge "Coletiva"
-
----
-
-### 5. Edge Function vacation-public Atualizada
-
-Suportar multiplos periodos na acao "suggest":
-
-- Receber array de periodos `[{start_date, end_date}, ...]`
-- Apagar periodos antigos nao confirmados do mesmo token
-- Criar novos periodos para cada par de datas
-- Manter a mesma logica de confirmacao
-
----
-
-### Detalhes Tecnicos
-
-**Arquivos a modificar:**
-- `src/components/vacations/VacationFormDialog.tsx` — reescrever com lista de periodos
-- `src/pages/Vacations.tsx` — agrupar por colaborador com expand/collapse
-- `src/pages/VacationPublic.tsx` — multiplos periodos na pagina publica
-- `src/components/vacations/CollectiveVacationForm.tsx` — criar registos por colaborador ao guardar
-- `src/hooks/useVacations.ts` — adicionar hook de criacao em lote e hook de delete
-- `supabase/functions/vacation-public/index.ts` — suportar array de periodos
-- `src/components/employees/EmployeeVacations.tsx` — mostrar periodos agrupados com totais
-
-**Sem alteracoes no banco de dados** — a tabela `vacation_requests` ja suporta multiplos registos por employee+year. Cada periodo e uma linha separada.
-
-**Fluxo resumido:**
-1. Admin seleciona colaborador → adiciona N periodos → submete (cria N registos) → envia e-mail
-2. Colaborador acede ao link → ve periodos sugeridos → pode alterar/sugerir novos periodos → confirma
-3. Admin ve na listagem agrupada → aprova → marca como gozada apos o periodo
-4. Ferias coletivas: admin define periodo → sistema cria registos para todos os colaboradores da categoria
-
+### Ficheiros a Modificar
+- `supabase/functions/vacation-public/index.ts` - nova acao "sell"
+- `src/pages/VacationPublic.tsx` - UI de venda para o colaborador
+- `src/pages/Vacations.tsx` - gestao de vendas pelo admin
+- `src/hooks/useVacations.ts` - tipos atualizados
+- `src/components/vacations/VacationFormDialog.tsx` - validacao atualizada
+- Nova migracao SQL para colunas `sold_days` e `sell_status`
