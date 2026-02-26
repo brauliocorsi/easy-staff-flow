@@ -1,8 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MoonStar } from "lucide-react";
+import { Clock, MoonStar, AlertTriangle } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
+import { useMemo } from "react";
 
 export interface EmployeeData {
   id: string;
@@ -13,6 +14,11 @@ export interface EmployeeData {
   department: string | null;
   today_status: string;
   schedule_label?: string | null;
+  scheduled_clock_in?: string | null;
+  scheduled_lunch_out?: string | null;
+  scheduled_lunch_in?: string | null;
+  scheduled_clock_out?: string | null;
+  tolerance_late_minutes?: number | null;
 }
 
 interface Props {
@@ -20,15 +26,39 @@ interface Props {
   onClick: (employee: EmployeeData) => void;
 }
 
+function isLate(employee: EmployeeData): boolean {
+  const { today_status, tolerance_late_minutes } = employee;
+  if (!tolerance_late_minutes && tolerance_late_minutes !== 0) return false;
+  if (today_status === "complete") return false;
+
+  const statusToSchedule: Record<string, string | null | undefined> = {
+    clock_in: employee.scheduled_clock_in,
+    lunch_out: employee.scheduled_lunch_out,
+    lunch_in: employee.scheduled_lunch_in,
+    clock_out: employee.scheduled_clock_out,
+  };
+
+  const scheduledTime = statusToSchedule[today_status];
+  if (!scheduledTime) return false;
+
+  const [h, m] = scheduledTime.split(":").map(Number);
+  const now = new Date();
+  const scheduled = new Date();
+  scheduled.setHours(h, m + (tolerance_late_minutes ?? 0), 0, 0);
+
+  return now > scheduled;
+}
+
 export function EmployeeCard({ employee, onClick }: Props) {
   const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
   const isDayOff = employee.schedule_label?.includes("Folga");
+  const late = useMemo(() => !isDayOff && isLate(employee), [employee, isDayOff]);
 
   return (
     <Card
       className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
         isDayOff ? "opacity-60 border-dashed border-muted-foreground/30" : ""
-      }`}
+      } ${late ? "border-destructive bg-destructive/5 shadow-destructive/20" : ""}`}
       onClick={() => onClick(employee)}
     >
       <CardContent className="p-4 flex flex-col items-center text-center gap-3 relative">
@@ -38,9 +68,15 @@ export function EmployeeCard({ employee, onClick }: Props) {
             Folga
           </Badge>
         )}
+        {late && (
+          <Badge variant="destructive" className="absolute top-2 right-2 text-[10px] gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            Atrasado
+          </Badge>
+        )}
         <Avatar className="h-16 w-16">
           <AvatarImage src={employee.avatar_url || undefined} alt={employee.first_name} />
-          <AvatarFallback className={`font-semibold text-lg ${isDayOff ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+          <AvatarFallback className={`font-semibold text-lg ${isDayOff ? "bg-muted text-muted-foreground" : late ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -59,7 +95,7 @@ export function EmployeeCard({ employee, onClick }: Props) {
             </p>
           )}
         </div>
-        {!isDayOff && <TodayStatus status={employee.today_status} />}
+        {!isDayOff && <TodayStatus status={employee.today_status} late={late} />}
       </CardContent>
     </Card>
   );

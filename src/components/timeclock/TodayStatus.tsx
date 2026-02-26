@@ -8,7 +8,10 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   complete: { label: "Completo", variant: "secondary" },
 };
 
-export function TodayStatus({ status }: { status: string }) {
+export function TodayStatus({ status, late }: { status: string; late?: boolean }) {
   const config = statusConfig[status] || statusConfig.clock_in;
+  if (late) {
+    return <Badge variant="destructive" className="text-xs">Atrasado · {config.label}</Badge>;
+  }
   return <Badge variant={config.variant} className="text-xs">{config.label}</Badge>;
 }
