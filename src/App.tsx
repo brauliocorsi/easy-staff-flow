@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
+import EmployeeProfile from "./pages/EmployeeProfile";
 import Documents from "./pages/Documents";
 import TimeClock from "./pages/TimeClock";
 import Warnings from "./pages/Warnings";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/ponto" element={<TimeClock />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/funcionarios" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+            <Route path="/funcionarios/:id" element={<ProtectedRoute><EmployeeProfile /></ProtectedRoute>} />
             <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
             <Route path="/advertencias" element={<ProtectedRoute><Warnings /></ProtectedRoute>} />
             <Route path="/ferias" element={<ProtectedRoute><Vacations /></ProtectedRoute>} />
