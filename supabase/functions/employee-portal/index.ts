@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { pin, action, employee_id, suggestion } = await req.json();
+    const { pin, action, employee_id, suggestion, evaluation_id, evaluation_data } = await req.json();
 
     // Action: authenticate with PIN
     if (action === "login") {
@@ -87,6 +87,60 @@ Deno.serve(async (req) => {
         message: suggestion.message,
         rating: suggestion.rating || null,
       });
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: get pending evaluations for evaluator
+    if (action === "get_pending_evaluations") {
+      if (!employee_id) {
+        return new Response(JSON.stringify({ error: "employee_id obrigatório" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data, error } = await supabase
+        .from("employee_evaluations")
+        .select("*, employee:employee_id(id, first_name, last_name, avatar_url, position)")
+        .eq("evaluator_id", employee_id)
+        .in("status", ["pending", "in_progress"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ evaluations: data || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: submit evaluation
+    if (action === "submit_evaluation") {
+      if (!evaluation_id || !evaluation_data) {
+        return new Response(JSON.stringify({ error: "Dados da avaliação obrigatórios" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error } = await supabase
+        .from("employee_evaluations")
+        .update({
+          rating: evaluation_data.rating,
+          performance_rating: evaluation_data.performance_rating,
+          teamwork_rating: evaluation_data.teamwork_rating,
+          punctuality_rating: evaluation_data.punctuality_rating,
+          communication_rating: evaluation_data.communication_rating,
+          strengths: evaluation_data.strengths,
+          improvements: evaluation_data.improvements,
+          comments: evaluation_data.comments,
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", evaluation_id)
+        .eq("evaluator_id", employee_id);
 
       if (error) throw error;
 

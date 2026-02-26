@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   MessageSquare,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,6 +38,7 @@ const menuItems = [
   { title: "Reuniões", icon: Handshake, path: "/reunioes" },
   { title: "Relatório de Ponto", icon: BarChart3, path: "/relatorios/ponto" },
   { title: "Sugestões", icon: MessageSquare, path: "/sugestoes" },
+  { title: "Avaliações", icon: ClipboardCheck, path: "/avaliacoes" },
 ];
 
 export function AppSidebar() {
