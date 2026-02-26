@@ -41,7 +41,7 @@ function groupByEmployee(vacations: VacationRequest[]): EmployeeGroup[] {
       map.set(v.employee_id, {
         employeeId: v.employee_id,
         employeeName: name,
-        totalEntitled: v.total_entitled_days,
+        totalEntitled: 0,
         requests: [],
         totalDays: 0,
         approvedDays: 0,
@@ -50,6 +50,10 @@ function groupByEmployee(vacations: VacationRequest[]): EmployeeGroup[] {
     }
     const g = map.get(v.employee_id)!;
     g.requests.push(v);
+    // Use the max total_entitled_days across records (main record has 22, swaps have 0)
+    if (v.total_entitled_days > g.totalEntitled) {
+      g.totalEntitled = v.total_entitled_days;
+    }
     g.totalDays += v.days_count;
     if (v.status === "approved" || v.enjoyed) g.approvedDays += v.days_count;
     if (v.enjoyed) g.enjoyedDays += v.days_count;
