@@ -240,6 +240,7 @@ export type Database = {
           phone: string | null
           pin_code: string | null
           position: string
+          schedule_template_id: string | null
           status: string
           updated_at: string
           user_id: string | null
@@ -266,6 +267,7 @@ export type Database = {
           phone?: string | null
           pin_code?: string | null
           position?: string
+          schedule_template_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -292,6 +294,7 @@ export type Database = {
           phone?: string | null
           pin_code?: string | null
           position?: string
+          schedule_template_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -309,6 +312,13 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_schedule_template_id_fkey"
+            columns: ["schedule_template_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -511,6 +521,68 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      schedule_template_days: {
+        Row: {
+          clock_in_time: string
+          clock_out_time: string
+          day_of_week: number
+          id: string
+          is_day_off: boolean
+          lunch_in_time: string
+          lunch_out_time: string
+          template_id: string
+        }
+        Insert: {
+          clock_in_time?: string
+          clock_out_time?: string
+          day_of_week: number
+          id?: string
+          is_day_off?: boolean
+          lunch_in_time?: string
+          lunch_out_time?: string
+          template_id: string
+        }
+        Update: {
+          clock_in_time?: string
+          clock_out_time?: string
+          day_of_week?: number
+          id?: string
+          is_day_off?: boolean
+          lunch_in_time?: string
+          lunch_out_time?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_template_days_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       time_clock_records: {
         Row: {

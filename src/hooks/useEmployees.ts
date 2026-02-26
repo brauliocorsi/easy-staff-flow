@@ -12,7 +12,7 @@ export function useEmployees(search: string) {
     queryFn: async () => {
       let query = supabase
         .from("employees")
-        .select("*, departments(name)")
+        .select("*, departments(name), schedule_templates(name)")
         .order("first_name");
 
       if (search) {
