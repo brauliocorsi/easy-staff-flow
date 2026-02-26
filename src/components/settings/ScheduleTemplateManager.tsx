@@ -113,10 +113,28 @@ function TemplateEditor({
   );
 }
 
+function calcWeeklyHours(days: any[] | undefined): string {
+  if (!days) return "0h";
+  let totalMinutes = 0;
+  for (const d of days) {
+    if (d.is_day_off) continue;
+    const toMin = (t: string) => {
+      const [h, m] = t.slice(0, 5).split(":").map(Number);
+      return h * 60 + m;
+    };
+    const work = (toMin(d.clock_out_time) - toMin(d.clock_in_time)) - (toMin(d.lunch_in_time) - toMin(d.lunch_out_time));
+    totalMinutes += Math.max(0, work);
+  }
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return m > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${h}h`;
+}
+
 function TemplateCard({ template, onEdit, onDelete }: { template: any; onEdit: () => void; onDelete: () => void }) {
   const { data: days } = useScheduleTemplateDays(template.id);
   const workDays = days?.filter((d: any) => !d.is_day_off).length ?? 0;
   const offDays = days?.filter((d: any) => d.is_day_off).length ?? 0;
+  const weeklyHours = calcWeeklyHours(days);
 
   return (
     <div className="flex items-center justify-between border rounded-lg p-3">
@@ -127,6 +145,7 @@ function TemplateCard({ template, onEdit, onDelete }: { template: any; onEdit: (
         <div>
           <p className="font-medium text-sm">{template.name}</p>
           <div className="flex gap-2 mt-0.5">
+            <Badge variant="secondary" className="text-xs">{weeklyHours}/semana</Badge>
             <Badge variant="secondary" className="text-xs">{workDays} dias trabalho</Badge>
             <Badge variant="outline" className="text-xs">{offDays} folgas</Badge>
           </div>
