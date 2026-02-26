@@ -23,12 +23,15 @@ export function EmployeeVacations({ employeeId }: Props) {
 
   const totalEntitled = Math.max(...(vacations || []).map(v => v.total_entitled_days), 22);
   const approvedDays = (vacations || [])
-    .filter((v) => v.status === "approved" || v.enjoyed)
+    .filter((v) => (v.status === "approved" || v.enjoyed) && !(v as any).sell_status)
     .reduce((sum, v) => sum + v.days_count, 0);
   const enjoyedDays = (vacations || [])
     .filter((v) => v.enjoyed)
     .reduce((sum, v) => sum + v.days_count, 0);
-  const remainingDays = totalEntitled - approvedDays;
+  const soldDaysApproved = (vacations || [])
+    .filter((v) => (v as any).sell_status === "sell_approved")
+    .reduce((sum, v) => sum + ((v as any).sold_days || 0), 0);
+  const remainingDays = totalEntitled - approvedDays - soldDaysApproved;
 
   return (
     <div className="space-y-3">

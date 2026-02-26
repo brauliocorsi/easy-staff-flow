@@ -59,13 +59,17 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
   const totalDays = periods.reduce((sum, p) => sum + calcDays(p.start_date, p.end_date), 0);
   const entitled = parseInt(totalEntitledDays) || 22;
 
-  // Calculate already used days for selected employee
-  const usedDays = employeeId
-    ? (allVacations || [])
-        .filter((v) => v.employee_id === employeeId && (v.status === "approved" || v.status === "pending" || v.status === "employee_suggested"))
-        .reduce((sum, v) => sum + v.days_count, 0)
-    : 0;
-  const availableDays = entitled - usedDays;
+  // Calculate already used days for selected employee (including sold days)
+  const employeeVacations = employeeId
+    ? (allVacations || []).filter((v) => v.employee_id === employeeId)
+    : [];
+  const usedDays = employeeVacations
+    .filter((v) => !v.sell_status && (v.status === "approved" || v.status === "pending" || v.status === "employee_suggested"))
+    .reduce((sum, v) => sum + v.days_count, 0);
+  const soldDaysApproved = employeeVacations
+    .filter((v) => v.sell_status === "sell_approved")
+    .reduce((sum, v) => sum + (v.sold_days || 0), 0);
+  const availableDays = entitled - usedDays - soldDaysApproved;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,6 +255,12 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Já agendados</span>
                   <span className="text-sm">{usedDays}d</span>
+                </div>
+              )}
+              {employeeId && soldDaysApproved > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Dias vendidos</span>
+                  <span className="text-sm">{soldDaysApproved}d</span>
                 </div>
               )}
               <div className="flex items-center justify-between">
