@@ -4,9 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateEmployee, useUpdateEmployee, useEmployees, type Employee } from "@/hooks/useEmployees";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { EmployeeScheduleEditor } from "./EmployeeScheduleEditor";
 
 interface Props {
   open: boolean;
@@ -20,6 +23,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
   const updateMutation = useUpdateEmployee();
   const loading = createMutation.isPending || updateMutation.isPending;
   const { data: allEmployees } = useEmployees("");
+  const { data: isAdmin } = useIsAdmin();
 
   const [form, setForm] = useState({
     first_name: employee?.first_name || "",
@@ -36,6 +40,8 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     distrito: employee?.distrito || "",
     codigo_postal: employee?.codigo_postal || "",
     manager_id: employee?.manager_id || "",
+    hourly_rate: (employee as any)?.hourly_rate ?? "",
+    monthly_salary: (employee as any)?.monthly_salary ?? "",
   });
 
   const handleChange = (field: string, value: string) => {
@@ -49,10 +55,15 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
       return;
     }
 
-    const payload = {
-      ...form,
-      manager_id: form.manager_id || null,
+    const { hourly_rate, monthly_salary, ...rest } = form;
+    const payload: any = {
+      ...rest,
+      manager_id: rest.manager_id || null,
     };
+    if (isAdmin) {
+      payload.hourly_rate = hourly_rate ? parseFloat(String(hourly_rate)) : null;
+      payload.monthly_salary = monthly_salary ? parseFloat(String(monthly_salary)) : null;
+    }
 
     try {
       if (isEdit && employee) {
@@ -173,6 +184,53 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Admin-only salary section */}
+          {isAdmin && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <Lock className="h-4 w-4" />
+                  Informações Salariais (Admin)
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="hourly_rate">Salário/Hora (€)</Label>
+                    <Input
+                      id="hourly_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={form.hourly_rate}
+                      onChange={(e) => handleChange("hourly_rate", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="monthly_salary">Salário Mensal (€)</Label>
+                    <Input
+                      id="monthly_salary"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={form.monthly_salary}
+                      onChange={(e) => handleChange("monthly_salary", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Schedule editor (only when editing existing employee) */}
+          {isEdit && employee && (
+            <>
+              <Separator />
+              <EmployeeScheduleEditor employeeId={employee.id} />
+            </>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>

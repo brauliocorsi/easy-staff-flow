@@ -229,9 +229,11 @@ export type Database = {
           email: string
           first_name: string
           hire_date: string
+          hourly_rate: number | null
           id: string
           last_name: string
           manager_id: string | null
+          monthly_salary: number | null
           morada: string | null
           nif: string | null
           niss: string | null
@@ -253,9 +255,11 @@ export type Database = {
           email: string
           first_name: string
           hire_date?: string
+          hourly_rate?: number | null
           id?: string
           last_name: string
           manager_id?: string | null
+          monthly_salary?: number | null
           morada?: string | null
           nif?: string | null
           niss?: string | null
@@ -277,9 +281,11 @@ export type Database = {
           email?: string
           first_name?: string
           hire_date?: string
+          hourly_rate?: number | null
           id?: string
           last_name?: string
           manager_id?: string | null
+          monthly_salary?: number | null
           morada?: string | null
           nif?: string | null
           niss?: string | null
