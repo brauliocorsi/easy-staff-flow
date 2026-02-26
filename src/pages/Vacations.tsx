@@ -214,13 +214,13 @@ export default function Vacations() {
                             </div>
                             <div className="flex items-center gap-3 text-sm">
                               <span className="text-muted-foreground">
-                                {group.totalDays}/{group.totalEntitled}d
+                                {group.approvedDays}/{group.totalEntitled}d
                               </span>
-                              <Badge variant={group.approvedDays > 0 ? "default" : "outline"} className="text-xs">
-                                {group.approvedDays}d aprovados
-                              </Badge>
                               <Badge variant={group.enjoyedDays > 0 ? "default" : "outline"} className="text-xs bg-green-600">
                                 {group.enjoyedDays}d gozados
+                              </Badge>
+                              <Badge variant={(group.totalEntitled - group.approvedDays) > 0 ? "secondary" : "outline"} className="text-xs">
+                                {Math.max(0, group.totalEntitled - group.approvedDays)}d restantes
                               </Badge>
                               <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                                 <Tooltip>
