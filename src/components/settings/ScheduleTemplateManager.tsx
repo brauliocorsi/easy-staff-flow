@@ -83,31 +83,44 @@ function TemplateEditor({
       </div>
 
       <div className="space-y-2">
-        <div className="grid grid-cols-[100px_1fr_1fr_1fr_1fr_70px] gap-2 text-xs font-semibold text-muted-foreground px-1">
+        <div className="grid grid-cols-[100px_1fr_1fr_1fr_1fr_60px_70px] gap-2 text-xs font-semibold text-muted-foreground px-1">
           <span>Dia</span>
           <span>Entrada</span>
           <span>Saída Almoço</span>
           <span>Volta Almoço</span>
           <span>Saída</span>
+          <span>Total</span>
           <span>Folga</span>
         </div>
-        {rows.map((row) => (
-          <div
-            key={row.day_of_week}
-            className={`grid grid-cols-[100px_1fr_1fr_1fr_1fr_70px] gap-2 items-center rounded-md p-1.5 ${
-              row.is_day_off ? "opacity-50 bg-muted/50" : ""
-            }`}
-          >
-            <span className="text-sm font-medium">{DAY_NAMES[row.day_of_week]}</span>
-            <Input type="time" value={row.clock_in_time} onChange={(e) => updateRow(row.day_of_week, "clock_in_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
-            <Input type="time" value={row.lunch_out_time} onChange={(e) => updateRow(row.day_of_week, "lunch_out_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
-            <Input type="time" value={row.lunch_in_time} onChange={(e) => updateRow(row.day_of_week, "lunch_in_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
-            <Input type="time" value={row.clock_out_time} onChange={(e) => updateRow(row.day_of_week, "clock_out_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
-            <div className="flex items-center justify-center">
-              <Switch checked={row.is_day_off} onCheckedChange={(v) => updateRow(row.day_of_week, "is_day_off", v)} />
+        {rows.map((row) => {
+          let dailyTotal = "—";
+          if (!row.is_day_off) {
+            const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+            const mins = (toMin(row.clock_out_time) - toMin(row.clock_in_time)) - (toMin(row.lunch_in_time) - toMin(row.lunch_out_time));
+            const val = Math.max(0, mins);
+            const h = Math.floor(val / 60);
+            const m = val % 60;
+            dailyTotal = m > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${h}h`;
+          }
+          return (
+            <div
+              key={row.day_of_week}
+              className={`grid grid-cols-[100px_1fr_1fr_1fr_1fr_60px_70px] gap-2 items-center rounded-md p-1.5 ${
+                row.is_day_off ? "opacity-50 bg-muted/50" : ""
+              }`}
+            >
+              <span className="text-sm font-medium">{DAY_NAMES[row.day_of_week]}</span>
+              <Input type="time" value={row.clock_in_time} onChange={(e) => updateRow(row.day_of_week, "clock_in_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+              <Input type="time" value={row.lunch_out_time} onChange={(e) => updateRow(row.day_of_week, "lunch_out_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+              <Input type="time" value={row.lunch_in_time} onChange={(e) => updateRow(row.day_of_week, "lunch_in_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+              <Input type="time" value={row.clock_out_time} onChange={(e) => updateRow(row.day_of_week, "clock_out_time", e.target.value)} disabled={row.is_day_off} className="h-8 text-xs" />
+              <span className="text-xs font-medium text-center text-primary">{dailyTotal}</span>
+              <div className="flex items-center justify-center">
+                <Switch checked={row.is_day_off} onCheckedChange={(v) => updateRow(row.day_of_week, "is_day_off", v)} />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
