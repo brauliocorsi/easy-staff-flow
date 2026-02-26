@@ -135,6 +135,7 @@ export default function Absences() {
         start_date: absence.absence_date,
         end_date: absence.absence_date,
         days_count: 1,
+        total_entitled_days: 0,
         category: "individual",
         year: new Date(absence.absence_date).getFullYear(),
         status: "approved",
