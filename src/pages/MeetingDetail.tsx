@@ -172,11 +172,15 @@ export default function MeetingDetail() {
                 {isPaused ? "Pausada" : status.label}
               </Badge>
             </div>
+            {(meeting as any).meeting_type && (
+              <p className="text-sm font-medium text-primary">{(meeting as any).meeting_type}</p>
+            )}
             {meeting.description && (
               <p className="text-muted-foreground">{meeting.description}</p>
             )}
             <p className="text-sm text-muted-foreground">
               {format(new Date(meeting.meeting_date), "dd MMM yyyy", { locale: pt })}
+              {(meeting as any).scheduled_time && ` · ${(meeting as any).scheduled_time.slice(0, 5)}`}
               {meeting.duration_minutes && ` · ${meeting.duration_minutes} minutos`}
             </p>
           </div>

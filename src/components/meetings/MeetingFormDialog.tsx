@@ -9,10 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateMeeting, useUpdateMeeting } from "@/hooks/useMeetings";
+import { useMeetingTypes, useCreateMeetingType } from "@/hooks/useMeetingTypes";
 import { toast } from "@/hooks/use-toast";
-import { Users } from "lucide-react";
+import { Users, Plus } from "lucide-react";
 import { format } from "date-fns";
 
 interface MeetingData {
@@ -21,6 +23,8 @@ interface MeetingData {
   description: string | null;
   meeting_date: string;
   duration_minutes?: number | null;
+  meeting_type?: string | null;
+  scheduled_time?: string | null;
   meeting_participants?: { employee_id: string }[];
 }
 
@@ -34,10 +38,16 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [meetingDate, setMeetingDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
+  const [meetingType, setMeetingType] = useState("");
+  const [newTypeName, setNewTypeName] = useState("");
+  const [showNewType, setShowNewType] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
   const { data: employees } = useEmployees("");
+  const { data: meetingTypes } = useMeetingTypes();
+  const createMeetingType = useCreateMeetingType();
   const createMeeting = useCreateMeeting();
   const updateMeeting = useUpdateMeeting();
 
@@ -50,6 +60,8 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
       setDescription(meeting.description ?? "");
       setMeetingDate(format(new Date(meeting.meeting_date), "yyyy-MM-dd"));
       setDurationMinutes(meeting.duration_minutes ? String(meeting.duration_minutes) : "");
+      setMeetingType(meeting.meeting_type ?? "");
+      setScheduledTime(meeting.scheduled_time ?? "");
       setSelectedEmployees(
         (meeting.meeting_participants ?? []).map((p) => p.employee_id)
       );
@@ -68,8 +80,25 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
     setTitle("");
     setDescription("");
     setMeetingDate("");
+    setScheduledTime("");
     setDurationMinutes("");
+    setMeetingType("");
+    setNewTypeName("");
+    setShowNewType(false);
     setSelectedEmployees([]);
+  };
+
+  const handleAddType = async () => {
+    if (!newTypeName.trim()) return;
+    try {
+      await createMeetingType.mutateAsync(newTypeName.trim());
+      setMeetingType(newTypeName.trim());
+      setNewTypeName("");
+      setShowNewType(false);
+      toast({ title: "Tipo de reunião adicionado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar tipo", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +114,6 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
       return;
     }
 
-    // Store meeting_date as just the date (noon UTC to avoid timezone issues)
     const meetingDateISO = new Date(`${meetingDate}T12:00:00`).toISOString();
 
     try {
@@ -97,7 +125,9 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
             description: description || null,
             meeting_date: meetingDateISO,
             duration_minutes: duration,
-            end_time: null, // no longer used
+            meeting_type: meetingType || null,
+            scheduled_time: scheduledTime || null,
+            end_time: null,
           },
           participantIds: selectedEmployees,
         });
@@ -109,6 +139,8 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
             description: description || null,
             meeting_date: meetingDateISO,
             duration_minutes: duration,
+            meeting_type: meetingType || null,
+            scheduled_time: scheduledTime || null,
             created_by: null,
           },
           participantIds: selectedEmployees,
@@ -132,6 +164,43 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
           <DialogDescription>{isEditing ? "Altere os dados da reunião" : "Preencha os dados para agendar uma reunião"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Meeting Type */}
+          <div className="space-y-2">
+            <Label>Tipo de Reunião</Label>
+            {showNewType ? (
+              <div className="flex gap-2">
+                <Input
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  placeholder="Nome do novo tipo"
+                  className="flex-1"
+                />
+                <Button type="button" size="sm" onClick={handleAddType} disabled={createMeetingType.isPending}>
+                  Salvar
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setShowNewType(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select value={meetingType} onValueChange={setMeetingType}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(meetingTypes ?? []).map((t) => (
+                      <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" size="icon" variant="outline" onClick={() => setShowNewType(true)} title="Adicionar novo tipo">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label>Título *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Reunião de alinhamento" />
@@ -140,13 +209,17 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
             <Label>Descrição</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Data *</Label>
               <Input type="date" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Duração (minutos) *</Label>
+              <Label>Horário Início</Label>
+              <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Duração (min) *</Label>
               <Input
                 type="number"
                 min="1"

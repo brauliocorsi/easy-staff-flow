@@ -381,6 +381,24 @@ export type Database = {
           },
         ]
       }
+      meeting_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       meetings: {
         Row: {
           created_at: string
@@ -391,8 +409,10 @@ export type Database = {
           end_time: string | null
           id: string
           meeting_date: string
+          meeting_type: string | null
           paused_at: string | null
           paused_seconds: number
+          scheduled_time: string | null
           started_at: string | null
           status: string
           title: string
@@ -407,8 +427,10 @@ export type Database = {
           end_time?: string | null
           id?: string
           meeting_date: string
+          meeting_type?: string | null
           paused_at?: string | null
           paused_seconds?: number
+          scheduled_time?: string | null
           started_at?: string | null
           status?: string
           title: string
@@ -423,8 +445,10 @@ export type Database = {
           end_time?: string | null
           id?: string
           meeting_date?: string
+          meeting_type?: string | null
           paused_at?: string | null
           paused_seconds?: number
+          scheduled_time?: string | null
           started_at?: string | null
           status?: string
           title?: string
