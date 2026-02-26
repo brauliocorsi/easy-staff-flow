@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,6 +36,7 @@ const menuItems = [
   { title: "Registro de Faltas", icon: CalendarX, path: "/faltas" },
   { title: "Reuniões", icon: Handshake, path: "/reunioes" },
   { title: "Relatório de Ponto", icon: BarChart3, path: "/relatorios/ponto" },
+  { title: "Sugestões", icon: MessageSquare, path: "/sugestoes" },
 ];
 
 export function AppSidebar() {
