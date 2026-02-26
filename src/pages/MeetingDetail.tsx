@@ -145,7 +145,9 @@ export default function MeetingDetail() {
             </Button>
             <div className="flex items-center gap-3">
               <h1 className="font-display text-3xl font-bold tracking-tight">{meeting.title}</h1>
-              <Badge variant={status.variant}>{status.label}</Badge>
+              <Badge variant={isPaused ? "destructive" : status.variant}>
+                {isPaused ? "Pausada" : status.label}
+              </Badge>
             </div>
             {meeting.description && (
               <p className="text-muted-foreground">{meeting.description}</p>
