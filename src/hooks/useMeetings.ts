@@ -12,7 +12,7 @@ export function useMeetings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meetings")
-        .select("*, departments(name), meeting_participants(id, employee_id, employees(first_name, last_name, position, email))")
+        .select("*, departments(name), meeting_participants(id, employee_id, employees(first_name, last_name, position, email)), created_by_employee:employees!meetings_created_by_fkey(first_name, last_name)")
         .order("meeting_date", { ascending: false });
       if (error) throw error;
       return data;
@@ -62,9 +62,21 @@ export function useCreateMeeting() {
       meeting: TablesInsert<"meetings"> & { end_time?: string };
       participantIds: string[];
     }) => {
+      // Get current user's employee ID for created_by
+      const { data: { user } } = await supabase.auth.getUser();
+      let createdBy = meeting.created_by;
+      if (user && !createdBy) {
+        const { data: empData } = await supabase
+          .from("employees")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (empData) createdBy = empData.id;
+      }
+
       const { data, error } = await supabase
         .from("meetings")
-        .insert(meeting)
+        .insert({ ...meeting, created_by: createdBy })
         .select()
         .single();
       if (error) throw error;
@@ -248,10 +260,11 @@ export function useFinalizeMeeting() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (meetingId: string) => {
-      // Update status
+      // Update status and save end time
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from("meetings")
-        .update({ status: "completed" })
+        .update({ status: "completed", end_time: now })
         .eq("id", meetingId);
       if (error) throw error;
 
