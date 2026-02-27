@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Progress } from "@/components/ui/progress";
 import {
   HardHat, Wrench, Settings2, Plus, Trash2, Upload, RotateCcw,
-  Loader2, Cog, ClipboardList, ListChecks, FileText, FileCheck2
+  Loader2, Cog, ClipboardList, ListChecks, FileText, FileCheck2, Eye, AlertTriangle
 } from "lucide-react";
 import { generateEpiPdf } from "@/lib/generateEpiPdf";
 import { format } from "date-fns";
@@ -24,6 +24,8 @@ import { ToolFormDialog } from "@/components/equipment/ToolFormDialog";
 import { MachineFormDialog } from "@/components/equipment/MachineFormDialog";
 import { MaintenanceTaskFormDialog } from "@/components/equipment/MaintenanceTaskFormDialog";
 import { MaintenanceLogDialog } from "@/components/equipment/MaintenanceLogDialog";
+import { RepairFormDialog } from "@/components/equipment/RepairFormDialog";
+import { MachineHealthDialog } from "@/components/equipment/MachineHealthDialog";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   delivered: { label: "Entregue", variant: "default" },
@@ -78,6 +80,9 @@ export default function Equipment() {
   const [maintenanceTab, setMaintenanceTab] = useState("machines");
   const fileInputRef = useState<HTMLInputElement | null>(null);
   const [uploadTarget, setUploadTarget] = useState<{ table: string; id: string } | null>(null);
+  const [repairDialog, setRepairDialog] = useState(false);
+  const [repairMachineId, setRepairMachineId] = useState<string | undefined>();
+  const [healthMachine, setHealthMachine] = useState<any>(null);
 
   // Data queries
   const { data: epis, isLoading: loadingEpis } = useQuery({
@@ -126,6 +131,15 @@ export default function Equipment() {
   });
   const [logDetailDialog, setLogDetailDialog] = useState<any>(null);
 
+  const { data: repairs } = useQuery({
+    queryKey: ["machine-repairs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("machine_repairs" as any).select("*").order("repair_date", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const empName = (id: string) => {
     const e = employees?.find((emp) => emp.id === id);
     return e ? `${e.first_name} ${e.last_name}` : "—";
@@ -142,7 +156,7 @@ export default function Equipment() {
       const { error } = await supabase.from(deleteId.table as any).delete().eq("id", deleteId.id);
       if (error) throw error;
       toast.success("Eliminado com sucesso");
-      qc.invalidateQueries({ queryKey: [deleteId.table === "epi_deliveries" ? "epi-deliveries" : deleteId.table === "tool_assignments" ? "tool-assignments" : deleteId.table] });
+      qc.invalidateQueries({ queryKey: [deleteId.table === "epi_deliveries" ? "epi-deliveries" : deleteId.table === "tool_assignments" ? "tool-assignments" : deleteId.table === "machine_repairs" ? "machine-repairs" : deleteId.table] });
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -369,6 +383,7 @@ export default function Equipment() {
               <TabsList className="mb-4">
                 <TabsTrigger value="machines" className="gap-1.5"><Cog className="h-4 w-4" /> Máquinas</TabsTrigger>
                 <TabsTrigger value="tasks" className="gap-1.5"><ClipboardList className="h-4 w-4" /> Tarefas</TabsTrigger>
+                <TabsTrigger value="repairs" className="gap-1.5"><AlertTriangle className="h-4 w-4" /> Reparações</TabsTrigger>
                 <TabsTrigger value="logs" className="gap-1.5"><ListChecks className="h-4 w-4" /> Registos</TabsTrigger>
               </TabsList>
 
@@ -405,6 +420,9 @@ export default function Equipment() {
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                   <Button variant="ghost" size="sm" onClick={() => { setEditMachine(m); setMachineDialog(true); }}>Editar</Button>
+                                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setHealthMachine(m)}>
+                                    <Eye className="h-3.5 w-3.5" /> Saúde
+                                  </Button>
                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId({ table: "machines", id: m.id })}>
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -481,6 +499,72 @@ export default function Equipment() {
                 </Card>
               </TabsContent>
 
+              {/* Repairs */}
+              <TabsContent value="repairs">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="font-display text-base">Reparações / Intervenções Externas</CardTitle>
+                    <Button size="sm" className="gap-1" onClick={() => { setRepairMachineId(undefined); setRepairDialog(true); }}>
+                      <Plus className="h-4 w-4" /> Novo Pedido
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {!(repairs || []).length ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">Sem reparações registadas.</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Máquina</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead>Empresa</TableHead>
+                            <TableHead>Custo</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Fatura</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(repairs || []).map((r: any) => {
+                            const stMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+                              pending: { label: "Pendente", variant: "destructive" },
+                              in_progress: { label: "Em Curso", variant: "secondary" },
+                              completed: { label: "Concluído", variant: "default" },
+                            };
+                            const st = stMap[r.status] || stMap.pending;
+                            return (
+                              <TableRow key={r.id}>
+                                <TableCell>{format(new Date(r.repair_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
+                                <TableCell className="font-medium">{machineName(r.machine_id)}</TableCell>
+                                <TableCell className="max-w-[200px] truncate">{r.description}</TableCell>
+                                <TableCell>{r.company_name || "—"}</TableCell>
+                                <TableCell>{r.cost ? `${Number(r.cost).toFixed(2)}€` : "—"}</TableCell>
+                                <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
+                                <TableCell>
+                                  {r.invoice_url ? (
+                                    <a href={r.invoice_url} target="_blank" rel="noopener noreferrer">
+                                      <Badge variant="default" className="gap-1 cursor-pointer"><FileText className="h-3 w-3" /> Ver</Badge>
+                                    </a>
+                                  ) : (
+                                    <Badge variant="outline">—</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId({ table: "machine_repairs", id: r.id })}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* Logs */}
               <TabsContent value="logs">
                 <Card>
@@ -541,6 +625,10 @@ export default function Equipment() {
       <MaintenanceTaskFormDialog open={taskDialog} onClose={() => setTaskDialog(false)} />
       {logDialog && (
         <MaintenanceLogDialog open={!!logDialog} onClose={() => setLogDialog(null)} task={logDialog.task} machine={logDialog.machine} />
+      )}
+      <RepairFormDialog open={repairDialog} onClose={() => setRepairDialog(false)} machineId={repairMachineId} />
+      {healthMachine && (
+        <MachineHealthDialog open={!!healthMachine} onClose={() => setHealthMachine(null)} machine={healthMachine} />
       )}
 
       {/* Delete confirmation */}
