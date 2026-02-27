@@ -641,6 +641,72 @@ export type Database = {
           },
         ]
       }
+      machine_repairs: {
+        Row: {
+          company_name: string | null
+          cost: number | null
+          created_at: string
+          description: string
+          id: string
+          invoice_url: string | null
+          machine_id: string
+          notes: string | null
+          parts_replaced: string | null
+          repair_date: string
+          reported_by: string | null
+          resolved_date: string | null
+          status: string
+          technician_name: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          cost?: number | null
+          created_at?: string
+          description: string
+          id?: string
+          invoice_url?: string | null
+          machine_id: string
+          notes?: string | null
+          parts_replaced?: string | null
+          repair_date?: string
+          reported_by?: string | null
+          resolved_date?: string | null
+          status?: string
+          technician_name?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          cost?: number | null
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_url?: string | null
+          machine_id?: string
+          notes?: string | null
+          parts_replaced?: string | null
+          repair_date?: string
+          reported_by?: string | null
+          resolved_date?: string | null
+          status?: string
+          technician_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_repairs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_repairs_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machines: {
         Row: {
           checklist_template: Json
