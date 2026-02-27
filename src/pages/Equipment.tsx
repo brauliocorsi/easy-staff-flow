@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import {
   HardHat, Wrench, Settings2, Plus, Trash2, Upload, RotateCcw,
   Loader2, Cog, ClipboardList, ListChecks, FileText, FileCheck2
@@ -39,6 +41,28 @@ const freqMap: Record<string, string> = {
 };
 
 const DAYS_OF_WEEK = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function calcCompletionPercent(checklistData: any, machine?: any): number | null {
+  const template = machine?.checklist_template || [];
+  if (!Array.isArray(template) || template.length === 0) return null;
+  const total = template.length;
+  let done = 0;
+  for (const field of template) {
+    const val = checklistData?.[field.name];
+    if (field.type === "checkbox") {
+      if (val === true) done++;
+    } else if (val !== undefined && val !== null && val !== "") {
+      done++;
+    }
+  }
+  return Math.round((done / total) * 100);
+}
+
+function completionBadge(pct: number | null) {
+  if (pct === null) return <Badge variant="outline">N/A</Badge>;
+  const variant = pct === 100 ? "default" : pct >= 50 ? "secondary" : "destructive";
+  return <Badge variant={variant}>{pct}%</Badge>;
+}
 
 export default function Equipment() {
   const qc = useQueryClient();
@@ -100,6 +124,7 @@ export default function Equipment() {
       return data || [];
     },
   });
+  const [logDetailDialog, setLogDetailDialog] = useState<any>(null);
 
   const empName = (id: string) => {
     const e = employees?.find((emp) => emp.id === id);
@@ -472,24 +497,30 @@ export default function Equipment() {
                             <TableHead>Data</TableHead>
                             <TableHead>Máquina</TableHead>
                             <TableHead>Responsável</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead>Conclusão</TableHead>
                             <TableHead>Observações</TableHead>
+                            <TableHead className="text-right">Detalhes</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(logs || []).map((l: any) => (
-                            <TableRow key={l.id}>
-                              <TableCell>{format(new Date(l.completed_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
-                              <TableCell>{machineName(l.machine_id)}</TableCell>
-                              <TableCell>{empName(l.employee_id)}</TableCell>
-                              <TableCell>
-                                <Badge variant={l.status === "completed" ? "default" : "outline"}>
-                                  {l.status === "completed" ? "Concluído" : l.status === "skipped" ? "Saltado" : "Pendente"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate">{l.notes || "—"}</TableCell>
-                            </TableRow>
-                          ))}
+                          {(logs || []).map((l: any) => {
+                            const machine = (machines || []).find((m: any) => m.id === l.machine_id);
+                            const pct = calcCompletionPercent(l.checklist_data, machine);
+                            return (
+                              <TableRow key={l.id}>
+                                <TableCell>{format(new Date(l.completed_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
+                                <TableCell>{machineName(l.machine_id)}</TableCell>
+                                <TableCell>{empName(l.employee_id)}</TableCell>
+                                <TableCell>{completionBadge(pct)}</TableCell>
+                                <TableCell className="max-w-[200px] truncate">{l.notes || "—"}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="sm" onClick={() => setLogDetailDialog({ log: l, machine })}>
+                                    Ver
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     )}
@@ -528,6 +559,65 @@ export default function Equipment() {
 
       {/* Hidden file input */}
       <input id="equip-file-input" type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload} />
+
+      {/* Log Detail Dialog */}
+      <Dialog open={!!logDetailDialog} onOpenChange={(v) => !v && setLogDetailDialog(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">Detalhes da Manutenção</DialogTitle>
+            <DialogDescription>
+              {logDetailDialog?.log && `${format(new Date(logDetailDialog.log.completed_date + "T00:00:00"), "dd/MM/yyyy")} — ${machineName(logDetailDialog.log.machine_id)}`}
+            </DialogDescription>
+          </DialogHeader>
+          {logDetailDialog && (() => {
+            const { log, machine } = logDetailDialog;
+            const template = machine?.checklist_template || [];
+            const pct = calcCompletionPercent(log.checklist_data, machine);
+            return (
+              <div className="space-y-4">
+                {pct !== null && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">Conclusão</span>
+                      {completionBadge(pct)}
+                    </div>
+                    <Progress value={pct} className="h-2" />
+                  </div>
+                )}
+                {Array.isArray(template) && template.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Checklist</p>
+                    {template.map((field: any, idx: number) => {
+                      const val = log.checklist_data?.[field.name];
+                      const isCheck = field.type === "checkbox";
+                      const done = isCheck ? val === true : val !== undefined && val !== null && val !== "";
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-md border text-sm">
+                          <span>{field.label || field.name}</span>
+                          {isCheck ? (
+                            <Badge variant={done ? "default" : "destructive"}>{done ? "✓ Sim" : "✗ Não"}</Badge>
+                          ) : (
+                            <span className="font-medium">{done ? String(val) : <Badge variant="destructive">Não preenchido</Badge>}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {log.notes && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Observações</p>
+                    <p className="text-sm text-muted-foreground">{log.notes}</p>
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  Responsável: {empName(log.employee_id)}
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
