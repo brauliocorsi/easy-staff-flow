@@ -1113,6 +1113,30 @@ export type Database = {
         }
         Relationships: []
       }
+      time_clock_alarms: {
+        Row: {
+          alarm_time: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+        }
+        Insert: {
+          alarm_time: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+        }
+        Update: {
+          alarm_time?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+        }
+        Relationships: []
+      }
       time_clock_records: {
         Row: {
           approved: boolean | null

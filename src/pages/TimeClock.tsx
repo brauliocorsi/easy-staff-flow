@@ -4,12 +4,15 @@ import { EmployeeCardGrid } from "@/components/timeclock/EmployeeCardGrid";
 import { PinModal } from "@/components/timeclock/PinModal";
 import type { EmployeeData } from "@/components/timeclock/EmployeeCard";
 import { supabase } from "@/integrations/supabase/client";
+import { useTimeClockAlarms } from "@/hooks/useTimeClockAlarms";
 import { Loader2 } from "lucide-react";
 
 export default function TimeClock() {
   const [employees, setEmployees] = useState<EmployeeData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EmployeeData | null>(null);
+
+  useTimeClockAlarms();
 
   const fetchEmployees = useCallback(async () => {
     try {
