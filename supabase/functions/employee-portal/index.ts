@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
         supabase.from("employee_trainings").select("*").eq("employee_id", emp.id).order("training_date", { ascending: false }),
         supabase.from("epi_deliveries").select("*").eq("employee_id", emp.id).order("delivery_date", { ascending: false }),
         supabase.from("tool_assignments").select("*").eq("employee_id", emp.id).order("assigned_date", { ascending: false }),
-        supabase.from("maintenance_logs").select("*").eq("employee_id", emp.id).order("completed_date", { ascending: false }),
+        supabase.from("maintenance_logs").select("*, machines(id, name, checklist_template)").eq("employee_id", emp.id).order("completed_date", { ascending: false }),
         supabase.from("maintenance_tasks").select("*, machines(id, name, location, checklist_template)").eq("employee_id", emp.id).eq("is_active", true).order("created_at", { ascending: false }),
       ]);
 

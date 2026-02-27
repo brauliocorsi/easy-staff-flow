@@ -38,6 +38,20 @@ const freqMap: Record<string, string> = {
 
 const DAYS_OF_WEEK = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+function calcPortalCompletion(checklistData: any, template: any[]): number {
+  if (!Array.isArray(template) || template.length === 0) return 100;
+  let done = 0;
+  for (const field of template) {
+    const val = checklistData?.[field.name];
+    if (field.type === "checkbox") {
+      if (val === true) done++;
+    } else if (val !== undefined && val !== null && val !== "") {
+      done++;
+    }
+  }
+  return Math.round((done / template.length) * 100);
+}
+
 export default function EmployeePortal() {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,6 +80,7 @@ export default function EmployeePortal() {
   const [maintenanceSubmitting, setMaintenanceSubmitting] = useState(false);
   const [checklistData, setChecklistData] = useState<Record<string, any>>({});
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
+  const [logHistoryDetail, setLogHistoryDetail] = useState<any>(null);
 
   const handleLogin = async () => {
     if (pin.length !== 4) return;
@@ -464,18 +479,25 @@ export default function EmployeePortal() {
         {/* Manutenções Realizadas */}
         <SectionCard title="Manutenções Realizadas" icon={Settings2} iconClass="text-primary" count={(data.maintenance_logs || []).length}>
           {(data.maintenance_logs || []).length === 0 ? <EmptyText /> : (
-            <div className="space-y-2 max-h-52 overflow-y-auto">
-              {(data.maintenance_logs || []).map((log: any) => (
-                <div key={log.id} className="flex items-center justify-between p-2 rounded-md border">
-                  <div>
-                    <p className="text-sm font-medium">{format(new Date(log.completed_date + "T00:00:00"), "dd/MM/yyyy")}</p>
-                    <p className="text-xs text-muted-foreground">{log.notes || "Sem observações"}</p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {(data.maintenance_logs || []).map((log: any) => {
+                const machine = log.machines || (data.maintenance_tasks || []).find((t: any) => t.id === log.task_id)?.machines;
+                const template = machine?.checklist_template || [];
+                const pct = calcPortalCompletion(log.checklist_data, template);
+                return (
+                  <div key={log.id} className="p-3 rounded-md border space-y-1 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setLogHistoryDetail({ log, template, machine })}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">{format(new Date(log.completed_date + "T00:00:00"), "dd/MM/yyyy")}</p>
+                      <Badge variant={pct === 100 ? "default" : pct >= 50 ? "secondary" : "destructive"} className="text-xs">
+                        {pct}%
+                      </Badge>
+                    </div>
+                    {machine && <p className="text-xs text-muted-foreground">🔧 {machine.name}</p>}
+                    {log.notes && <p className="text-xs text-muted-foreground">{log.notes}</p>}
                   </div>
-                  <Badge variant={log.status === "completed" ? "default" : "outline"} className="text-xs">
-                    {log.status === "completed" ? "Concluído" : "Pendente"}
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </SectionCard>
@@ -699,6 +721,62 @@ export default function EmployeePortal() {
               Registar Manutenção
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Maintenance History Detail Dialog */}
+      <Dialog open={!!logHistoryDetail} onOpenChange={(v) => !v && setLogHistoryDetail(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">Detalhes da Manutenção</DialogTitle>
+            <DialogDescription>
+              {logHistoryDetail?.log && format(new Date(logHistoryDetail.log.completed_date + "T00:00:00"), "dd/MM/yyyy")}
+              {logHistoryDetail?.machine && ` — ${logHistoryDetail.machine.name}`}
+            </DialogDescription>
+          </DialogHeader>
+          {logHistoryDetail && (() => {
+            const { log, template } = logHistoryDetail;
+            const pct = calcPortalCompletion(log.checklist_data, template);
+            return (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Conclusão</span>
+                    <Badge variant={pct === 100 ? "default" : pct >= 50 ? "secondary" : "destructive"}>{pct}%</Badge>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+                {Array.isArray(template) && template.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Checklist</p>
+                    {template.map((field: any, idx: number) => {
+                      const val = log.checklist_data?.[field.name];
+                      const isCheck = field.type === "checkbox";
+                      const done = isCheck ? val === true : val !== undefined && val !== null && val !== "";
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-md border text-sm">
+                          <span>{field.label || field.name}</span>
+                          {isCheck ? (
+                            <Badge variant={done ? "default" : "destructive"} className="text-xs">{done ? "✓ Sim" : "✗ Não"}</Badge>
+                          ) : (
+                            <span className="font-medium text-sm">{done ? String(val) : <Badge variant="destructive" className="text-xs">Não preenchido</Badge>}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {log.notes && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Observações</p>
+                    <p className="text-sm text-muted-foreground">{log.notes}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
