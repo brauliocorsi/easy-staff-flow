@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { pin, action, employee_id, suggestion, evaluation_id, evaluation_data } = await req.json();
+    const { pin, action, employee_id, suggestion, evaluation_id, evaluation_data, maintenance_log } = await req.json();
 
     // Action: authenticate with PIN
     if (action === "login") {
@@ -151,6 +151,30 @@ Deno.serve(async (req) => {
         })
         .eq("id", evaluation_id)
         .eq("evaluator_id", employee_id);
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: submit maintenance log
+    if (action === "submit_maintenance_log") {
+      if (!employee_id || !maintenance_log?.task_id || !maintenance_log?.machine_id) {
+        return new Response(JSON.stringify({ error: "Dados obrigatórios em falta" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error } = await supabase.from("maintenance_logs").insert({
+        task_id: maintenance_log.task_id,
+        machine_id: maintenance_log.machine_id,
+        employee_id: employee_id,
+        checklist_data: maintenance_log.checklist_data || {},
+        notes: maintenance_log.notes || null,
+        status: "completed",
+      });
 
       if (error) throw error;
 

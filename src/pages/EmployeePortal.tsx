@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -59,6 +60,12 @@ export default function EmployeePortal() {
     punctuality_rating: 0, communication_rating: 0,
     strengths: "", improvements: "", comments: "",
   });
+  // Maintenance log
+  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<any>(null);
+  const [maintenanceSubmitting, setMaintenanceSubmitting] = useState(false);
+  const [checklistData, setChecklistData] = useState<Record<string, any>>({});
+  const [maintenanceNotes, setMaintenanceNotes] = useState("");
 
   const handleLogin = async () => {
     if (pin.length !== 4) return;
@@ -134,6 +141,49 @@ export default function EmployeePortal() {
       toast.error(err.message || "Erro ao submeter");
     } finally {
       setEvalSubmitting(false);
+    }
+  };
+
+  const openMaintenanceDialog = (task: any) => {
+    setActiveTask(task);
+    setChecklistData({});
+    setMaintenanceNotes("");
+    setMaintenanceDialogOpen(true);
+  };
+
+  const handleSubmitMaintenanceLog = async () => {
+    if (!activeTask) return;
+    setMaintenanceSubmitting(true);
+    try {
+      const { data: res, error } = await supabase.functions.invoke("employee-portal", {
+        body: {
+          action: "submit_maintenance_log",
+          employee_id: data?.employee?.id,
+          maintenance_log: {
+            task_id: activeTask.id,
+            machine_id: activeTask.machine_id,
+            checklist_data: checklistData,
+            notes: maintenanceNotes,
+          },
+        },
+      });
+      if (error) throw error;
+      if (res?.error) throw new Error(res.error);
+      toast.success("Manutenção registada com sucesso!");
+      setMaintenanceDialogOpen(false);
+      setActiveTask(null);
+      // Add to logs list
+      setData((prev: any) => ({
+        ...prev,
+        maintenance_logs: [
+          { id: crypto.randomUUID(), completed_date: new Date().toISOString().split("T")[0], notes: maintenanceNotes, status: "completed", checklist_data: checklistData },
+          ...(prev.maintenance_logs || []),
+        ],
+      }));
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao registar manutenção");
+    } finally {
+      setMaintenanceSubmitting(false);
     }
   };
 
@@ -447,7 +497,12 @@ export default function EmployeePortal() {
                   <div key={task.id} className="p-3 rounded-md border space-y-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium">{task.title}</p>
-                      <Badge variant="outline" className="text-xs">{freqLabel}{scheduleDetail}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">{freqLabel}{scheduleDetail}</Badge>
+                        <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => openMaintenanceDialog(task)}>
+                          Registar
+                        </Button>
+                      </div>
                     </div>
                     {task.machines && (
                       <p className="text-xs text-muted-foreground">
@@ -586,6 +641,62 @@ export default function EmployeePortal() {
             <Button onClick={handleSubmitEvaluation} disabled={evalSubmitting}>
               {evalSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Submeter Avaliação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Maintenance Log Dialog */}
+      <Dialog open={maintenanceDialogOpen} onOpenChange={(v) => { if (!v) { setMaintenanceDialogOpen(false); setActiveTask(null); } }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">Registar Manutenção</DialogTitle>
+            <DialogDescription>
+              {activeTask?.title}{activeTask?.machines ? ` — ${activeTask.machines.name}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {activeTask?.machines?.checklist_template && (activeTask.machines.checklist_template as any[]).length > 0 ? (
+              (activeTask.machines.checklist_template as any[]).map((field: any, idx: number) => (
+                <div key={idx} className="space-y-1">
+                  <Label>{field.label || field.name}</Label>
+                  {field.type === "checkbox" ? (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={!!checklistData[field.name]}
+                        onCheckedChange={(v) => setChecklistData((d) => ({ ...d, [field.name]: !!v }))}
+                      />
+                      <span className="text-sm">Sim</span>
+                    </div>
+                  ) : field.type === "select" ? (
+                    <Select value={checklistData[field.name] || ""} onValueChange={(v) => setChecklistData((d) => ({ ...d, [field.name]: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                      <SelectContent>
+                        {(field.options || []).map((opt: string) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : field.type === "number" ? (
+                    <Input type="number" value={checklistData[field.name] || ""} onChange={(e) => setChecklistData((d) => ({ ...d, [field.name]: e.target.value }))} />
+                  ) : (
+                    <Input value={checklistData[field.name] || ""} onChange={(e) => setChecklistData((d) => ({ ...d, [field.name]: e.target.value }))} />
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">Esta máquina não tem checklist configurado.</p>
+            )}
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Textarea value={maintenanceNotes} onChange={(e) => setMaintenanceNotes(e.target.value)} rows={3} placeholder="Notas adicionais..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMaintenanceDialogOpen(false); setActiveTask(null); }}>Cancelar</Button>
+            <Button onClick={handleSubmitMaintenanceLog} disabled={maintenanceSubmitting}>
+              {maintenanceSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Registar Manutenção
             </Button>
           </DialogFooter>
         </DialogContent>
