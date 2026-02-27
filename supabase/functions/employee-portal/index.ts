@@ -167,6 +167,22 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Check if already registered today
+      const today = new Date().toISOString().split("T")[0];
+      const { data: existing } = await supabase
+        .from("maintenance_logs")
+        .select("id")
+        .eq("task_id", maintenance_log.task_id)
+        .eq("employee_id", employee_id)
+        .eq("completed_date", today)
+        .maybeSingle();
+
+      if (existing) {
+        return new Response(JSON.stringify({ error: "Esta tarefa já foi registada hoje" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { error } = await supabase.from("maintenance_logs").insert({
         task_id: maintenance_log.task_id,
         machine_id: maintenance_log.machine_id,
