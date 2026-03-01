@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -23,14 +24,27 @@ interface Props {
 
 export function DailyOverviewTable({ onSelectEmployee }: Props) {
   const [date, setDate] = useState<Date>(new Date());
+  const [departmentId, setDepartmentId] = useState<string>("all");
   const dateStr = format(date, "yyyy-MM-dd");
+
+  const { data: departments } = useQuery({
+    queryKey: ["departments-overview"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: employees } = useQuery({
     queryKey: ["employees-active-overview"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, position, schedule_template_id")
+        .select("id, first_name, last_name, position, schedule_template_id, department_id")
         .eq("status", "active")
         .order("first_name");
       if (error) throw error;
@@ -65,7 +79,11 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
   const recordMap = new Map((records || []).map((r) => [r.employee_id, r]));
   const schedMap = new Map((templateDays || []).map((d: any) => [d.template_id, d]));
 
-  const rows = (employees || []).map((emp) => {
+  const filteredEmployees = (employees || []).filter((emp) =>
+    departmentId === "all" ? true : emp.department_id === departmentId
+  );
+
+  const rows = filteredEmployees.map((emp) => {
     const rec = recordMap.get(emp.id);
     const sched = emp.schedule_template_id ? schedMap.get(emp.schedule_template_id) : null;
     const isDayOff = sched?.is_day_off ?? (date.getDay() === 0 || date.getDay() === 6);
@@ -119,6 +137,18 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
             <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="p-3 pointer-events-auto" />
           </PopoverContent>
         </Popover>
+
+        <Select value={departmentId} onValueChange={setDepartmentId}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Todos os departamentos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os departamentos</SelectItem>
+            {(departments || []).map((dep) => (
+              <SelectItem key={dep.id} value={dep.id}>{dep.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex gap-3 text-sm">
           <span className="text-muted-foreground">
