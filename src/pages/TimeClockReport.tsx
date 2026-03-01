@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Clock, AlertTriangle, Timer, Pencil, Plus } from "lucide-react";
+import { CalendarIcon, Clock, AlertTriangle, Timer, Pencil, Plus, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeClockRecordDialog } from "@/components/timeclock/TimeClockRecordDialog";
+import { DailyOverviewTable } from "@/components/timeclock/DailyOverviewTable";
 
 type PeriodType = "day" | "week" | "month";
 
@@ -194,6 +195,12 @@ export default function TimeClockReport() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 items-end">
+          {employeeId && (
+            <Button variant="ghost" size="sm" onClick={() => setEmployeeId("")} className="self-end">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Vista Geral
+            </Button>
+          )}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Funcionário</label>
             <Select value={employeeId} onValueChange={setEmployeeId}>
@@ -346,9 +353,7 @@ export default function TimeClockReport() {
         )}
 
         {!employeeId && (
-          <div className="text-center py-12 text-muted-foreground">
-            Selecione um funcionário para ver o relatório de ponto.
-          </div>
+          <DailyOverviewTable onSelectEmployee={(id) => setEmployeeId(id)} />
         )}
       </div>
 
