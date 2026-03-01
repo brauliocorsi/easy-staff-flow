@@ -15,6 +15,7 @@ import { CalendarIcon, Clock, AlertTriangle, Timer, Pencil, Plus, ArrowLeft } fr
 import { cn } from "@/lib/utils";
 import { TimeClockRecordDialog } from "@/components/timeclock/TimeClockRecordDialog";
 import { DailyOverviewTable } from "@/components/timeclock/DailyOverviewTable";
+import { MonthlyExportDialog } from "@/components/timeclock/MonthlyExportDialog";
 
 type PeriodType = "day" | "week" | "month";
 
@@ -189,8 +190,13 @@ export default function TimeClockReport() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Relatório de Ponto</h1>
-          <p className="text-muted-foreground text-sm">Registros de ponto por funcionário com cálculo de horas</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-foreground">Relatório de Ponto</h1>
+              <p className="text-muted-foreground text-sm">Registros de ponto por funcionário com cálculo de horas</p>
+            </div>
+            <MonthlyExportDialog />
+          </div>
         </div>
 
         {/* Filters */}
