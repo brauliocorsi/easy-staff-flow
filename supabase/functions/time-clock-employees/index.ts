@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
         position: emp.position,
         avatar_url: emp.avatar_url,
         department: emp.departments?.name || null,
+        department_id: emp.department_id || null,
         today_status: nextAction,
         schedule_label,
         scheduled_clock_in: tDay && !tDay.is_day_off ? tDay.clock_in_time : null,
