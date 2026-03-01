@@ -9,9 +9,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Users } from "lucide-react";
+import { CalendarIcon, Users, FileSpreadsheet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 
 function formatTime(ts: string | null): string {
   if (!ts) return "—";
@@ -116,6 +118,16 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     }
   };
 
+  const statusLabel = (s: string) => {
+    switch (s) {
+      case "ok": return "Completo";
+      case "incomplete": return "Incompleto";
+      case "missing": return "Sem registo";
+      case "dayoff": return "Folga";
+      default: return "";
+    }
+  };
+
   const summary = {
     total: rows.filter(r => r.status !== "dayoff").length,
     ok: rows.filter(r => r.status === "ok").length,
@@ -123,9 +135,72 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     missing: rows.filter(r => r.status === "missing").length,
   };
 
+  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Status"];
+
+  const getExportRows = useCallback(() => {
+    return rows.map((r) => [
+      r.name,
+      r.position,
+      formatTime(r.clockIn),
+      formatTime(r.lunchOut),
+      formatTime(r.lunchIn),
+      formatTime(r.clockOut),
+      r.scheduledIn ? r.scheduledIn.slice(0, 5) : "—",
+      statusLabel(r.status),
+    ]);
+  }, [rows]);
+
+  const handleExportExcel = useCallback(() => {
+    const data = [exportHeaders, ...getExportRows()];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ponto");
+    ws["!cols"] = exportHeaders.map(() => ({ wch: 18 }));
+    XLSX.writeFile(wb, `ponto_${dateStr}.xlsx`);
+  }, [getExportRows, dateStr]);
+
+  const handleExportPdf = useCallback(() => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    const title = `Relatório de Ponto — ${format(date, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: pt })}`;
+    doc.setFontSize(14);
+    doc.text(title, 14, 18);
+    doc.setFontSize(9);
+    doc.text(`Total: ${summary.total} | Completos: ${summary.ok} | Incompletos: ${summary.incomplete} | Sem registo: ${summary.missing}`, 14, 26);
+
+    const dataRows = getExportRows();
+    const startY = 34;
+    const colWidths = [50, 35, 22, 28, 28, 22, 28, 25];
+    const rowH = 7;
+
+    // header
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, startY - 5, colWidths.reduce((a, b) => a + b, 0), rowH, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    let x = 14;
+    exportHeaders.forEach((h, i) => {
+      doc.text(h, x + 1, startY);
+      x += colWidths[i];
+    });
+
+    // rows
+    doc.setFont("helvetica", "normal");
+    dataRows.forEach((row, ri) => {
+      const y = startY + (ri + 1) * rowH;
+      if (y > 190) return; // page overflow guard
+      x = 14;
+      row.forEach((cell, ci) => {
+        doc.text(String(cell), x + 1, y);
+        x += colWidths[ci];
+      });
+    });
+
+    doc.save(`ponto_${dateStr}.pdf`);
+  }, [getExportRows, date, dateStr, summary]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className={cn("w-[200px] justify-start text-left font-normal")}>
@@ -158,6 +233,17 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
           <span className="text-green-600 font-medium">{summary.ok} completos</span>
           <span className="text-amber-600 font-medium">{summary.incomplete} incompletos</span>
           <span className="text-destructive font-medium">{summary.missing} sem registo</span>
+        </div>
+
+        <div className="flex gap-2 ml-auto">
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" />
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPdf}>
+            <FileText className="h-4 w-4 mr-1" />
+            PDF
+          </Button>
         </div>
       </div>
 
