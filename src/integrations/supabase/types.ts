@@ -1379,6 +1379,190 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_documents: {
+        Row: {
+          cost: number | null
+          created_at: string
+          description: string
+          expiry_date: string
+          file_url: string | null
+          id: string
+          notes: string | null
+          provider: string | null
+          reminder_days: number
+          start_date: string
+          status: string
+          type: string
+          vehicle_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          description: string
+          expiry_date: string
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          provider?: string | null
+          reminder_days?: number
+          start_date: string
+          status?: string
+          type?: string
+          vehicle_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          description?: string
+          expiry_date?: string
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          provider?: string | null
+          reminder_days?: number
+          start_date?: string
+          status?: string
+          type?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_documents_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_maintenances: {
+        Row: {
+          cost: number | null
+          created_at: string
+          description: string
+          id: string
+          invoice_url: string | null
+          km_at_maintenance: number | null
+          maintenance_date: string
+          next_maintenance_date: string | null
+          next_maintenance_km: number | null
+          notes: string | null
+          parts_replaced: string | null
+          performed_by: string | null
+          provider: string | null
+          status: string
+          type: string
+          vehicle_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          description: string
+          id?: string
+          invoice_url?: string | null
+          km_at_maintenance?: number | null
+          maintenance_date?: string
+          next_maintenance_date?: string | null
+          next_maintenance_km?: number | null
+          notes?: string | null
+          parts_replaced?: string | null
+          performed_by?: string | null
+          provider?: string | null
+          status?: string
+          type?: string
+          vehicle_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_url?: string | null
+          km_at_maintenance?: number | null
+          maintenance_date?: string
+          next_maintenance_date?: string | null
+          next_maintenance_km?: number | null
+          notes?: string | null
+          parts_replaced?: string | null
+          performed_by?: string | null
+          provider?: string | null
+          status?: string
+          type?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_maintenances_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_maintenances_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          assigned_employee_id: string | null
+          brand: string | null
+          color: string | null
+          created_at: string
+          fuel_type: string | null
+          id: string
+          km_current: number | null
+          model: string | null
+          notes: string | null
+          plate: string
+          status: string
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          assigned_employee_id?: string | null
+          brand?: string | null
+          color?: string | null
+          created_at?: string
+          fuel_type?: string | null
+          id?: string
+          km_current?: number | null
+          model?: string | null
+          notes?: string | null
+          plate: string
+          status?: string
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          assigned_employee_id?: string | null
+          brand?: string | null
+          color?: string | null
+          created_at?: string
+          fuel_type?: string | null
+          id?: string
+          km_current?: number | null
+          model?: string | null
+          notes?: string | null
+          plate?: string
+          status?: string
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_assigned_employee_id_fkey"
+            columns: ["assigned_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warnings: {
         Row: {
           created_at: string
