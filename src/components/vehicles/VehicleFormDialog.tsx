@@ -87,10 +87,10 @@ export default function VehicleFormDialog({ open, onClose, onSave, vehicle, empl
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Responsável</Label>
-              <Select value={form.assigned_employee_id} onValueChange={v => setForm(f => ({ ...f, assigned_employee_id: v }))}>
+              <Select value={form.assigned_employee_id || "none"} onValueChange={v => setForm(f => ({ ...f, assigned_employee_id: v === "none" ? "" : v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {employees.map(e => (
                     <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>
                   ))}
