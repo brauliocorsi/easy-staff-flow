@@ -5,14 +5,25 @@ import { DepartmentManager } from "@/components/settings/DepartmentManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, ExternalLink, Monitor } from "lucide-react";
+import { Copy, ExternalLink, Monitor, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const baseUrl = window.location.origin;
   const attendanceLink = `${baseUrl}/presenca`;
   const timeClockLink = `${baseUrl}/ponto`;
   const portalLink = `${baseUrl}/portal`;
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("departments").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const copyToClipboard = (link: string, label: string) => {
     navigator.clipboard.writeText(link);
@@ -51,7 +62,7 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">Protegido por PIN. Ideal para ecrãs/TVs no escritório.</p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Relógio de Ponto</label>
+              <label className="text-sm font-medium">Relógio de Ponto (Geral)</label>
               <div className="flex gap-2">
                 <Input value={timeClockLink} readOnly className="font-mono text-sm" />
                 <Button variant="outline" size="icon" onClick={() => copyToClipboard(timeClockLink, "Relógio de Ponto")}>
@@ -63,7 +74,7 @@ export default function Settings() {
                   </a>
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Terminal de ponto para os funcionários.</p>
+              <p className="text-xs text-muted-foreground">Terminal de ponto para todos os funcionários.</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Portal do Funcionário</label>
@@ -82,6 +93,41 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {departments.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Relógio de Ponto por Departamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                URLs públicas que mostram apenas os funcionários do departamento correspondente.
+              </p>
+              {departments.map((dept) => {
+                const deptLink = `${baseUrl}/ponto?dept=${dept.id}`;
+                return (
+                  <div key={dept.id} className="space-y-1">
+                    <label className="text-sm font-medium">{dept.name}</label>
+                    <div className="flex gap-2">
+                      <Input value={deptLink} readOnly className="font-mono text-sm" />
+                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(deptLink, dept.name)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="icon" asChild>
+                        <a href={deptLink} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         <DepartmentManager />
 
