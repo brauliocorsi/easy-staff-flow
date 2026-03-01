@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { useCreateEmployee, useUpdateEmployee, useEmployees, type Employee } from "@/hooks/useEmployees";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useScheduleTemplates } from "@/hooks/useScheduleTemplates";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EmployeeContracts } from "./EmployeeContracts";
@@ -34,6 +36,15 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
   const { data: isAdmin } = useIsAdmin();
   const { data: scheduleTemplates } = useScheduleTemplates();
 
+  const { data: departments } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("departments").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [form, setForm] = useState({
     first_name: employee?.first_name || "",
     last_name: employee?.last_name || "",
@@ -49,6 +60,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     distrito: employee?.distrito || "",
     codigo_postal: employee?.codigo_postal || "",
     manager_id: employee?.manager_id || "",
+    department_id: employee?.department_id || "",
     schedule_template_id: (employee as any)?.schedule_template_id || "",
     hire_date: employee?.hire_date || new Date().toISOString().split("T")[0],
     birth_date: employee?.birth_date || "",
@@ -82,6 +94,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
       ...rest,
       manager_id: rest.manager_id || null,
       schedule_template_id: rest.schedule_template_id || null,
+      department_id: rest.department_id || null,
       birth_date: rest.birth_date || null,
       nif: rest.nif || null,
       niss: rest.niss || null,
@@ -257,6 +270,20 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
                 <SelectItem value="none">Sem gestor</SelectItem>
                 {managerOptions.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.first_name} {m.last_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Department */}
+          <div className="space-y-2">
+            <Label>Departamento</Label>
+            <Select value={form.department_id || "none"} onValueChange={(v) => handleChange("department_id", v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Sem departamento" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem departamento</SelectItem>
+                {(departments || []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
