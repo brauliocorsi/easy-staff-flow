@@ -152,8 +152,9 @@ export default function Employees() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Funcionário</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Email</TableHead>
+                     <TableHead>Cargo</TableHead>
+                     <TableHead>Departamento</TableHead>
+                     <TableHead>Email</TableHead>
                      <TableHead>Faltas</TableHead>
                      <TableHead>Advertências</TableHead>
                      <TableHead>Férias</TableHead>
@@ -179,6 +180,7 @@ export default function Employees() {
                           </div>
                         </TableCell>
                         <TableCell>{emp.position}</TableCell>
+                        <TableCell className="text-muted-foreground">{(emp as any).departments?.name || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{emp.email}</TableCell>
                         <TableCell>
                           <div className="flex gap-1.5">
