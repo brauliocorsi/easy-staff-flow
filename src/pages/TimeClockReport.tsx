@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Clock, AlertTriangle, Timer } from "lucide-react";
+import { CalendarIcon, Clock, AlertTriangle, Timer, Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TimeClockRecordDialog } from "@/components/timeclock/TimeClockRecordDialog";
 
 type PeriodType = "day" | "week" | "month";
 
@@ -41,6 +42,7 @@ export default function TimeClockReport() {
   const [employeeId, setEmployeeId] = useState<string>("");
   const [period, setPeriod] = useState<PeriodType>("week");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [editDialog, setEditDialog] = useState<{ open: boolean; record?: any; date?: string }>({ open: false });
 
   const dateRange = useMemo(() => {
     if (period === "day") return { start: selectedDate, end: selectedDate };
@@ -156,6 +158,7 @@ export default function TimeClockReport() {
         overtimeMinutes,
         lateMinutes,
         status,
+        record: rec || null,
       };
     });
   }, [records, employeeId, dateRange, scheduleData]);
@@ -233,6 +236,13 @@ export default function TimeClockReport() {
               </PopoverContent>
             </Popover>
           </div>
+
+          {employeeId && (
+            <Button size="sm" onClick={() => setEditDialog({ open: true, date: format(selectedDate, "yyyy-MM-dd") })}>
+              <Plus className="h-4 w-4 mr-1" />
+              Criar Registo
+            </Button>
+          )}
         </div>
 
         {employeeId && (
@@ -271,21 +281,22 @@ export default function TimeClockReport() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data</TableHead>
-                    <TableHead>Entrada</TableHead>
-                    <TableHead>Saída Almoço</TableHead>
-                    <TableHead>Retorno Almoço</TableHead>
-                    <TableHead>Saída</TableHead>
-                    <TableHead>Total Horas</TableHead>
-                    <TableHead>Hora Extra</TableHead>
-                    <TableHead>Atraso</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Entrada</TableHead>
+                     <TableHead>Saída Almoço</TableHead>
+                     <TableHead>Retorno Almoço</TableHead>
+                     <TableHead>Saída</TableHead>
+                     <TableHead>Total Horas</TableHead>
+                     <TableHead>Hora Extra</TableHead>
+                     <TableHead>Atraso</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-                  ) : reportRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                   ) : reportRows.length === 0 ? (
+                    <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
                   ) : (
                     reportRows.map((row) => (
                       <TableRow key={row.date} className={row.isDayOff ? "opacity-50" : row.status === "absent" ? "bg-destructive/5" : ""}>
@@ -302,6 +313,29 @@ export default function TimeClockReport() {
                           {row.lateMinutes > 0 ? minutesToHHMM(row.lateMinutes) : "—"}
                         </TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setEditDialog({
+                              open: true,
+                              record: row.record ? {
+                                id: row.record.id,
+                                employee_id: employeeId,
+                                record_date: row.date,
+                                clock_in: row.record.clock_in,
+                                lunch_out: row.record.lunch_out,
+                                lunch_in: row.record.lunch_in,
+                                clock_out: row.record.clock_out,
+                                notes: row.record.notes,
+                              } : undefined,
+                              date: row.date,
+                            })}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -317,6 +351,17 @@ export default function TimeClockReport() {
           </div>
         )}
       </div>
+
+      {employeeId && selectedEmployee && (
+        <TimeClockRecordDialog
+          open={editDialog.open}
+          onClose={() => setEditDialog({ open: false })}
+          employeeId={employeeId}
+          employeeName={`${selectedEmployee.first_name} ${selectedEmployee.last_name}`}
+          record={editDialog.record}
+          date={editDialog.date}
+        />
+      )}
     </AppLayout>
   );
 }
