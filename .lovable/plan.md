@@ -1,174 +1,136 @@
 
 
-# Gestao de EPIs, Ferramentas e Manutencoes
+# Controlo de Veiculos da Empresa
 
 ## Resumo
-Criar tres modulos vinculados a funcionarios: (1) EPIs - registo de equipamentos de seguranca entregues, (2) Ferramentas - ferramentas da empresa sob responsabilidade do colaborador, (3) Manutencoes - tarefas de manutencao de maquinas com frequencia (diaria/semanal/mensal), templates de formulario por maquina, e notificacao automatica por email.
+Criar um modulo completo de gestao de frota de veiculos, com registo de veiculos, controlo de vencimentos de seguros e inspecoes, lembretes automaticos, e historico de manutencoes realizadas.
 
 ---
 
 ## 1. Base de Dados - Novas Tabelas
 
-### `epi_deliveries` - Entregas de EPIs
+### `vehicles` - Registo de veiculos
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
 | id | uuid PK | |
-| employee_id | uuid FK employees | Colaborador |
-| item_name | text | Nome do EPI (ex: Capacete, Luvas) |
-| quantity | integer | Quantidade entregue |
-| delivery_date | date | Data da entrega |
-| expiry_date | date nullable | Validade do EPI |
-| signed_file_url | text nullable | Comprovativo assinado |
-| notes | text nullable | Observacoes |
-| status | text | `delivered`, `returned`, `expired` |
-| created_at | timestamptz | |
-
-### `tool_assignments` - Ferramentas atribuidas
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid PK | |
-| employee_id | uuid FK employees | Responsavel |
-| tool_name | text | Nome da ferramenta |
-| serial_number | text nullable | Numero de serie |
-| assigned_date | date | Data de atribuicao |
-| returned_date | date nullable | Data de devolucao |
-| condition | text | `new`, `good`, `fair`, `damaged` |
-| signed_file_url | text nullable | Comprovativo assinado |
+| plate | text NOT NULL | Matricula |
+| brand | text | Marca (ex: Renault) |
+| model | text | Modelo (ex: Clio) |
+| year | integer | Ano |
+| color | text | Cor |
+| vin | text | Numero de chassi |
+| fuel_type | text | Tipo combustivel (gasoline/diesel/electric/hybrid) |
+| km_current | integer | Quilometragem atual |
+| assigned_employee_id | uuid FK employees nullable | Funcionario responsavel |
+| status | text | active, inactive, sold |
 | notes | text nullable | |
-| status | text | `assigned`, `returned` |
 | created_at | timestamptz | |
 
-### `machines` - Registo de maquinas
+### `vehicle_documents` - Seguros e Inspecoes
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
 | id | uuid PK | |
-| name | text | Nome da maquina (ex: Compressor) |
-| location | text nullable | Localizacao |
-| description | text nullable | |
-| checklist_template | jsonb | Template de campos do formulario de manutencao |
+| vehicle_id | uuid FK vehicles | |
+| type | text | insurance, inspection, other |
+| description | text | Descricao (ex: Seguro contra todos os riscos) |
+| provider | text nullable | Seguradora / Centro de inspecao |
+| start_date | date | Data inicio |
+| expiry_date | date | Data de vencimento |
+| cost | numeric nullable | Custo |
+| file_url | text nullable | Documento anexo |
+| reminder_days | integer default 30 | Dias antes do vencimento para lembrete |
+| status | text | active, expired, renewed |
+| notes | text nullable | |
 | created_at | timestamptz | |
 
-### `maintenance_tasks` - Tarefas de manutencao recorrentes
+### `vehicle_maintenances` - Manutencoes realizadas e previstas
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
 | id | uuid PK | |
-| machine_id | uuid FK machines | Maquina |
-| employee_id | uuid FK employees | Responsavel |
-| frequency | text | `daily`, `weekly`, `monthly` |
-| day_of_week | integer nullable | 0-6 para weekly |
-| day_of_month | integer nullable | 1-31 para monthly |
-| title | text | Descricao da tarefa |
-| is_active | boolean | Ativa ou nao |
-| created_at | timestamptz | |
-
-### `maintenance_logs` - Registos de manutencao realizados
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid PK | |
-| task_id | uuid FK maintenance_tasks | Tarefa |
-| employee_id | uuid FK employees | Quem fez |
-| machine_id | uuid FK machines | Maquina |
-| completed_date | date | Data de conclusao |
-| checklist_data | jsonb | Formulario preenchido conforme template da maquina |
-| notes | text nullable | Observacoes |
-| status | text | `completed`, `pending`, `skipped` |
+| vehicle_id | uuid FK vehicles | |
+| type | text | preventive, corrective |
+| description | text | Descricao da manutencao |
+| maintenance_date | date | Data |
+| next_maintenance_date | date nullable | Proxima manutencao prevista |
+| next_maintenance_km | integer nullable | KM da proxima manutencao |
+| km_at_maintenance | integer nullable | KM no momento |
+| cost | numeric nullable | Custo |
+| provider | text nullable | Oficina |
+| invoice_url | text nullable | Fatura |
+| parts_replaced | text nullable | Pecas substituidas |
+| performed_by | uuid FK employees nullable | Quem realizou/reportou |
+| status | text | completed, scheduled, cancelled |
+| notes | text nullable | |
 | created_at | timestamptz | |
 
 ### RLS em todas as tabelas:
-- Admins podem gerir tudo (ALL)
-- Funcionarios podem ver os seus proprios registos (SELECT com `can_access_employee`)
+- Admins: ALL
+- Todos os autenticados: SELECT (visualizar)
 
 ---
 
-## 2. Nova Pagina: `/equipamentos`
+## 2. Nova Pagina: `/veiculos`
 
-Pagina com 3 tabs principais: **EPIs**, **Ferramentas**, **Manutencoes**
+Pagina com 3 tabs: **Veiculos**, **Documentos (Seguros/Inspecoes)**, **Manutencoes**
 
-### Tab EPIs
-- Botao "Registar Entrega"
-- Tabela com: Funcionario, Item, Quantidade, Data Entrega, Validade, Status
-- Acoes: PDF, Upload assinado, Eliminar
-- Filtro por funcionario
+### Tab Veiculos
+- Tabela com: Matricula, Marca/Modelo, Ano, KM, Responsavel, Status
+- Botao "Adicionar Veiculo"
+- Acoes: Editar, Eliminar
+- Cards resumo no topo: Total veiculos, Seguros a vencer (30 dias), Inspecoes a vencer (30 dias)
 
-### Tab Ferramentas
-- Botao "Atribuir Ferramenta"
-- Tabela com: Funcionario, Ferramenta, N Serie, Data Atribuicao, Condicao, Status
-- Acoes: Marcar devolvida, PDF, Upload assinado, Eliminar
+### Tab Documentos (Seguros e Inspecoes)
+- Tabela com: Veiculo, Tipo, Descricao, Seguradora, Validade, Status, Custo
+- Filtro por veiculo e por tipo (seguro/inspecao)
+- Badge de alerta para documentos proximos do vencimento ou expirados
+- Botao "Adicionar Documento"
+- Acoes: Upload ficheiro, Eliminar
 
 ### Tab Manutencoes
-- Sub-tabs: **Maquinas** | **Tarefas** | **Registos**
-- **Maquinas**: CRUD de maquinas com template de checklist personalizavel (campos dinamicos tipo checkbox, texto, numero)
-- **Tarefas**: Criar tarefa recorrente associando maquina + funcionario + frequencia
-- **Registos**: Lista de manutencoes realizadas com formulario preenchido, filtro por maquina/funcionario/periodo
+- Tabela com: Veiculo, Tipo, Descricao, Data, KM, Custo, Proxima Manutencao, Status
+- Filtro por veiculo
+- Botao "Registar Manutencao"
+- Acoes: Eliminar
 
 ---
 
-## 3. Template de Checklist por Maquina
+## 3. Edge Function: `send-vehicle-reminders`
 
-O campo `checklist_template` em `machines` armazena um array JSON com a definicao dos campos:
-```text
-[
-  { "field": "pressao_verificada", "label": "Pressao Verificada?", "type": "checkbox" },
-  { "field": "nivel_oleo", "label": "Nivel de Oleo", "type": "select", "options": ["OK", "Baixo", "Critico"] },
-  { "field": "observacoes", "label": "Observacoes", "type": "text" }
-]
-```
-
-Quando o funcionario preenche a manutencao, um formulario dinamico e gerado a partir deste template.
+- Consulta `vehicle_documents` com `expiry_date` nos proximos X dias (conforme `reminder_days`)
+- Consulta `vehicle_maintenances` com `next_maintenance_date` proxima
+- Envia email ao administrador ou responsavel do veiculo com os alertas
+- Pode ser agendada via cron job diario
 
 ---
 
-## 4. Edge Function: `send-maintenance-reminder`
+## 4. Navegacao e Rotas
 
-- Funcao que envia emails de lembrete automatico aos funcionarios com tarefas de manutencao previstas
-- Consulta `maintenance_tasks` ativas, verifica a frequencia e se a proxima execucao e hoje
-- Envia email para o `employee.email` com detalhes da maquina e tarefa
-- Pode ser agendada via cron job (diario)
+- Novo item no sidebar: "Veiculos" com icone `Car`
+- Nova rota protegida `/veiculos` em `App.tsx`
 
 ---
 
-## 5. Portal do Funcionario
-
-Atualizar `employee-portal` Edge Function e `EmployeePortal.tsx` para mostrar:
-- EPIs recebidos
-- Ferramentas sob responsabilidade
-- Tarefas de manutencao pendentes com formulario de preenchimento
-
----
-
-## 6. Perfil do Funcionario
-
-Adicionar seccoes em `EmployeeProfile.tsx`:
-- EPIs entregues
-- Ferramentas atribuidas
-- Historico de manutencoes realizadas
-
----
-
-## 7. Navegacao
-
-- Novo item no sidebar: "Equipamentos" com icone `HardHat` ou `Wrench`, rota `/equipamentos`
-- Rota protegida em `App.tsx`
-
----
-
-## 8. Ficheiros a Criar/Modificar
+## 5. Ficheiros a Criar/Modificar
 
 | Acao | Ficheiro |
 |------|---------|
-| Criar | Migracao SQL - 5 tabelas + RLS |
-| Criar | `src/pages/Equipment.tsx` - Pagina principal com 3 tabs |
-| Criar | `src/components/equipment/EpiFormDialog.tsx` |
-| Criar | `src/components/equipment/ToolFormDialog.tsx` |
-| Criar | `src/components/equipment/MachineFormDialog.tsx` |
-| Criar | `src/components/equipment/MaintenanceTaskFormDialog.tsx` |
-| Criar | `src/components/equipment/MaintenanceLogDialog.tsx` - Formulario dinamico |
-| Criar | `src/components/equipment/ChecklistTemplateEditor.tsx` - Editor de template |
-| Criar | `supabase/functions/send-maintenance-reminder/index.ts` |
-| Modificar | `src/App.tsx` - Nova rota |
-| Modificar | `src/components/layout/AppSidebar.tsx` - Novo menu |
-| Modificar | `src/pages/EmployeeProfile.tsx` - Seccoes EPIs/Ferramentas/Manutencoes |
-| Modificar | `src/pages/EmployeePortal.tsx` - Seccoes no portal |
-| Modificar | `supabase/functions/employee-portal/index.ts` - Novos dados |
-| Modificar | `supabase/config.toml` - Nova funcao |
+| Criar | Migracao SQL - 3 tabelas + RLS |
+| Criar | `src/pages/Vehicles.tsx` - Pagina principal com 3 tabs |
+| Criar | `src/components/vehicles/VehicleFormDialog.tsx` - Formulario veiculo |
+| Criar | `src/components/vehicles/VehicleDocumentFormDialog.tsx` - Formulario seguro/inspecao |
+| Criar | `src/components/vehicles/VehicleMaintenanceFormDialog.tsx` - Formulario manutencao |
+| Criar | `supabase/functions/send-vehicle-reminders/index.ts` - Lembretes |
+| Modificar | `src/App.tsx` - Nova rota `/veiculos` |
+| Modificar | `src/components/layout/AppSidebar.tsx` - Novo menu "Veiculos" |
+| Modificar | `supabase/config.toml` - Nova funcao (automatico) |
+
+---
+
+## 6. Detalhes Tecnicos
+
+- Seguir padrao existente do modulo de Equipamentos (queries com `useQuery`, dialogs com shadcn/ui, mutations com `useQueryClient`)
+- Tabelas com `as any` cast para tipos nao gerados (padrao existente)
+- Badges de alerta: vermelho para expirado, amarelo para "a vencer em X dias"
+- Upload de ficheiros no bucket `equipment` existente (ou criar bucket `vehicles`)
+- Cron job para lembretes segue o padrao do `send-maintenance-reminder`
 
