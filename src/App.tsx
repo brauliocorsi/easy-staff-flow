@@ -27,6 +27,7 @@ import Evaluations from "./pages/Evaluations";
 import Trainings from "./pages/Trainings";
 import Equipment from "./pages/Equipment";
 import Vehicles from "./pages/Vehicles";
+import MedicalExams from "./pages/MedicalExams";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/formacoes" element={<ProtectedRoute><Trainings /></ProtectedRoute>} />
             <Route path="/equipamentos" element={<ProtectedRoute><Equipment /></ProtectedRoute>} />
             <Route path="/veiculos" element={<ProtectedRoute><Vehicles /></ProtectedRoute>} />
+            <Route path="/medicina-trabalho" element={<ProtectedRoute><MedicalExams /></ProtectedRoute>} />
             <Route path="/relatorios/ponto" element={<ProtectedRoute><TimeClockReport /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

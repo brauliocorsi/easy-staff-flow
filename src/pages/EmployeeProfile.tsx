@@ -12,7 +12,7 @@ import {
   ArrowLeft, User, Briefcase, Calendar, MapPin, Phone, Mail, Hash,
   AlertTriangle, CheckCircle, Palmtree, CalendarCheck2, Play, CheckCircle2,
   Clock, FileText, GraduationCap, Loader2, XCircle, ClipboardCheck, Star,
-  HardHat, Wrench, Settings2
+  HardHat, Wrench, Settings2, Stethoscope
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -209,6 +209,21 @@ export default function EmployeeProfile() {
         .select("*")
         .eq("employee_id", id!)
         .order("completed_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  // Medical Exams
+  const { data: medicalExams } = useQuery({
+    queryKey: ["employee-medical-exams", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("medical_exams" as any)
+        .select("*")
+        .eq("employee_id", id!)
+        .order("exam_date", { ascending: false });
       if (error) throw error;
       return (data || []) as any[];
     },
@@ -713,6 +728,55 @@ export default function EmployeeProfile() {
                         </Badge>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Medicina do Trabalho */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4 text-primary" />
+                  Medicina do Trabalho
+                  <Badge variant="secondary" className="ml-auto text-xs">{medicalExams?.length || 0} exames</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!medicalExams?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem exames médicos registados.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {medicalExams.map((ex: any) => {
+                      const resMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+                        fit: { label: "Apto", variant: "default" },
+                        fit_conditional: { label: "Apto Condicionado", variant: "outline" },
+                        temporarily_unfit: { label: "Inapto Temporário", variant: "secondary" },
+                        unfit: { label: "Inapto", variant: "destructive" },
+                      };
+                      const r = resMap[ex.result] || resMap.fit;
+                      const typeMap: Record<string, string> = { admission: "Admissão", periodic: "Periódico", occasional: "Ocasional", return: "Regresso", dismissal: "Cessação" };
+                      return (
+                        <div key={ex.id} className="flex items-center justify-between p-2 rounded-md border">
+                          <div>
+                            <p className="text-sm font-medium">{typeMap[ex.exam_type] || ex.exam_type} · {ex.year}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(ex.exam_date + "T00:00:00"), "dd/MM/yyyy")}
+                              {ex.doctor_name && ` · Dr. ${ex.doctor_name}`}
+                              {ex.provider && ` · ${ex.provider}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {ex.file_url && (
+                              <a href={ex.file_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">
+                                Ficheiro
+                              </a>
+                            )}
+                            <Badge variant={r.variant} className="text-xs">{r.label}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
