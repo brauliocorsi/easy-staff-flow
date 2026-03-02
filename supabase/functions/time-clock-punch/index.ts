@@ -6,6 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function isPartTimeSchedule(schedule: any): boolean {
+  if (!schedule || schedule.is_day_off) return false;
+  return schedule.lunch_in_time === "00:00:00" && schedule.clock_out_time === "00:00:00";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -81,6 +86,8 @@ Deno.serve(async (req) => {
       schedule = data;
     }
 
+    const partTime = isPartTimeSchedule(schedule);
+
     // Get today's record
     const { data: existingRecord } = await supabase
       .from("time_clock_records")
@@ -95,22 +102,33 @@ Deno.serve(async (req) => {
       action = "clock_in";
     } else if (!existingRecord.clock_in) {
       action = "clock_in";
-    } else if (!existingRecord.lunch_out) {
-      action = "lunch_out";
-    } else if (!existingRecord.lunch_in) {
-      action = "lunch_in";
-    } else if (!existingRecord.clock_out) {
-      action = "clock_out";
+    } else if (partTime) {
+      // Part-time: after clock_in, next is clock_out (stored in lunch_out field)
+      if (!existingRecord.lunch_out) {
+        action = "clock_out";
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Ponto já completo para hoje" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     } else {
-      return new Response(
-        JSON.stringify({ error: "Ponto já completo para hoje" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (!existingRecord.lunch_out) action = "lunch_out";
+      else if (!existingRecord.lunch_in) action = "lunch_in";
+      else if (!existingRecord.clock_out) action = "clock_out";
+      else {
+        return new Response(
+          JSON.stringify({ error: "Ponto já completo para hoje" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Check for early leave on clock_out
-    if (action === "clock_out" && schedule && !schedule.is_day_off && tolerances) {
-      const [schH, schM] = schedule.clock_out_time.split(":").map(Number);
+    const isClockOut = action === "clock_out";
+    if (isClockOut && schedule && !schedule.is_day_off && tolerances) {
+      const scheduledOutTime = partTime ? schedule.lunch_out_time : schedule.clock_out_time;
+      const [schH, schM] = scheduledOutTime.split(":").map(Number);
       const earlyLeaveToleranceMin = tolerances.tolerance_early_leave_minutes || 0;
       const scheduledOutMinutes = schH * 60 + schM - earlyLeaveToleranceMin;
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -120,26 +138,25 @@ Deno.serve(async (req) => {
         const actualTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
 
         if (!confirm_early_leave) {
-          // Return early leave warning - frontend must confirm
           return new Response(
             JSON.stringify({
               early_leave_warning: true,
               minutes_early: minutesEarly,
-              scheduled_clock_out: schedule.clock_out_time.slice(0, 5),
+              scheduled_clock_out: scheduledOutTime.slice(0, 5),
               current_time: actualTime.slice(0, 5),
-              message: `Saída antecipada de ${minutesEarly} minutos. Horário previsto: ${schedule.clock_out_time.slice(0, 5)}. Deseja confirmar?`,
+              message: `Saída antecipada de ${minutesEarly} minutos. Horário previsto: ${scheduledOutTime.slice(0, 5)}. Deseja confirmar?`,
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
-        // User confirmed early leave - record attempt and notify admin
+        // User confirmed early leave
         const { data: attempt } = await supabase
           .from("early_leave_attempts")
           .insert({
             employee_id,
             attempt_date: today,
-            scheduled_clock_out: schedule.clock_out_time,
+            scheduled_clock_out: scheduledOutTime,
             actual_attempt_time: actualTime,
             minutes_early: minutesEarly,
             confirmed: true,
@@ -147,10 +164,9 @@ Deno.serve(async (req) => {
           .select()
           .single();
 
-        // Create admin notification
         await supabase.from("admin_notifications").insert({
           title: "Saída Antecipada",
-          message: `${employee.first_name} ${employee.last_name} saiu ${minutesEarly} min antes do horário (${actualTime.slice(0, 5)} em vez de ${schedule.clock_out_time.slice(0, 5)}).`,
+          message: `${employee.first_name} ${employee.last_name} saiu ${minutesEarly} min antes do horário (${actualTime.slice(0, 5)} em vez de ${scheduledOutTime.slice(0, 5)}).`,
           type: "early_leave",
           reference_id: attempt?.id || null,
         });
@@ -158,6 +174,8 @@ Deno.serve(async (req) => {
     }
 
     const timestamp = now.toISOString();
+    // For part-time clock_out, store in the lunch_out DB field
+    const dbField = partTime && action === "clock_out" ? "lunch_out" : action;
     let record;
 
     if (!existingRecord) {
@@ -171,7 +189,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await supabase
         .from("time_clock_records")
-        .update({ [action]: timestamp })
+        .update({ [dbField]: timestamp })
         .eq("id", existingRecord.id)
         .select()
         .single();
@@ -196,10 +214,11 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         action,
-        action_label: actionLabels[action],
+        action_label: actionLabels[action] || action,
         time: timeStr,
         employee_name: `${employee.first_name} ${employee.last_name}`,
         record,
+        is_part_time: partTime,
         schedule: schedule
           ? {
               clock_in_time: schedule.clock_in_time,
