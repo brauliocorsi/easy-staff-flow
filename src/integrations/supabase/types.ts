@@ -19,6 +19,7 @@ export type Database = {
           absence_date: string
           auto_detected: boolean
           created_at: string
+          days_count: number
           employee_id: string
           file_url: string | null
           id: string
@@ -32,6 +33,7 @@ export type Database = {
           absence_date: string
           auto_detected?: boolean
           created_at?: string
+          days_count?: number
           employee_id: string
           file_url?: string | null
           id?: string
@@ -45,6 +47,7 @@ export type Database = {
           absence_date?: string
           auto_detected?: boolean
           created_at?: string
+          days_count?: number
           employee_id?: string
           file_url?: string | null
           id?: string

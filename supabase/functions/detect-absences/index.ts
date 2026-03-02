@@ -92,14 +92,17 @@ Deno.serve(async (req) => {
 
     const shouldWorkIds = shouldWork.map((e: any) => e.id);
 
-    // Get time clock records for that date
+    // Get time clock records for that date (include all punch fields)
     const { data: records } = await supabase
       .from("time_clock_records")
-      .select("employee_id, clock_in")
+      .select("employee_id, clock_in, lunch_out, lunch_in, clock_out")
       .eq("record_date", targetDate)
       .in("employee_id", shouldWorkIds);
 
-    const clockedIn = new Set((records || []).filter((r: any) => r.clock_in).map((r: any) => r.employee_id));
+    const recordMap = new Map<string, any>();
+    for (const r of records || []) {
+      recordMap.set(r.employee_id, r);
+    }
 
     // Get existing absences for that date
     const { data: existingAbsences } = await supabase
@@ -121,48 +124,84 @@ Deno.serve(async (req) => {
 
     const onVacation = new Set((vacations || []).map((v: any) => v.employee_id));
 
-    // Find employees who didn't clock in and don't have an absence or vacation
-    const absent = shouldWork.filter((e: any) => 
-      !clockedIn.has(e.id) && !alreadyAbsent.has(e.id) && !onVacation.has(e.id)
-    );
+    // Calculate justification deadline (5 business days from target date)
+    const deadline = addBusinessDays(checkDate, 5);
+    const deadlineStr = deadline.toISOString().split("T")[0];
 
-    if (!absent.length) {
+    const absenceRows: any[] = [];
+    const fullAbsent: any[] = [];
+    const halfAbsent: any[] = [];
+
+    for (const emp of shouldWork) {
+      if (alreadyAbsent.has(emp.id) || onVacation.has(emp.id)) continue;
+
+      const rec = recordMap.get(emp.id);
+
+      if (!rec || !rec.clock_in) {
+        // No clock_in at all → full day absence
+        absenceRows.push({
+          employee_id: emp.id,
+          absence_date: targetDate,
+          type: "unjustified",
+          auto_detected: true,
+          justified: false,
+          justification_deadline: deadlineStr,
+          days_count: 1,
+        });
+        fullAbsent.push(emp);
+      } else if (!rec.clock_out) {
+        // Clocked in but never clocked out (incomplete day) → half day absence
+        absenceRows.push({
+          employee_id: emp.id,
+          absence_date: targetDate,
+          type: "unjustified",
+          auto_detected: true,
+          justified: false,
+          justification_deadline: deadlineStr,
+          days_count: 0.5,
+        });
+        halfAbsent.push(emp);
+      }
+      // If clock_in and clock_out both exist → no absence
+    }
+
+    if (!absenceRows.length) {
       return new Response(JSON.stringify({ message: "No absences detected", date: targetDate, absences_created: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Calculate justification deadline (5 business days from target date)
-    const deadline = addBusinessDays(checkDate, 5);
-    const deadlineStr = deadline.toISOString().split("T")[0];
-
-    // Insert absences
-    const absenceRows = absent.map((e: any) => ({
-      employee_id: e.id,
-      absence_date: targetDate,
-      type: "unjustified",
-      auto_detected: true,
-      justified: false,
-      justification_deadline: deadlineStr,
-    }));
-
     const { error: insertErr } = await supabase.from("absences").insert(absenceRows);
     if (insertErr) throw insertErr;
 
     // Create admin notification
-    const names = absent.map((e: any) => `${e.first_name} ${e.last_name}`).join(", ");
+    const parts: string[] = [];
+    if (fullAbsent.length > 0) {
+      const names = fullAbsent.map((e: any) => `${e.first_name} ${e.last_name}`).join(", ");
+      parts.push(`${fullAbsent.length} falta(s) completa(s): ${names}`);
+    }
+    if (halfAbsent.length > 0) {
+      const names = halfAbsent.map((e: any) => `${e.first_name} ${e.last_name}`).join(", ");
+      parts.push(`${halfAbsent.length} meia(s) falta(s): ${names}`);
+    }
+
     await supabase.from("admin_notifications").insert({
       title: "Faltas Detectadas",
-      message: `${absent.length} falta(s) detectada(s) em ${targetDate}: ${names}. Prazo de justificação até ${deadlineStr}.`,
+      message: `${parts.join(". ")} em ${targetDate}. Prazo de justificação até ${deadlineStr}.`,
       type: "absence_detected",
     });
 
     return new Response(JSON.stringify({
       message: "Absences registered",
       date: targetDate,
-      absences_created: absent.length,
+      absences_created: absenceRows.length,
+      full_absences: fullAbsent.length,
+      half_absences: halfAbsent.length,
       deadline: deadlineStr,
-      employees: absent.map((e: any) => `${e.first_name} ${e.last_name}`),
+      employees: [
+        ...fullAbsent.map((e: any) => `${e.first_name} ${e.last_name} (1 dia)`),
+        ...halfAbsent.map((e: any) => `${e.first_name} ${e.last_name} (½ dia)`),
+      ],
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

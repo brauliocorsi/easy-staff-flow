@@ -222,8 +222,8 @@ export default function Absences() {
         {absences && absences.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">{absences.length}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total (dias)</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold">{absences.reduce((sum: number, a: any) => sum + (a.days_count ?? 1), 0)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Justificadas</CardTitle></CardHeader>
@@ -260,6 +260,7 @@ export default function Absences() {
                   <TableRow>
                     <TableHead>Funcionário</TableHead>
                     <TableHead>Data</TableHead>
+                    <TableHead>Duração</TableHead>
                     <TableHead>Origem</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Motivo</TableHead>
@@ -274,6 +275,11 @@ export default function Absences() {
                         {absence.employees?.first_name} {absence.employees?.last_name}
                       </TableCell>
                       <TableCell>{format(new Date(absence.absence_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>
+                        <Badge variant={absence.days_count === 0.5 ? "outline" : "destructive"} className="text-xs">
+                          {absence.days_count === 0.5 ? "½ dia" : "1 dia"}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
                           {absence.auto_detected ? "Automática" : "Manual"}
