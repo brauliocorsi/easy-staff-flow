@@ -6,7 +6,8 @@ import { PinModal } from "@/components/timeclock/PinModal";
 import type { EmployeeData } from "@/components/timeclock/EmployeeCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useTimeClockAlarms } from "@/hooks/useTimeClockAlarms";
-import { Loader2 } from "lucide-react";
+import { Loader2, Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function TimeClock() {
   const [searchParams] = useSearchParams();
@@ -16,6 +17,17 @@ export default function TimeClock() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EmployeeData | null>(null);
   const [deptName, setDeptName] = useState<string | null>(null);
+  const [dark, setDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("timeclock-theme") === "dark";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("timeclock-theme", dark ? "dark" : "light");
+  }, [dark]);
 
   useTimeClockAlarms();
 
@@ -47,8 +59,18 @@ export default function TimeClock() {
   }, [employees, deptId]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setDark((d) => !d)}
+            className="rounded-full"
+          >
+            {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+        </div>
         <ClockDisplay />
 
         <div className="text-center">
