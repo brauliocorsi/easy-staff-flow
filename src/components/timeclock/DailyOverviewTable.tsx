@@ -13,7 +13,7 @@ import { CalendarIcon, Users, FileSpreadsheet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useCallback } from "react";
 import jsPDF from "jspdf";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 function formatTime(ts: string | null): string {
   if (!ts) return "—";
@@ -150,13 +150,20 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     ]);
   }, [rows]);
 
-  const handleExportExcel = useCallback(() => {
-    const data = [exportHeaders, ...getExportRows()];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Ponto");
-    ws["!cols"] = exportHeaders.map(() => ({ wch: 18 }));
-    XLSX.writeFile(wb, `ponto_${dateStr}.xlsx`);
+  const handleExportExcel = useCallback(async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Ponto");
+    ws.addRow(exportHeaders);
+    getExportRows().forEach((row) => ws.addRow(row));
+    ws.columns.forEach((col) => { col.width = 18; });
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ponto_${dateStr}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }, [getExportRows, dateStr]);
 
   const handleExportPdf = useCallback(() => {
