@@ -1,136 +1,66 @@
 
 
-# Controlo de Veiculos da Empresa
+## Plano: Corrigir Horários Part-Time no Relógio de Ponto e Vincular Utilizadora Alessandra
 
-## Resumo
-Criar um modulo completo de gestao de frota de veiculos, com registo de veiculos, controlo de vencimentos de seguros e inspecoes, lembretes automaticos, e historico de manutencoes realizadas.
+### Problema 1: Horários Part-Time (Barbara Ribeiro)
 
----
+O modelo "Armazém Part-Time" tem `lunch_in_time: 00:00` e `clock_out_time: 00:00`, indicando que o funcionario so trabalha ate a hora do almoco (13:00). No entanto, o sistema atual sempre assume 4 etapas de picagem (Entrada, Saida Almoco, Retorno Almoco, Saida), o que faz com que:
+- Apos Barbara registrar "Saida Almoco" (que e sua saida real), o sistema espera "Retorno Almoco" e "Saida", mostrando-a como atrasada para essas etapas inexistentes.
 
-## 1. Base de Dados - Novas Tabelas
+**Solucao**: Detectar horarios part-time (sem jornada pos-almoco) e ajustar o fluxo para apenas 2 picagens: **Entrada** e **Saida**.
 
-### `vehicles` - Registo de veiculos
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid PK | |
-| plate | text NOT NULL | Matricula |
-| brand | text | Marca (ex: Renault) |
-| model | text | Modelo (ex: Clio) |
-| year | integer | Ano |
-| color | text | Cor |
-| vin | text | Numero de chassi |
-| fuel_type | text | Tipo combustivel (gasoline/diesel/electric/hybrid) |
-| km_current | integer | Quilometragem atual |
-| assigned_employee_id | uuid FK employees nullable | Funcionario responsavel |
-| status | text | active, inactive, sold |
-| notes | text nullable | |
-| created_at | timestamptz | |
+### Problema 2: Vincular Alessandra Molino
 
-### `vehicle_documents` - Seguros e Inspecoes
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid PK | |
-| vehicle_id | uuid FK vehicles | |
-| type | text | insurance, inspection, other |
-| description | text | Descricao (ex: Seguro contra todos os riscos) |
-| provider | text nullable | Seguradora / Centro de inspecao |
-| start_date | date | Data inicio |
-| expiry_date | date | Data de vencimento |
-| cost | numeric nullable | Custo |
-| file_url | text nullable | Documento anexo |
-| reminder_days | integer default 30 | Dias antes do vencimento para lembrete |
-| status | text | active, expired, renewed |
-| notes | text nullable | |
-| created_at | timestamptz | |
-
-### `vehicle_maintenances` - Manutencoes realizadas e previstas
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid PK | |
-| vehicle_id | uuid FK vehicles | |
-| type | text | preventive, corrective |
-| description | text | Descricao da manutencao |
-| maintenance_date | date | Data |
-| next_maintenance_date | date nullable | Proxima manutencao prevista |
-| next_maintenance_km | integer nullable | KM da proxima manutencao |
-| km_at_maintenance | integer nullable | KM no momento |
-| cost | numeric nullable | Custo |
-| provider | text nullable | Oficina |
-| invoice_url | text nullable | Fatura |
-| parts_replaced | text nullable | Pecas substituidas |
-| performed_by | uuid FK employees nullable | Quem realizou/reportou |
-| status | text | completed, scheduled, cancelled |
-| notes | text nullable | |
-| created_at | timestamptz | |
-
-### RLS em todas as tabelas:
-- Admins: ALL
-- Todos os autenticados: SELECT (visualizar)
+A utilizadora "Alessandra" (profile id: `a1383f39...`) foi criada mas:
+- Nao esta vinculada a funcionaria Alessandra Molino (employee id: `aeaaa981...`)
+- Nao tem papel de admin atribuido
 
 ---
 
-## 2. Nova Pagina: `/veiculos`
+### Alteracoes Tecnicas
 
-Pagina com 3 tabs: **Veiculos**, **Documentos (Seguros/Inspecoes)**, **Manutencoes**
+#### 1. Edge Function `time-clock-employees/index.ts`
+- Detectar se o modelo e part-time verificando se `lunch_in_time` e `clock_out_time` sao `00:00:00` (sem jornada pos-almoco)
+- Para part-time, o fluxo de `nextAction` sera: `clock_in` -> `clock_out` (pular `lunch_out`/`lunch_in`)
+- Ajustar `scheduled_clock_out` para usar `lunch_out_time` como horario de saida do part-time
+- Nao enviar `scheduled_lunch_out`/`scheduled_lunch_in` para part-time (evitar alertas falsos)
+- Incluir flag `is_part_time` nos dados retornados
 
-### Tab Veiculos
-- Tabela com: Matricula, Marca/Modelo, Ano, KM, Responsavel, Status
-- Botao "Adicionar Veiculo"
-- Acoes: Editar, Eliminar
-- Cards resumo no topo: Total veiculos, Seguros a vencer (30 dias), Inspecoes a vencer (30 dias)
+#### 2. Edge Function `time-clock-punch/index.ts`
+- Detectar part-time da mesma forma
+- Para part-time, apos `clock_in`, a proxima acao e `clock_out` (registrado no campo `lunch_out` ou `clock_out` do banco)
+- Aplicar logica de saida antecipada usando `lunch_out_time` como horario previsto de saida
 
-### Tab Documentos (Seguros e Inspecoes)
-- Tabela com: Veiculo, Tipo, Descricao, Seguradora, Validade, Status, Custo
-- Filtro por veiculo e por tipo (seguro/inspecao)
-- Badge de alerta para documentos proximos do vencimento ou expirados
-- Botao "Adicionar Documento"
-- Acoes: Upload ficheiro, Eliminar
+#### 3. `EmployeeCard.tsx` e `EmployeeData` interface
+- Adicionar campo `is_part_time` na interface
+- A funcao `isLate()` ja retorna `false` quando `scheduledTime` e null/undefined, entao ao nao enviar horarios pos-almoco, os alertas falsos desaparecem automaticamente
+- Ajustar o label do horario para mostrar apenas `08:00-13:00` (sem horario de saida `00:00`)
 
-### Tab Manutencoes
-- Tabela com: Veiculo, Tipo, Descricao, Data, KM, Custo, Proxima Manutencao, Status
-- Filtro por veiculo
-- Botao "Registar Manutencao"
-- Acoes: Eliminar
+#### 4. `TodayStatus.tsx`
+- Funciona sem alteracoes pois ja usa o `today_status` retornado pelo backend
 
----
+#### 5. `PinModal.tsx`
+- Adaptar labels para part-time (ex: "Saida" em vez de "Saida Almoco")
 
-## 3. Edge Function: `send-vehicle-reminders`
+#### 6. `UserManager.tsx` - Vincular Utilizador a Funcionario e Atribuir Papeis
+- Adicionar dropdown para vincular o utilizador a um funcionario existente
+- Adicionar dropdown para atribuir papel (Admin, Gestor, Funcionario)
+- Acoes de vincular/desvincular e alterar papel diretamente na lista de utilizadores
 
-- Consulta `vehicle_documents` com `expiry_date` nos proximos X dias (conforme `reminder_days`)
-- Consulta `vehicle_maintenances` com `next_maintenance_date` proxima
-- Envia email ao administrador ou responsavel do veiculo com os alertas
-- Pode ser agendada via cron job diario
-
----
-
-## 4. Navegacao e Rotas
-
-- Novo item no sidebar: "Veiculos" com icone `Car`
-- Nova rota protegida `/veiculos` em `App.tsx`
+#### 7. Dados - Vincular Alessandra e atribuir admin
+- Atualizar `profiles` para definir `employee_id` da Alessandra
+- Inserir na tabela `user_roles` o papel `admin` para a Alessandra
 
 ---
 
-## 5. Ficheiros a Criar/Modificar
+### Resumo dos Ficheiros Alterados
 
-| Acao | Ficheiro |
-|------|---------|
-| Criar | Migracao SQL - 3 tabelas + RLS |
-| Criar | `src/pages/Vehicles.tsx` - Pagina principal com 3 tabs |
-| Criar | `src/components/vehicles/VehicleFormDialog.tsx` - Formulario veiculo |
-| Criar | `src/components/vehicles/VehicleDocumentFormDialog.tsx` - Formulario seguro/inspecao |
-| Criar | `src/components/vehicles/VehicleMaintenanceFormDialog.tsx` - Formulario manutencao |
-| Criar | `supabase/functions/send-vehicle-reminders/index.ts` - Lembretes |
-| Modificar | `src/App.tsx` - Nova rota `/veiculos` |
-| Modificar | `src/components/layout/AppSidebar.tsx` - Novo menu "Veiculos" |
-| Modificar | `supabase/config.toml` - Nova funcao (automatico) |
-
----
-
-## 6. Detalhes Tecnicos
-
-- Seguir padrao existente do modulo de Equipamentos (queries com `useQuery`, dialogs com shadcn/ui, mutations com `useQueryClient`)
-- Tabelas com `as any` cast para tipos nao gerados (padrao existente)
-- Badges de alerta: vermelho para expirado, amarelo para "a vencer em X dias"
-- Upload de ficheiros no bucket `equipment` existente (ou criar bucket `vehicles`)
-- Cron job para lembretes segue o padrao do `send-maintenance-reminder`
+| Ficheiro | Tipo |
+|---|---|
+| `supabase/functions/time-clock-employees/index.ts` | Modificar |
+| `supabase/functions/time-clock-punch/index.ts` | Modificar |
+| `src/components/timeclock/EmployeeCard.tsx` | Modificar |
+| `src/components/timeclock/PinModal.tsx` | Modificar |
+| `src/components/settings/UserManager.tsx` | Modificar |
+| Dados: profiles + user_roles | Inserir/Atualizar |
 
