@@ -28,6 +28,7 @@ import Trainings from "./pages/Trainings";
 import Equipment from "./pages/Equipment";
 import Vehicles from "./pages/Vehicles";
 import MedicalExams from "./pages/MedicalExams";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/ponto" element={<TimeClock />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/funcionarios" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
