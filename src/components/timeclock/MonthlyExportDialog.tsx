@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileSpreadsheet, FileText, Download } from "lucide-react";
 import jsPDF from "jspdf";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -214,31 +214,32 @@ export function MonthlyExportDialog() {
 
   const handleExcel = useCallback(async () => {
     const data = await buildData();
-    const wb = XLSX.utils.book_new();
+    const wb = new ExcelJS.Workbook();
 
     // Summary sheet
-    const summaryRows = [
-      ["Relatório Mensal de Ponto", "", "", "", "", ""],
-      [`Mês: ${MONTHS[month]} ${year}`, `Setor: ${deptName}`],
-      [],
-      ["Funcionário", "Cargo", "Setor", "Total Trabalhado", "Horas Extra", "Atrasos", "Faltas"],
-      ...data.map((e) => [
+    const wsSummary = wb.addWorksheet("Resumo");
+    wsSummary.addRow(["Relatório Mensal de Ponto", "", "", "", "", ""]);
+    wsSummary.addRow([`Mês: ${MONTHS[month]} ${year}`, `Setor: ${deptName}`]);
+    wsSummary.addRow([]);
+    wsSummary.addRow(["Funcionário", "Cargo", "Setor", "Total Trabalhado", "Horas Extra", "Atrasos", "Faltas"]);
+    data.forEach((e) => {
+      wsSummary.addRow([
         e.empName, e.empPosition, e.empDept,
         minutesToHHMM(e.totalWorked), minutesToHHMM(e.totalOvertime),
         minutesToHHMM(e.totalLate), e.absences,
-      ]),
-    ];
-    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-    wsSummary["!cols"] = [{ wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo");
+      ]);
+    });
+    [30, 20, 20, 16, 14, 14, 10].forEach((w, i) => { wsSummary.getColumn(i + 1).width = w; });
 
     // Detail sheet per employee
     for (const emp of data) {
-      const detailRows = [
-        [emp.empName, emp.empPosition, emp.empDept],
-        [],
-        ["Data", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Total", "H. Extra", "Atraso", "Status"],
-        ...emp.days.map((d) => [
+      const sheetName = emp.empName.slice(0, 28).replace(/[\\/*?[\]]/g, "");
+      const wsDetail = wb.addWorksheet(sheetName);
+      wsDetail.addRow([emp.empName, emp.empPosition, emp.empDept]);
+      wsDetail.addRow([]);
+      wsDetail.addRow(["Data", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Total", "H. Extra", "Atraso", "Status"]);
+      emp.days.forEach((d) => {
+        wsDetail.addRow([
           d.dayLabel,
           formatTime(d.clockIn),
           formatTime(d.lunchOut),
@@ -248,17 +249,21 @@ export function MonthlyExportDialog() {
           d.overtimeMinutes > 0 ? minutesToHHMM(d.overtimeMinutes) : "—",
           d.lateMinutes > 0 ? minutesToHHMM(d.lateMinutes) : "—",
           d.status,
-        ]),
-        [],
-        ["", "", "", "", "Totais:", minutesToHHMM(emp.totalWorked), minutesToHHMM(emp.totalOvertime), minutesToHHMM(emp.totalLate), `${emp.absences} faltas`],
-      ];
-      const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
-      wsDetail["!cols"] = [{ wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
-      const sheetName = emp.empName.slice(0, 28).replace(/[\\/*?[\]]/g, "");
-      XLSX.utils.book_append_sheet(wb, wsDetail, sheetName);
+        ]);
+      });
+      wsDetail.addRow([]);
+      wsDetail.addRow(["", "", "", "", "Totais:", minutesToHHMM(emp.totalWorked), minutesToHHMM(emp.totalOvertime), minutesToHHMM(emp.totalLate), `${emp.absences} faltas`]);
+      [16, 10, 14, 16, 10, 10, 10, 10, 12].forEach((w, i) => { wsDetail.getColumn(i + 1).width = w; });
     }
 
-    XLSX.writeFile(wb, `ponto_${MONTHS[month]}_${year}.xlsx`);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ponto_${MONTHS[month]}_${year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }, [buildData, month, year, deptName]);
 
   const handlePdf = useCallback(async () => {
