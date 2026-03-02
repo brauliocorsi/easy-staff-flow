@@ -16,6 +16,7 @@ import {
   GraduationCap,
   HardHat,
   Car,
+  Stethoscope,
 } from "lucide-react";
 import {
   Sidebar,
@@ -45,6 +46,7 @@ const menuItems = [
   { title: "Formações", icon: GraduationCap, path: "/formacoes" },
   { title: "Equipamentos", icon: HardHat, path: "/equipamentos" },
   { title: "Veículos", icon: Car, path: "/veiculos" },
+  { title: "Medicina do Trabalho", icon: Stethoscope, path: "/medicina-trabalho" },
 ];
 
 export function AppSidebar() {

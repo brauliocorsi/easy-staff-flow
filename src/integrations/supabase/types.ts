@@ -843,6 +843,59 @@ export type Database = {
           },
         ]
       }
+      medical_exams: {
+        Row: {
+          created_at: string
+          doctor_name: string | null
+          employee_id: string
+          exam_date: string
+          exam_type: string
+          file_url: string | null
+          id: string
+          next_exam_date: string | null
+          notes: string | null
+          provider: string | null
+          result: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          doctor_name?: string | null
+          employee_id: string
+          exam_date?: string
+          exam_type?: string
+          file_url?: string | null
+          id?: string
+          next_exam_date?: string | null
+          notes?: string | null
+          provider?: string | null
+          result?: string
+          year?: number
+        }
+        Update: {
+          created_at?: string
+          doctor_name?: string | null
+          employee_id?: string
+          exam_date?: string
+          exam_type?: string
+          file_url?: string | null
+          id?: string
+          next_exam_date?: string | null
+          notes?: string | null
+          provider?: string | null
+          result?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_exams_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_agendas: {
         Row: {
           created_at: string
