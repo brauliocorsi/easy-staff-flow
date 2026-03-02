@@ -69,10 +69,10 @@ export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName,
       const payload = {
         employee_id: employeeId,
         record_date: recordDate,
-        clock_in: timeToTimestamp(recordDate, clockIn),
-        lunch_out: timeToTimestamp(recordDate, lunchOut),
-        lunch_in: timeToTimestamp(recordDate, lunchIn),
-        clock_out: timeToTimestamp(recordDate, clockOut),
+        clock_in: clockIn ? timeToTimestamp(recordDate, clockIn) : null,
+        lunch_out: lunchOut ? timeToTimestamp(recordDate, lunchOut) : null,
+        lunch_in: lunchIn ? timeToTimestamp(recordDate, lunchIn) : null,
+        clock_out: clockOut ? timeToTimestamp(recordDate, clockOut) : null,
         notes: notes || null,
       };
 
