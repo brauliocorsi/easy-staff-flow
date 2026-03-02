@@ -72,11 +72,16 @@ Deno.serve(async (req) => {
     const templateIds = [...new Set(employees.map((e: any) => e.schedule_template_id))];
     const { data: templateDays } = await supabase
       .from("schedule_template_days")
-      .select("template_id, is_day_off")
+      .select("template_id, is_day_off, lunch_in_time, clock_out_time")
       .eq("day_of_week", dayOfWeek)
       .in("template_id", templateIds);
 
     const dayOffMap = new Map((templateDays || []).map((td: any) => [td.template_id, td.is_day_off]));
+    // Detect part-time: if lunch_in_time and clock_out_time are both '00:00:00', it's a single-shift (part-time)
+    const partTimeMap = new Map((templateDays || []).map((td: any) => [
+      td.template_id,
+      td.lunch_in_time === "00:00:00" && td.clock_out_time === "00:00:00",
+    ]));
 
     // Filter employees who should have worked (not day off)
     const shouldWork = employees.filter((e: any) => {
@@ -136,9 +141,10 @@ Deno.serve(async (req) => {
       if (alreadyAbsent.has(emp.id) || onVacation.has(emp.id)) continue;
 
       const rec = recordMap.get(emp.id);
+      const isPartTime = partTimeMap.get(emp.schedule_template_id) === true;
 
       if (!rec || !rec.clock_in) {
-        // No clock_in at all → full day absence
+        // No clock_in at all → full day absence (or 0.5 if part-time)
         absenceRows.push({
           employee_id: emp.id,
           absence_date: targetDate,
@@ -146,21 +152,27 @@ Deno.serve(async (req) => {
           auto_detected: true,
           justified: false,
           justification_deadline: deadlineStr,
-          days_count: 1,
+          days_count: isPartTime ? 0.5 : 1,
         });
         fullAbsent.push(emp);
-      } else if (!rec.clock_out) {
+      } else if (!rec.clock_out && !isPartTime) {
         // Clocked in but never clocked out (incomplete day) → half day absence
-        absenceRows.push({
-          employee_id: emp.id,
-          absence_date: targetDate,
-          type: "unjustified",
-          auto_detected: true,
-          justified: false,
-          justification_deadline: deadlineStr,
-          days_count: 0.5,
-        });
-        halfAbsent.push(emp);
+        // Only for full-time employees; part-time with clock_in + lunch_out is complete
+        const hasLunchOut = !!rec.lunch_out;
+        if (isPartTime && hasLunchOut) {
+          // Part-time employee completed their shift (entry + lunch_out as exit) → no absence
+        } else {
+          absenceRows.push({
+            employee_id: emp.id,
+            absence_date: targetDate,
+            type: "unjustified",
+            auto_detected: true,
+            justified: false,
+            justification_deadline: deadlineStr,
+            days_count: 0.5,
+          });
+          halfAbsent.push(emp);
+        }
       }
       // If clock_in and clock_out both exist → no absence
     }
