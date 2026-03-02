@@ -17,6 +17,12 @@ const nextActionLabels: Record<string, string> = {
   complete: "Ponto Completo",
 };
 
+const nextActionLabelsPartTime: Record<string, string> = {
+  clock_in: "Registrar Entrada",
+  clock_out: "Registrar Saída",
+  complete: "Ponto Completo",
+};
+
 interface Props {
   employee: EmployeeData | null;
   open: boolean;
@@ -130,7 +136,7 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
             <div className="rounded-lg bg-primary/5 px-4 py-2 text-center">
               <p className="text-xs text-muted-foreground">Próxima ação</p>
               <p className="font-semibold text-primary">
-                {nextActionLabels[employee.today_status]}
+                {(employee.is_part_time ? nextActionLabelsPartTime : nextActionLabels)[employee.today_status] || nextActionLabels[employee.today_status]}
               </p>
             </div>
 
