@@ -7,14 +7,24 @@ import { Label } from "@/components/ui/label";
 import { Users, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
 
   if (user) {
@@ -30,25 +40,36 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) throw error;
-        toast.success("Login efetuado com sucesso");
-        navigate("/");
-      } else {
-        if (!displayName) {
-          toast.error("Preencha o nome");
-          setLoading(false);
-          return;
-        }
-        const { error } = await signUp(email, password, displayName);
-        if (error) throw error;
-        toast.success("Conta criada! Verifique seu email para confirmar.");
-      }
+      const { error } = await signIn(email, password);
+      if (error) throw error;
+      toast.success("Login efetuado com sucesso");
+      navigate("/");
     } catch (err: any) {
       toast.error(err.message || "Erro na autenticação");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast.error("Preencha o email");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
+      setResetOpen(false);
+      setResetEmail("");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar email de recuperação");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -59,28 +80,11 @@ export default function Auth() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
             <Users className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="font-display text-2xl">
-            {isLogin ? "Entrar" : "Criar Conta"}
-          </CardTitle>
-          <CardDescription>
-            {isLogin
-              ? "Acesse o sistema de gestão de RH"
-              : "Crie sua conta para acessar o sistema"}
-          </CardDescription>
+          <CardTitle className="font-display text-2xl">Entrar</CardTitle>
+          <CardDescription>Acesse o sistema RH UP Móveis</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Nome</Label>
-                <Input
-                  id="displayName"
-                  placeholder="Seu nome"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -103,18 +107,40 @@ export default function Auth() {
             </div>
             <Button className="w-full" size="lg" type="submit" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}
-              {isLogin ? "Entrar" : "Criar Conta"}
+              Entrar
             </Button>
             <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary hover:underline"
-              >
-                {isLogin
-                  ? "Não tem conta? Criar conta"
-                  : "Já tem conta? Entrar"}
-              </button>
+              <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+                <DialogTrigger asChild>
+                  <button type="button" className="text-sm text-primary hover:underline">
+                    Esqueceu a senha?
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Recuperar Senha</DialogTitle>
+                    <DialogDescription>
+                      Digite seu email para receber um link de recuperação de senha.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="resetEmail">Email</Label>
+                      <Input
+                        id="resetEmail"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                      />
+                    </div>
+                    <Button className="w-full" type="submit" disabled={resetLoading}>
+                      {resetLoading && <Loader2 className="animate-spin" />}
+                      Enviar Link
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           </form>
         </CardContent>

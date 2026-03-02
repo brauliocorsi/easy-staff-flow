@@ -2,6 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ScheduleTemplateManager } from "@/components/settings/ScheduleTemplateManager";
 import { AlarmManager } from "@/components/settings/AlarmManager";
 import { DepartmentManager } from "@/components/settings/DepartmentManager";
+import { UserManager } from "@/components/settings/UserManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,6 +129,8 @@ export default function Settings() {
             </CardContent>
           </Card>
         )}
+
+        <UserManager />
 
         <DepartmentManager />
 

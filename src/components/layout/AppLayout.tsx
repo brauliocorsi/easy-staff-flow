@@ -12,6 +12,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { ChangePasswordDialog } from "@/components/settings/ChangePasswordDialog";
 
 const notificationIcons: Record<string, typeof Bell> = {
   early_leave: LogOut,
@@ -70,6 +71,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main className="flex-1 flex flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/80 backdrop-blur-sm px-6">
             <SidebarTrigger />
+            <div className="flex items-center gap-2">
+              <ChangePasswordDialog />
             {isAdmin && (
               <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
@@ -141,6 +144,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </PopoverContent>
               </Popover>
             )}
+            </div>
           </header>
           <div className="flex-1 p-6">
             {children}
