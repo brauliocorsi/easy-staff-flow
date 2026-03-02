@@ -20,6 +20,20 @@ function formatTime(ts: string | null): string {
   return format(new Date(ts), "HH:mm");
 }
 
+function calcWorkedHours(clockIn: string | null, lunchOut: string | null, lunchIn: string | null, clockOut: string | null): string {
+  if (!clockIn) return "—";
+  const start = new Date(clockIn).getTime();
+  const end = clockOut ? new Date(clockOut).getTime() : lunchOut ? new Date(lunchOut).getTime() : Date.now();
+  let totalMs = end - start;
+  if (lunchOut && lunchIn) {
+    totalMs -= (new Date(lunchIn).getTime() - new Date(lunchOut).getTime());
+  }
+  if (totalMs < 0) return "—";
+  const hours = Math.floor(totalMs / 3600000);
+  const mins = Math.floor((totalMs % 3600000) / 60000);
+  return `${hours}h${mins.toString().padStart(2, "0")}`;
+}
+
 interface Props {
   onSelectEmployee: (id: string) => void;
 }
@@ -95,6 +109,8 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       status = rec.clock_out ? "ok" : "incomplete";
     }
 
+    const workedHours = rec ? calcWorkedHours(rec.clock_in, rec.lunch_out, rec.lunch_in, rec.clock_out) : "—";
+
     return {
       id: emp.id,
       name: `${emp.first_name} ${emp.last_name}`,
@@ -104,6 +120,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       lunchIn: rec?.lunch_in ?? null,
       clockOut: rec?.clock_out ?? null,
       scheduledIn: sched && !isDayOff ? sched.clock_in_time : null,
+      workedHours,
       status,
     };
   });
@@ -135,7 +152,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     missing: rows.filter(r => r.status === "missing").length,
   };
 
-  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Status"];
+  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Horas Realizadas", "Status"];
 
   const getExportRows = useCallback(() => {
     return rows.map((r) => [
@@ -146,6 +163,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       formatTime(r.lunchIn),
       formatTime(r.clockOut),
       r.scheduledIn ? r.scheduledIn.slice(0, 5) : "—",
+      r.workedHours,
       statusLabel(r.status),
     ]);
   }, [rows]);
@@ -176,7 +194,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
 
     const dataRows = getExportRows();
     const startY = 34;
-    const colWidths = [50, 35, 22, 28, 28, 22, 28, 25];
+    const colWidths = [42, 30, 20, 24, 24, 20, 24, 26, 22];
     const rowH = 7;
 
     // header
@@ -279,13 +297,14 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                     <TableHead>Retorno Almoço</TableHead>
                     <TableHead>Saída</TableHead>
                     <TableHead>Horário Previsto</TableHead>
+                    <TableHead>Horas Realizadas</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
+                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
                     </TableRow>
                   ) : (
                     data.map((row) => (
@@ -305,6 +324,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                         <TableCell>{formatTime(row.lunchIn)}</TableCell>
                         <TableCell>{formatTime(row.clockOut)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{row.scheduledIn ? row.scheduledIn.slice(0, 5) : "—"}</TableCell>
+                        <TableCell className="font-medium text-sm">{row.workedHours}</TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
                       </TableRow>
                     ))
