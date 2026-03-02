@@ -60,7 +60,7 @@ export function AppSidebar() {
             <Users className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-display text-lg font-bold leading-tight">RH System</h1>
+            <h1 className="font-display text-lg font-bold leading-tight">RH UP Móveis</h1>
             <p className="text-xs text-muted-foreground">Gestão de Pessoas</p>
           </div>
         </Link>
