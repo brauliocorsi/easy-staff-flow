@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Clock, ShieldAlert } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Clock, ShieldAlert, Copy } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
@@ -178,7 +178,7 @@ function calcWeeklyHours(days: any[] | undefined): string {
   return m > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${h}h`;
 }
 
-function TemplateCard({ template, onEdit, onDelete }: { template: any; onEdit: () => void; onDelete: () => void }) {
+function TemplateCard({ template, onEdit, onDelete, onDuplicate }: { template: any; onEdit: () => void; onDelete: () => void; onDuplicate: () => void }) {
   const { data: days } = useScheduleTemplateDays(template.id);
   const workDays = days?.filter((d: any) => !d.is_day_off).length ?? 0;
   const offDays = days?.filter((d: any) => d.is_day_off).length ?? 0;
@@ -202,6 +202,7 @@ function TemplateCard({ template, onEdit, onDelete }: { template: any; onEdit: (
         </div>
       </div>
       <div className="flex gap-1">
+        <Button variant="ghost" size="icon" onClick={onDuplicate} title="Duplicar"><Copy className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive" /></Button>
       </div>
@@ -242,6 +243,40 @@ export function ScheduleTemplateManager() {
     }
   };
 
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  const handleDuplicate = async (template: any) => {
+    setDuplicatingId(template.id);
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const daysQuery = await supabase
+        .from("schedule_template_days")
+        .select("*")
+        .eq("template_id", template.id);
+      const sourceDays = daysQuery.data || [];
+      await createMut.mutateAsync({
+        name: `${template.name} (cópia)`,
+        days: sourceDays.map((d: any) => ({
+          day_of_week: d.day_of_week,
+          clock_in_time: d.clock_in_time.slice(0, 5),
+          clock_out_time: d.clock_out_time.slice(0, 5),
+          lunch_out_time: d.lunch_out_time.slice(0, 5),
+          lunch_in_time: d.lunch_in_time.slice(0, 5),
+          is_day_off: d.is_day_off,
+          template_id: "",
+        })),
+        tolerance_late_minutes: template.tolerance_late_minutes ?? 10,
+        tolerance_overtime_minutes: template.tolerance_overtime_minutes ?? 15,
+        tolerance_early_leave_minutes: template.tolerance_early_leave_minutes ?? 5,
+      });
+      toast.success("Modelo duplicado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao duplicar");
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -277,6 +312,7 @@ export function ScheduleTemplateManager() {
                 template={t}
                 onEdit={() => setEditingId(t.id)}
                 onDelete={() => handleDelete(t.id, t.name)}
+                onDuplicate={() => handleDuplicate(t)}
               />
             )
           )
