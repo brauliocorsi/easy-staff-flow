@@ -254,58 +254,87 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Vista Geral — {format(date, "EEEE, dd 'de' MMMM", { locale: pt })}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Funcionário</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead>Entrada</TableHead>
-                <TableHead>Saída Almoço</TableHead>
-                <TableHead>Retorno Almoço</TableHead>
-                <TableHead>Saída</TableHead>
-                <TableHead>Horário Previsto</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum funcionário ativo</TableCell>
-                </TableRow>
-              ) : (
-                rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/50",
-                      row.status === "dayoff" && "opacity-50",
-                      row.status === "missing" && "bg-destructive/5"
-                    )}
-                    onClick={() => onSelectEmployee(row.id)}
-                  >
-                    <TableCell className="font-medium">{row.name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{row.position}</TableCell>
-                    <TableCell>{formatTime(row.clockIn)}</TableCell>
-                    <TableCell>{formatTime(row.lunchOut)}</TableCell>
-                    <TableCell>{formatTime(row.lunchIn)}</TableCell>
-                    <TableCell>{formatTime(row.clockOut)}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{row.scheduledIn ? row.scheduledIn.slice(0, 5) : "—"}</TableCell>
-                    <TableCell>{statusBadge(row.status)}</TableCell>
+      {/* Employees WITH records */}
+      {(() => {
+        const withRecord = rows.filter((r) => r.status === "ok" || r.status === "incomplete");
+        const withoutRecord = rows.filter((r) => r.status === "missing");
+        const dayOff = rows.filter((r) => r.status === "dayoff");
+
+        const renderTable = (title: string, data: typeof rows, icon?: React.ReactNode) => (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                {icon || <Users className="h-4 w-4" />}
+                {title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Funcionário</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Entrada</TableHead>
+                    <TableHead>Saída Almoço</TableHead>
+                    <TableHead>Retorno Almoço</TableHead>
+                    <TableHead>Saída</TableHead>
+                    <TableHead>Horário Previsto</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {data.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
+                    </TableRow>
+                  ) : (
+                    data.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className={cn(
+                          "cursor-pointer hover:bg-muted/50",
+                          row.status === "dayoff" && "opacity-50",
+                          row.status === "missing" && "bg-destructive/5"
+                        )}
+                        onClick={() => onSelectEmployee(row.id)}
+                      >
+                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{row.position}</TableCell>
+                        <TableCell>{formatTime(row.clockIn)}</TableCell>
+                        <TableCell>{formatTime(row.lunchOut)}</TableCell>
+                        <TableCell>{formatTime(row.lunchIn)}</TableCell>
+                        <TableCell>{formatTime(row.clockOut)}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{row.scheduledIn ? row.scheduledIn.slice(0, 5) : "—"}</TableCell>
+                        <TableCell>{statusBadge(row.status)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        );
+
+        return (
+          <div className="space-y-4">
+            {renderTable(
+              `Com Registo — ${format(date, "EEEE, dd 'de' MMMM", { locale: pt })} (${withRecord.length})`,
+              withRecord,
+              <Users className="h-4 w-4 text-green-600" />
+            )}
+            {renderTable(
+              `Sem Registo (${withoutRecord.length})`,
+              withoutRecord,
+              <Users className="h-4 w-4 text-destructive" />
+            )}
+            {dayOff.length > 0 && renderTable(
+              `De Folga (${dayOff.length})`,
+              dayOff,
+              <Users className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
