@@ -1,0 +1,1 @@
+ALTER TABLE public.employees ADD COLUMN auto_clock boolean NOT NULL DEFAULT false;

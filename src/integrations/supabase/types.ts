@@ -493,6 +493,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          auto_clock: boolean
           avatar_url: string | null
           birth_date: string | null
           cidade: string | null
@@ -520,6 +521,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          auto_clock?: boolean
           avatar_url?: string | null
           birth_date?: string | null
           cidade?: string | null
@@ -547,6 +549,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          auto_clock?: boolean
           avatar_url?: string | null
           birth_date?: string | null
           cidade?: string | null

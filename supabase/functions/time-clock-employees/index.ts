@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     const { data: employees, error: empError } = await supabase
       .from("employees")
-      .select("id, first_name, last_name, position, avatar_url, department_id, schedule_template_id, departments(name), schedule_templates(name, tolerance_late_minutes)")
+      .select("id, first_name, last_name, position, avatar_url, department_id, schedule_template_id, auto_clock, departments(name), schedule_templates(name, tolerance_late_minutes)")
       .eq("status", "active")
       .order("first_name");
 
@@ -62,7 +62,61 @@ Deno.serve(async (req) => {
       recordMap.set(r.employee_id, r);
     }
 
-    const result = employees.map((emp: any) => {
+    // Process auto-clock employees first (punch them automatically)
+    const autoClockEmps = employees.filter((e: any) => e.auto_clock && e.schedule_template_id);
+    const manualEmps = employees.filter((e: any) => !e.auto_clock);
+
+    // Auto-punch logic
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    for (const emp of autoClockEmps) {
+      const tDay = templateDayMap.get(emp.schedule_template_id);
+      if (!tDay || tDay.is_day_off) continue;
+
+      const rec = recordMap.get(emp.id);
+      const pt = isPartTime(tDay);
+
+      const times: { field: string; time: string }[] = [
+        { field: "clock_in", time: tDay.clock_in_time },
+      ];
+      if (pt) {
+        times.push({ field: "lunch_out", time: tDay.lunch_out_time });
+      } else {
+        times.push({ field: "lunch_out", time: tDay.lunch_out_time });
+        times.push({ field: "lunch_in", time: tDay.lunch_in_time });
+        times.push({ field: "clock_out", time: tDay.clock_out_time });
+      }
+
+      for (const { field, time } of times) {
+        const [h, m] = time.split(":").map(Number);
+        const timeMinutes = h * 60 + m;
+        if (currentMinutes < timeMinutes) break; // not yet time
+
+        if (!rec && field === "clock_in") {
+          // Create record with clock_in
+          const ts = new Date(now);
+          ts.setHours(h, m, 0, 0);
+          const { data: newRec } = await supabase
+            .from("time_clock_records")
+            .insert({ employee_id: emp.id, record_date: today, clock_in: ts.toISOString() })
+            .select()
+            .single();
+          if (newRec) recordMap.set(emp.id, newRec);
+        } else if (rec && !rec[field]) {
+          const ts = new Date(now);
+          ts.setHours(h, m, 0, 0);
+          await supabase
+            .from("time_clock_records")
+            .update({ [field]: ts.toISOString() })
+            .eq("id", rec.id);
+          rec[field] = ts.toISOString();
+        }
+      }
+    }
+
+    // Build result only for manual employees (auto_clock don't appear on terminal)
+    const result = manualEmps.map((emp: any) => {
       const rec = recordMap.get(emp.id);
       const tDay = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
       const partTime = isPartTime(tDay);
@@ -73,7 +127,6 @@ Deno.serve(async (req) => {
         if (!rec.clock_in) {
           nextAction = "clock_in";
         } else if (partTime) {
-          // Part-time: clock_in -> clock_out (stored in lunch_out field)
           nextAction = !rec.lunch_out ? "clock_out" : "complete";
         } else {
           if (!rec.lunch_out) nextAction = "lunch_out";

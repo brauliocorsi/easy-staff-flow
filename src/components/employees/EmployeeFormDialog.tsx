@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Lock, FileText, AlertTriangle, CalendarIcon, CalendarCheck2 } from "lucide-react";
+import { Loader2, Lock, FileText, AlertTriangle, CalendarIcon, CalendarCheck2, Zap } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     birth_date: employee?.birth_date || "",
     hourly_rate: (employee as any)?.hourly_rate ?? "",
     monthly_salary: (employee as any)?.monthly_salary ?? "",
+    auto_clock: (employee as any)?.auto_clock ?? false,
   });
 
   const handleChange = (field: string, value: string) => {
@@ -108,6 +110,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     if (isAdmin) {
       payload.hourly_rate = hourly_rate ? parseFloat(String(hourly_rate)) : null;
       payload.monthly_salary = monthly_salary ? parseFloat(String(monthly_salary)) : null;
+      payload.auto_clock = form.auto_clock;
     }
 
     try {
@@ -303,6 +306,23 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
             </Select>
             <p className="text-xs text-muted-foreground">Defina modelos em Configurações → Modelos de Horário</p>
           </div>
+
+          {/* Auto Clock */}
+          {isAdmin && (
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                <div>
+                  <Label className="text-sm font-medium">Ponto Automático</Label>
+                  <p className="text-xs text-muted-foreground">Pica o ponto automaticamente no horário agendado</p>
+                </div>
+              </div>
+              <Switch
+                checked={form.auto_clock}
+                onCheckedChange={(checked) => setForm((prev) => ({ ...prev, auto_clock: checked }))}
+              />
+            </div>
+          )}
 
           {/* Address */}
           <div className="space-y-2">
