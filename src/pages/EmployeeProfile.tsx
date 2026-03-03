@@ -290,6 +290,11 @@ export default function EmployeeProfile() {
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-muted-foreground">{employee.position}</span>
                 <Badge variant={st.variant}>{st.label}</Badge>
+                {(employee as any).auto_clock && (
+                  <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                    ⚡ Ponto Automático
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
