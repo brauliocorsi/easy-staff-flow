@@ -89,6 +89,7 @@ export default function TrainingFormDialog({ open, onClose, training }: Props) {
       }
       qc.invalidateQueries({ queryKey: ["trainings"] });
       qc.invalidateQueries({ queryKey: ["employee-trainings"] });
+      qc.invalidateQueries({ queryKey: ["employee-profile-trainings"] });
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Erro ao guardar");
