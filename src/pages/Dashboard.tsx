@@ -2,25 +2,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, FileText, Clock, AlertTriangle, Palmtree, CalendarX, Handshake, TrendingUp, Bell, CheckCheck, LogOut, CalendarOff } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Users, FileText, Clock, AlertTriangle, Palmtree, CalendarX, Handshake, TrendingUp, Bell, CheckCheck, LogOut, CalendarOff, Cake } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
-
-const stats = [
-  { title: "Funcionários Ativos", value: "0", icon: Users, color: "text-primary" },
-  { title: "Documentos", value: "0", icon: FileText, color: "text-primary" },
-  { title: "Ponto Hoje", value: "0", icon: Clock, color: "text-primary" },
-  { title: "Advertências", value: "0", icon: AlertTriangle, color: "text-destructive" },
-  { title: "Férias Ativas", value: "0", icon: Palmtree, color: "text-primary" },
-  { title: "Faltas do Mês", value: "0", icon: CalendarX, color: "text-destructive" },
-  { title: "Reuniões Agendadas", value: "0", icon: Handshake, color: "text-primary" },
-  { title: "Horas Extras", value: "0h", icon: TrendingUp, color: "text-primary" },
-];
 
 const notificationIcons: Record<string, typeof Bell> = {
   early_leave: LogOut,
@@ -30,6 +20,84 @@ const notificationIcons: Record<string, typeof Bell> = {
 export default function Dashboard() {
   const { data: isAdmin } = useIsAdmin();
   const queryClient = useQueryClient();
+
+  // Fetch all stats
+  const { data: statsData } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const monthStart = `${today.slice(0, 7)}-01`;
+
+      const [
+        employees,
+        documents,
+        todayRecords,
+        warnings,
+        activeVacations,
+        monthAbsences,
+        scheduledMeetings,
+      ] = await Promise.all([
+        supabase.from("employees").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("documents").select("id", { count: "exact", head: true }),
+        supabase.from("time_clock_records").select("id", { count: "exact", head: true }).eq("record_date", today),
+        supabase.from("warnings").select("id", { count: "exact", head: true }),
+        supabase.from("vacation_requests").select("id", { count: "exact", head: true })
+          .eq("status", "approved").lte("start_date", today).gte("end_date", today),
+        supabase.from("absences").select("id", { count: "exact", head: true })
+          .gte("absence_date", monthStart).lte("absence_date", today),
+        supabase.from("meetings").select("id", { count: "exact", head: true })
+          .eq("status", "scheduled").gte("meeting_date", today),
+      ]);
+
+      return {
+        employees: employees.count ?? 0,
+        documents: documents.count ?? 0,
+        todayRecords: todayRecords.count ?? 0,
+        warnings: warnings.count ?? 0,
+        activeVacations: activeVacations.count ?? 0,
+        monthAbsences: monthAbsences.count ?? 0,
+        scheduledMeetings: scheduledMeetings.count ?? 0,
+      };
+    },
+    enabled: !!isAdmin,
+  });
+
+  // Fetch birthdays this month
+  const { data: birthdays } = useQuery({
+    queryKey: ["dashboard-birthdays"],
+    queryFn: async () => {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id, first_name, last_name, birth_date, avatar_url")
+        .eq("status", "active")
+        .not("birth_date", "is", null);
+      if (error) throw error;
+      return (data || [])
+        .filter((e) => {
+          if (!e.birth_date) return false;
+          const d = new Date(e.birth_date);
+          return d.getMonth() + 1 === month;
+        })
+        .sort((a, b) => {
+          const da = new Date(a.birth_date!).getDate();
+          const db = new Date(b.birth_date!).getDate();
+          return da - db;
+        });
+    },
+    enabled: !!isAdmin,
+  });
+
+  const stats = [
+    { title: "Funcionários Ativos", value: String(statsData?.employees ?? 0), icon: Users, color: "text-primary" },
+    { title: "Documentos", value: String(statsData?.documents ?? 0), icon: FileText, color: "text-primary" },
+    { title: "Ponto Hoje", value: String(statsData?.todayRecords ?? 0), icon: Clock, color: "text-primary" },
+    { title: "Advertências", value: String(statsData?.warnings ?? 0), icon: AlertTriangle, color: "text-destructive" },
+    { title: "Férias Ativas", value: String(statsData?.activeVacations ?? 0), icon: Palmtree, color: "text-primary" },
+    { title: "Faltas do Mês", value: String(statsData?.monthAbsences ?? 0), icon: CalendarX, color: "text-destructive" },
+    { title: "Reuniões Agendadas", value: String(statsData?.scheduledMeetings ?? 0), icon: Handshake, color: "text-primary" },
+  ];
 
   const { data: notifications } = useQuery({
     queryKey: ["admin-notifications"],
@@ -168,10 +236,32 @@ export default function Dashboard() {
           {/* Birthdays card */}
           <Card>
             <CardHeader>
-              <CardTitle className="font-display">Aniversariantes do Mês</CardTitle>
+              <CardTitle className="font-display flex items-center gap-2">
+                <Cake className="h-5 w-5" />
+                Aniversariantes do Mês
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Nenhum aniversariante registrado.</p>
+              {!birthdays?.length ? (
+                <p className="text-sm text-muted-foreground">Nenhum aniversariante este mês.</p>
+              ) : (
+                <div className="space-y-3">
+                  {birthdays.map((emp) => (
+                    <div key={emp.id} className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={emp.avatar_url || undefined} />
+                        <AvatarFallback className="text-xs">{emp.first_name[0]}{emp.last_name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{emp.first_name} {emp.last_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(emp.birth_date!), "dd 'de' MMMM", { locale: pt })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
