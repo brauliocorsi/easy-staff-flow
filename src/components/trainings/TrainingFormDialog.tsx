@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,19 +25,25 @@ export default function TrainingFormDialog({ open, onClose, training }: Props) {
   const qc = useQueryClient();
   const isEdit = !!training;
 
-  const [form, setForm] = useState({
-    employee_id: training?.employee_id || "",
-    title: training?.title || "",
-    description: training?.description || "",
-    training_date: training?.training_date ? new Date(training.training_date + "T00:00:00") : new Date(),
-    hours: training?.hours?.toString() || "",
-    type: training?.type || "internal",
-    trainer_name: training?.trainer_name || "",
-    trainer_id: training?.trainer_id || "",
-    location: training?.location || "",
-    notes: training?.notes || "",
+  const buildForm = (t?: any) => ({
+    employee_id: t?.employee_id || "",
+    title: t?.title || "",
+    description: t?.description || "",
+    training_date: t?.training_date ? new Date(t.training_date + "T00:00:00") : new Date(),
+    hours: t?.hours?.toString() || "",
+    type: t?.type || "internal",
+    trainer_name: t?.trainer_name || "",
+    trainer_id: t?.trainer_id || "",
+    location: t?.location || "",
+    notes: t?.notes || "",
   });
+
+  const [form, setForm] = useState(buildForm(training));
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) setForm(buildForm(training));
+  }, [open, training]);
 
   const { data: employees } = useQuery({
     queryKey: ["employees-for-training"],
