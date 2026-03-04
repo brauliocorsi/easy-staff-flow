@@ -6,13 +6,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2, Save, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, Loader2, Save, Plus, Trash2, Users, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useVacationSettings, useCreateBulkVacationRequests } from "@/hooks/useVacations";
 import { useEmployees } from "@/hooks/useEmployees";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   year: number;
@@ -21,11 +24,12 @@ interface Props {
 }
 
 interface PeriodEntry {
-  id?: string; // DB id if exists
+  id?: string;
   label: string;
   start_date: string;
   end_date: string;
   notes: string;
+  selectedEmployeeIds: string[];
 }
 
 function calcDays(start: string, end: string): number {
@@ -49,53 +53,123 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
   const [periods, setPeriods] = useState<PeriodEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [existingRequestMap, setExistingRequestMap] = useState<Map<string, string[]>>(new Map());
 
-  // Load existing settings into periods
+  // Get active employees for this department category
+  const deptName = category === "factory" ? "Fábrica" : "Armazém";
+  const categoryEmployees = (employees || []).filter(
+    (e) => e.status === "active" && (e as any).departments?.name === deptName
+  );
+
+  // Load existing settings + find which employees have requests for each period
   useEffect(() => {
-    if (settings && !initialized) {
+    if (settings && !initialized && employees) {
       const existing = settings.filter((s) => s.category === category);
       if (existing.length > 0) {
-        setPeriods(
-          existing.map((s) => ({
+        // Fetch existing vacation_requests for this year/category to know which employees are assigned
+        loadExistingAssignments(existing);
+      } else {
+        setPeriods([{ label: "", start_date: "", end_date: "", notes: "", selectedEmployeeIds: categoryEmployees.map((e) => e.id) }]);
+        setInitialized(true);
+      }
+    }
+  }, [settings, category, initialized, employees]);
+
+  const loadExistingAssignments = async (existing: typeof settings extends (infer T)[] ? T[] : never[]) => {
+    try {
+      const { data: requests } = await supabase
+        .from("vacation_requests")
+        .select("employee_id, start_date, end_date")
+        .eq("year", year)
+        .eq("category", category);
+
+      // Build a map: "start_date|end_date" -> employee_id[]
+      const reqMap = new Map<string, string[]>();
+      (requests || []).forEach((r) => {
+        const key = `${r.start_date}|${r.end_date}`;
+        if (!reqMap.has(key)) reqMap.set(key, []);
+        reqMap.get(key)!.push(r.employee_id);
+      });
+      setExistingRequestMap(reqMap);
+
+      setPeriods(
+        existing.map((s) => {
+          const key = `${s.start_date}|${s.end_date}`;
+          const assignedIds = reqMap.get(key) || categoryEmployees.map((e) => e.id);
+          return {
             id: s.id,
-            label: (s as any).label || "",
+            label: s.label || "",
             start_date: s.start_date,
             end_date: s.end_date,
             notes: s.notes || "",
-          }))
-        );
-      } else {
-        setPeriods([{ label: "", start_date: "", end_date: "", notes: "" }]);
-      }
-      setInitialized(true);
+            selectedEmployeeIds: assignedIds,
+          };
+        })
+      );
+    } catch {
+      setPeriods(
+        existing.map((s) => ({
+          id: s.id,
+          label: s.label || "",
+          start_date: s.start_date,
+          end_date: s.end_date,
+          notes: s.notes || "",
+          selectedEmployeeIds: categoryEmployees.map((e) => e.id),
+        }))
+      );
     }
-  }, [settings, category, initialized]);
+    setInitialized(true);
+  };
 
-  // Reset when year changes
   useEffect(() => {
     setInitialized(false);
   }, [year]);
 
   const addPeriod = () => {
-    setPeriods((prev) => [...prev, { label: "", start_date: "", end_date: "", notes: "" }]);
+    setPeriods((prev) => [...prev, { label: "", start_date: "", end_date: "", notes: "", selectedEmployeeIds: categoryEmployees.map((e) => e.id) }]);
   };
 
   const removePeriod = (index: number) => {
     setPeriods((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updatePeriod = (index: number, field: keyof PeriodEntry, value: string) => {
+  const updatePeriod = (index: number, field: keyof PeriodEntry, value: any) => {
     setPeriods((prev) =>
       prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const toggleEmployee = (periodIndex: number, employeeId: string) => {
+    setPeriods((prev) =>
+      prev.map((p, i) => {
+        if (i !== periodIndex) return p;
+        const ids = p.selectedEmployeeIds.includes(employeeId)
+          ? p.selectedEmployeeIds.filter((id) => id !== employeeId)
+          : [...p.selectedEmployeeIds, employeeId];
+        return { ...p, selectedEmployeeIds: ids };
+      })
+    );
+  };
+
+  const toggleAllEmployees = (periodIndex: number) => {
+    setPeriods((prev) =>
+      prev.map((p, i) => {
+        if (i !== periodIndex) return p;
+        const allSelected = categoryEmployees.every((e) => p.selectedEmployeeIds.includes(e.id));
+        return {
+          ...p,
+          selectedEmployeeIds: allSelected ? [] : categoryEmployees.map((e) => e.id),
+        };
+      })
     );
   };
 
   const totalDays = periods.reduce((sum, p) => sum + calcDays(p.start_date, p.end_date), 0);
 
   const handleSave = async () => {
-    const validPeriods = periods.filter((p) => p.start_date && p.end_date);
+    const validPeriods = periods.filter((p) => p.start_date && p.end_date && p.selectedEmployeeIds.length > 0);
     if (validPeriods.length === 0) {
-      toast.error("Adicione pelo menos um período com datas válidas");
+      toast.error("Adicione pelo menos um período com datas e funcionários selecionados");
       return;
     }
 
@@ -130,34 +204,31 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
         .eq("year", year)
         .eq("category", category);
 
-      // Create individual vacation_request for each active employee per period
-      const activeEmployees = (employees || []).filter((e) => e.status === "active");
-      if (activeEmployees.length > 0) {
-        const allPayloads = validPeriods.flatMap((p) => {
-          const days = calcDays(p.start_date, p.end_date);
-          return activeEmployees.map((e) => ({
-            employee_id: e.id,
-            start_date: p.start_date,
-            end_date: p.end_date,
-            days_count: days,
-            category,
-            year,
-            total_entitled_days: 22,
-            notes: p.label ? `${p.label}${p.notes ? ` — ${p.notes}` : ""}` : p.notes || undefined,
-          }));
-        });
+      // Create individual vacation_request for each SELECTED employee per period
+      const allPayloads = validPeriods.flatMap((p) => {
+        const days = calcDays(p.start_date, p.end_date);
+        return p.selectedEmployeeIds.map((empId) => ({
+          employee_id: empId,
+          start_date: p.start_date,
+          end_date: p.end_date,
+          days_count: days,
+          category,
+          year,
+          total_entitled_days: 22,
+          notes: p.label ? `${p.label}${p.notes ? ` — ${p.notes}` : ""}` : p.notes || undefined,
+        }));
+      });
 
-        if (allPayloads.length > 0) {
-          await createBulkMutation.mutateAsync(allPayloads);
-        }
-        toast.success(
-          `${validPeriods.length} período(s) guardado(s) — ${allPayloads.length} registos criados (${totalDays} dias úteis)`
-        );
-      } else {
-        toast.success(`${validPeriods.length} período(s) de férias guardado(s)`);
+      if (allPayloads.length > 0) {
+        await createBulkMutation.mutateAsync(allPayloads);
       }
 
-      setInitialized(false); // Refresh from DB
+      const totalEmps = new Set(allPayloads.map((p) => p.employee_id)).size;
+      toast.success(
+        `${validPeriods.length} período(s) guardado(s) — ${allPayloads.length} registos para ${totalEmps} funcionário(s)`
+      );
+
+      setInitialized(false);
     } catch (err: any) {
       toast.error(err.message || "Erro ao guardar");
     } finally {
@@ -174,7 +245,7 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Defina os períodos coletivos de férias. Pode adicionar vários períodos ao longo do ano. Aplica-se a todos os funcionários ativos.
+          Defina os períodos coletivos de férias e selecione os funcionários que participam em cada período.
         </p>
 
         <div className="space-y-4">
@@ -251,6 +322,54 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
                 <Label>Observações</Label>
                 <Textarea value={period.notes} onChange={(e) => updatePeriod(index, "notes", e.target.value)} placeholder="Notas..." rows={2} />
               </div>
+
+              {/* Employee selector */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      <span>Funcionários</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {period.selectedEmployeeIds.length}/{categoryEmployees.length}
+                      </Badge>
+                    </div>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <div className="border rounded-md p-3 space-y-2 max-h-60 overflow-y-auto">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Checkbox
+                        id={`select-all-${index}`}
+                        checked={categoryEmployees.length > 0 && categoryEmployees.every((e) => period.selectedEmployeeIds.includes(e.id))}
+                        onCheckedChange={() => toggleAllEmployees(index)}
+                      />
+                      <label htmlFor={`select-all-${index}`} className="text-sm font-medium cursor-pointer">
+                        Selecionar todos
+                      </label>
+                    </div>
+                    {categoryEmployees.map((emp) => (
+                      <div key={emp.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`emp-${index}-${emp.id}`}
+                          checked={period.selectedEmployeeIds.includes(emp.id)}
+                          onCheckedChange={() => toggleEmployee(index, emp.id)}
+                        />
+                        <label htmlFor={`emp-${index}-${emp.id}`} className="text-sm cursor-pointer">
+                          {emp.first_name} {emp.last_name}
+                          <span className="text-muted-foreground ml-1">— {emp.position}</span>
+                        </label>
+                      </div>
+                    ))}
+                    {categoryEmployees.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        Nenhum funcionário ativo no departamento {deptName}
+                      </p>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           ))}
         </div>
