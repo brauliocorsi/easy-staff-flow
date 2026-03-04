@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { VacationSettings } from "@/hooks/useVacations";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -53,7 +54,7 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
   const [periods, setPeriods] = useState<PeriodEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [existingRequestMap, setExistingRequestMap] = useState<Map<string, string[]>>(new Map());
+  
 
   // Get active employees for this department category
   const deptName = category === "factory" ? "Fábrica" : "Armazém";
@@ -75,7 +76,7 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
     }
   }, [settings, category, initialized, employees]);
 
-  const loadExistingAssignments = async (existing: typeof settings extends (infer T)[] ? T[] : never[]) => {
+  const loadExistingAssignments = async (existing: VacationSettings[]) => {
     try {
       const { data: requests } = await supabase
         .from("vacation_requests")
@@ -83,14 +84,12 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
         .eq("year", year)
         .eq("category", category);
 
-      // Build a map: "start_date|end_date" -> employee_id[]
       const reqMap = new Map<string, string[]>();
       (requests || []).forEach((r) => {
         const key = `${r.start_date}|${r.end_date}`;
         if (!reqMap.has(key)) reqMap.set(key, []);
         reqMap.get(key)!.push(r.employee_id);
       });
-      setExistingRequestMap(reqMap);
 
       setPeriods(
         existing.map((s) => {
