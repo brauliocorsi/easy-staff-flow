@@ -36,6 +36,7 @@ export interface VacationSettings {
   start_date: string;
   end_date: string;
   notes: string | null;
+  label: string | null;
   created_at: string;
 }
 

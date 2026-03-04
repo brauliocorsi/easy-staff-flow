@@ -1414,6 +1414,7 @@ export type Database = {
           created_at: string
           end_date: string
           id: string
+          label: string | null
           notes: string | null
           start_date: string
           year: number
@@ -1423,6 +1424,7 @@ export type Database = {
           created_at?: string
           end_date: string
           id?: string
+          label?: string | null
           notes?: string | null
           start_date: string
           year: number
@@ -1432,6 +1434,7 @@ export type Database = {
           created_at?: string
           end_date?: string
           id?: string
+          label?: string | null
           notes?: string | null
           start_date?: string
           year?: number
