@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   GraduationCap, Plus, Loader2, Search, FileDown, Upload,
-  Clock, CheckCircle, Building2, Globe, Trash2
+  Clock, CheckCircle, Building2, Globe, Trash2, Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -305,6 +305,9 @@ export default function Trainings() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" onClick={() => { setEditTraining(t); setFormOpen(true); }}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" title="Imprimir PDF" onClick={() => handlePdf(t)}>
                                   <FileDown className="h-3.5 w-3.5" />
                                 </Button>
