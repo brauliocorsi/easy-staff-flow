@@ -214,6 +214,8 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
           category,
           year,
           total_entitled_days: 22,
+          status: "approved",
+          admin_confirmed: true,
           notes: p.label ? `${p.label}${p.notes ? ` — ${p.notes}` : ""}` : p.notes || undefined,
         }));
       });
