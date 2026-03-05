@@ -43,7 +43,7 @@ export function useMeetingAgendas(meetingId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meeting_agendas")
-        .select("*")
+        .select("*, responsible_employee:employees!meeting_agendas_responsible_employee_id_fkey(id, first_name, last_name)")
         .eq("meeting_id", meetingId!)
         .order("sort_order");
       if (error) throw error;

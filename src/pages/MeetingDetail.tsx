@@ -63,8 +63,8 @@ export default function MeetingDetail() {
     addAgenda.mutate({ meeting_id: id, title, description: description || null, sort_order: sortOrder });
   };
 
-  const handleUpdateDecision = (agendaId: string, decision: string) => {
-    updateAgenda.mutate({ id: agendaId, decision });
+  const handleUpdateDecision = (agendaId: string, decision: string, responsibleEmployeeId: string | null = null) => {
+    updateAgenda.mutate({ id: agendaId, decision, responsible_employee_id: responsibleEmployeeId } as any);
   };
 
   const handleStart = async () => {
@@ -307,6 +307,7 @@ export default function MeetingDetail() {
                       agenda={a}
                       index={i}
                       editable={!isCompleted}
+                      participants={participants}
                       onUpdateDecision={handleUpdateDecision}
                     />
                   ))
