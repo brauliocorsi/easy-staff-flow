@@ -2,24 +2,42 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, MessageSquare } from "lucide-react";
-import type { MeetingAgenda } from "@/hooks/useMeetings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check, MessageSquare, User } from "lucide-react";
 
-interface AgendaCardProps {
-  agenda: MeetingAgenda;
-  index: number;
-  editable?: boolean;
-  onUpdateDecision?: (id: string, decision: string) => void;
+interface Participant {
+  employee_id: string;
+  employees: { first_name: string; last_name: string } | null;
 }
 
-export function AgendaCard({ agenda, index, editable, onUpdateDecision }: AgendaCardProps) {
+interface AgendaCardProps {
+  agenda: {
+    id: string;
+    title: string;
+    description: string | null;
+    decision: string | null;
+    responsible_employee_id?: string | null;
+    responsible_employee?: { id: string; first_name: string; last_name: string } | null;
+  };
+  index: number;
+  editable?: boolean;
+  participants?: Participant[];
+  onUpdateDecision?: (id: string, decision: string, responsibleEmployeeId: string | null) => void;
+}
+
+export function AgendaCard({ agenda, index, editable, participants, onUpdateDecision }: AgendaCardProps) {
   const [decision, setDecision] = useState(agenda.decision ?? "");
+  const [responsibleId, setResponsibleId] = useState<string>(agenda.responsible_employee_id ?? "all");
   const [editing, setEditing] = useState(false);
 
   const handleSave = () => {
-    onUpdateDecision?.(agenda.id, decision);
+    onUpdateDecision?.(agenda.id, decision, responsibleId === "all" ? null : responsibleId);
     setEditing(false);
   };
+
+  const responsibleName = agenda.responsible_employee
+    ? `${agenda.responsible_employee.first_name} ${agenda.responsible_employee.last_name}`
+    : null;
 
   return (
     <Card className="border-l-4 border-l-primary">
@@ -41,11 +59,17 @@ export function AgendaCard({ agenda, index, editable, onUpdateDecision }: Agenda
         )}
 
         {agenda.decision && !editing && (
-          <div className="bg-muted rounded-md p-3 text-sm">
-            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
+          <div className="bg-muted rounded-md p-3 text-sm space-y-1">
+            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <MessageSquare className="h-3 w-3" /> Decisão
             </div>
-            {agenda.decision}
+            <p>{agenda.decision}</p>
+            {(responsibleName || agenda.responsible_employee_id === null) && agenda.decision && (
+              <div className="flex items-center gap-1 text-xs text-primary font-medium mt-1">
+                <User className="h-3 w-3" />
+                {responsibleName ? `Responsável: ${responsibleName}` : "Responsável: Todos os participantes"}
+              </div>
+            )}
           </div>
         )}
 
@@ -63,6 +87,28 @@ export function AgendaCard({ agenda, index, editable, onUpdateDecision }: Agenda
               onChange={(e) => setDecision(e.target.value)}
               rows={2}
             />
+            {participants && participants.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Responsável</label>
+                <Select value={responsibleId} onValueChange={setResponsibleId}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Selecionar responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os participantes</SelectItem>
+                    {participants.map((p) => {
+                      const emp = p.employees;
+                      if (!emp) return null;
+                      return (
+                        <SelectItem key={p.employee_id} value={p.employee_id}>
+                          {emp.first_name} {emp.last_name}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSave}>Salvar</Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>

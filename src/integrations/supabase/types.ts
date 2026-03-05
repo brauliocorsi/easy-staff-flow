@@ -909,6 +909,7 @@ export type Database = {
           description: string | null
           id: string
           meeting_id: string
+          responsible_employee_id: string | null
           sort_order: number
           title: string
         }
@@ -918,6 +919,7 @@ export type Database = {
           description?: string | null
           id?: string
           meeting_id: string
+          responsible_employee_id?: string | null
           sort_order?: number
           title: string
         }
@@ -927,6 +929,7 @@ export type Database = {
           description?: string | null
           id?: string
           meeting_id?: string
+          responsible_employee_id?: string | null
           sort_order?: number
           title?: string
         }
@@ -936,6 +939,13 @@ export type Database = {
             columns: ["meeting_id"]
             isOneToOne: false
             referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_agendas_responsible_employee_id_fkey"
+            columns: ["responsible_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]

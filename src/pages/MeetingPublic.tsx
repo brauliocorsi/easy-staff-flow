@@ -31,6 +31,7 @@ interface PublicMeetingData {
     sort_order: number;
     meeting_id: string;
     created_at: string;
+    responsible_employee_id?: string | null;
   }[];
 }
 
