@@ -51,8 +51,13 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
   const createMeeting = useCreateMeeting();
   const updateMeeting = useUpdateMeeting();
 
+  const [participantSearch, setParticipantSearch] = useState("");
   const isEditing = !!meeting;
-  const activeEmployees = employees?.filter((e) => e.status === "active") ?? [];
+  const activeEmployees = (employees?.filter((e) => e.status === "active") ?? []).filter((emp) => {
+    if (!participantSearch) return true;
+    const full = `${emp.first_name} ${emp.last_name}`.toLowerCase();
+    return full.includes(participantSearch.toLowerCase());
+  });
 
   useEffect(() => {
     if (meeting && open) {
@@ -242,7 +247,15 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80 p-0" align="start">
-                <ScrollArea className="h-60 p-4">
+                <div className="p-2 border-b">
+                  <Input
+                    placeholder="Pesquisar funcionário..."
+                    value={participantSearch}
+                    onChange={(e) => setParticipantSearch(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <ScrollArea className="h-72 p-4">
                   <div className="space-y-2">
                     {activeEmployees.map((emp) => (
                       <label
