@@ -16,6 +16,7 @@ import Absences from "./pages/Absences";
 import Meetings from "./pages/Meetings";
 import MeetingDetail from "./pages/MeetingDetail";
 import MeetingPublic from "./pages/MeetingPublic";
+import MeetingMemorandum from "./pages/MeetingMemorandum";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import TimeClockReport from "./pages/TimeClockReport";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/ferias" element={<ProtectedRoute><Vacations /></ProtectedRoute>} />
             <Route path="/faltas" element={<ProtectedRoute><Absences /></ProtectedRoute>} />
             <Route path="/reunioes" element={<ProtectedRoute><Meetings /></ProtectedRoute>} />
+            <Route path="/reunioes/memorando" element={<ProtectedRoute><MeetingMemorandum /></ProtectedRoute>} />
             <Route path="/reunioes/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
             <Route path="/reuniao-publica/:id" element={<MeetingPublic />} />
             <Route path="/ferias-publica/:token" element={<VacationPublic />} />

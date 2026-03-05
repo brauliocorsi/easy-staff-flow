@@ -85,6 +85,7 @@ const menuGroups = [
     icon: Handshake,
     items: [
       { title: "Reuniões", icon: Handshake, path: "/reunioes" },
+      { title: "Memorando", icon: CalendarDays, path: "/reunioes/memorando" },
       { title: "Sugestões", icon: MessageSquare, path: "/sugestoes" },
     ],
   },
