@@ -47,7 +47,27 @@ export function useMeetingAgendas(meetingId: string | undefined) {
         .eq("meeting_id", meetingId!)
         .order("sort_order");
       if (error) throw error;
-      return data;
+
+      // Fetch multiple responsibles from junction table
+      const agendaIds = data.map((a) => a.id);
+      let responsiblesMap: Record<string, { id: string; employee_id: string; employees: { id: string; first_name: string; last_name: string } | null }[]> = {};
+      if (agendaIds.length > 0) {
+        const { data: resps } = await supabase
+          .from("meeting_agenda_responsibles" as any)
+          .select("id, agenda_id, employee_id, employees(id, first_name, last_name)")
+          .in("agenda_id", agendaIds);
+        if (resps) {
+          for (const r of resps as any[]) {
+            if (!responsiblesMap[r.agenda_id]) responsiblesMap[r.agenda_id] = [];
+            responsiblesMap[r.agenda_id].push(r);
+          }
+        }
+      }
+
+      return data.map((a) => ({
+        ...a,
+        responsibles: responsiblesMap[a.id] ?? [],
+      }));
     },
   });
 }
@@ -167,8 +187,9 @@ export function useUpdateAgenda() {
   return useMutation({
     mutationFn: async ({
       id,
+      responsibleEmployeeIds,
       ...updates
-    }: Partial<MeetingAgenda> & { id: string }) => {
+    }: Partial<MeetingAgenda> & { id: string; responsibleEmployeeIds?: string[] }) => {
       const { data, error } = await supabase
         .from("meeting_agendas")
         .update(updates)
@@ -176,6 +197,22 @@ export function useUpdateAgenda() {
         .select()
         .single();
       if (error) throw error;
+
+      // Update junction table if responsibleEmployeeIds provided
+      if (responsibleEmployeeIds !== undefined) {
+        // Delete existing
+        await supabase
+          .from("meeting_agenda_responsibles" as any)
+          .delete()
+          .eq("agenda_id", id);
+        // Insert new
+        if (responsibleEmployeeIds.length > 0) {
+          await supabase
+            .from("meeting_agenda_responsibles" as any)
+            .insert(responsibleEmployeeIds.map((eid) => ({ agenda_id: id, employee_id: eid })));
+        }
+      }
+
       return data;
     },
     onSuccess: (data) =>

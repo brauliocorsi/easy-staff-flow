@@ -63,8 +63,13 @@ export default function MeetingDetail() {
     addAgenda.mutate({ meeting_id: id, title, description: description || null, sort_order: sortOrder });
   };
 
-  const handleUpdateDecision = (agendaId: string, decision: string, responsibleEmployeeId: string | null = null) => {
-    updateAgenda.mutate({ id: agendaId, decision, responsible_employee_id: responsibleEmployeeId } as any);
+  const handleUpdateDecision = (agendaId: string, decision: string, responsibleEmployeeIds: string[] = []) => {
+    updateAgenda.mutate({
+      id: agendaId,
+      decision,
+      responsible_employee_id: responsibleEmployeeIds.length === 1 ? responsibleEmployeeIds[0] : null,
+      responsibleEmployeeIds,
+    } as any);
   };
 
   const handleStart = async () => {

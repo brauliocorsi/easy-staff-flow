@@ -902,6 +902,42 @@ export type Database = {
           },
         ]
       }
+      meeting_agenda_responsibles: {
+        Row: {
+          agenda_id: string
+          created_at: string
+          employee_id: string
+          id: string
+        }
+        Insert: {
+          agenda_id: string
+          created_at?: string
+          employee_id: string
+          id?: string
+        }
+        Update: {
+          agenda_id?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_agenda_responsibles_agenda_id_fkey"
+            columns: ["agenda_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_agendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_agenda_responsibles_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_agendas: {
         Row: {
           created_at: string

@@ -2,12 +2,17 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Check, MessageSquare, User } from "lucide-react";
 
 interface Participant {
   employee_id: string;
   employees: { first_name: string; last_name: string } | null;
+}
+
+interface ResponsibleEmployee {
+  employee_id: string;
+  employees: { id: string; first_name: string; last_name: string } | null;
 }
 
 interface AgendaCardProps {
@@ -18,26 +23,59 @@ interface AgendaCardProps {
     decision: string | null;
     responsible_employee_id?: string | null;
     responsible_employee?: { id: string; first_name: string; last_name: string } | null;
+    responsibles?: ResponsibleEmployee[];
   };
   index: number;
   editable?: boolean;
   participants?: Participant[];
-  onUpdateDecision?: (id: string, decision: string, responsibleEmployeeId: string | null) => void;
+  onUpdateDecision?: (id: string, decision: string, responsibleEmployeeIds: string[]) => void;
 }
 
 export function AgendaCard({ agenda, index, editable, participants, onUpdateDecision }: AgendaCardProps) {
   const [decision, setDecision] = useState(agenda.decision ?? "");
-  const [responsibleId, setResponsibleId] = useState<string>(agenda.responsible_employee_id ?? "all");
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    if (agenda.responsibles && agenda.responsibles.length > 0) {
+      return agenda.responsibles.map((r) => r.employee_id);
+    }
+    if (agenda.responsible_employee_id) return [agenda.responsible_employee_id];
+    return [];
+  });
+  const [allParticipants, setAllParticipants] = useState(() => {
+    if (agenda.responsibles && agenda.responsibles.length === 0 && !agenda.responsible_employee_id && agenda.decision) return true;
+    if (!agenda.decision) return true; // default for new
+    return false;
+  });
   const [editing, setEditing] = useState(false);
 
   const handleSave = () => {
-    onUpdateDecision?.(agenda.id, decision, responsibleId === "all" ? null : responsibleId);
+    const ids = allParticipants ? [] : selectedIds;
+    onUpdateDecision?.(agenda.id, decision, ids);
     setEditing(false);
   };
 
-  const responsibleName = agenda.responsible_employee
-    ? `${agenda.responsible_employee.first_name} ${agenda.responsible_employee.last_name}`
-    : null;
+  const toggleEmployee = (empId: string) => {
+    setAllParticipants(false);
+    setSelectedIds((prev) =>
+      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
+    );
+  };
+
+  const handleToggleAll = () => {
+    setAllParticipants(true);
+    setSelectedIds([]);
+  };
+
+  // Build display names for responsibles
+  const responsibleNames: string[] = [];
+  if (agenda.responsibles && agenda.responsibles.length > 0) {
+    for (const r of agenda.responsibles) {
+      if (r.employees) responsibleNames.push(`${r.employees.first_name} ${r.employees.last_name}`);
+    }
+  } else if (agenda.responsible_employee) {
+    responsibleNames.push(`${agenda.responsible_employee.first_name} ${agenda.responsible_employee.last_name}`);
+  }
+
+  const isAllResponsible = agenda.decision && responsibleNames.length === 0;
 
   return (
     <Card className="border-l-4 border-l-primary">
@@ -64,12 +102,12 @@ export function AgendaCard({ agenda, index, editable, participants, onUpdateDeci
               <MessageSquare className="h-3 w-3" /> Decisão
             </div>
             <p>{agenda.decision}</p>
-            {(responsibleName || agenda.responsible_employee_id === null) && agenda.decision && (
-              <div className="flex items-center gap-1 text-xs text-primary font-medium mt-1">
-                <User className="h-3 w-3" />
-                {responsibleName ? `Responsável: ${responsibleName}` : "Responsável: Todos os participantes"}
-              </div>
-            )}
+            <div className="flex items-center gap-1 text-xs text-primary font-medium mt-1 flex-wrap">
+              <User className="h-3 w-3" />
+              {isAllResponsible
+                ? "Responsável: Todos os participantes"
+                : `Responsável: ${responsibleNames.join(", ")}`}
+            </div>
           </div>
         )}
 
@@ -88,25 +126,30 @@ export function AgendaCard({ agenda, index, editable, participants, onUpdateDeci
               rows={2}
             />
             {participants && participants.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Responsável</label>
-                <Select value={responsibleId} onValueChange={setResponsibleId}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Selecionar responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os participantes</SelectItem>
-                    {participants.map((p) => {
-                      const emp = p.employees;
-                      if (!emp) return null;
-                      return (
-                        <SelectItem key={p.employee_id} value={p.employee_id}>
-                          {emp.first_name} {emp.last_name}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Responsáveis</label>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={allParticipants}
+                      onCheckedChange={() => handleToggleAll()}
+                    />
+                    Todos os participantes
+                  </label>
+                  {participants.map((p) => {
+                    const emp = p.employees;
+                    if (!emp) return null;
+                    return (
+                      <label key={p.employee_id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={!allParticipants && selectedIds.includes(p.employee_id)}
+                          onCheckedChange={() => toggleEmployee(p.employee_id)}
+                        />
+                        {emp.first_name} {emp.last_name}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             )}
             <div className="flex gap-2">
