@@ -45,9 +45,30 @@ Deno.serve(async (req) => {
 
     const { data: agendas } = await supabase
       .from("meeting_agendas")
-      .select("id, title, description, decision, sort_order, meeting_id, created_at")
+      .select("id, title, description, decision, sort_order, meeting_id, created_at, responsible_employee_id")
       .eq("meeting_id", meeting_id)
       .order("sort_order");
+
+    // Fetch responsibles from junction table
+    const agendaIds = (agendas ?? []).map((a: any) => a.id);
+    let responsiblesMap: Record<string, any[]> = {};
+    if (agendaIds.length > 0) {
+      const { data: resps } = await supabase
+        .from("meeting_agenda_responsibles")
+        .select("agenda_id, employee_id, employees(first_name, last_name)")
+        .in("agenda_id", agendaIds);
+      if (resps) {
+        for (const r of resps as any[]) {
+          if (!responsiblesMap[r.agenda_id]) responsiblesMap[r.agenda_id] = [];
+          responsiblesMap[r.agenda_id].push(r);
+        }
+      }
+    }
+
+    const agendasWithResponsibles = (agendas ?? []).map((a: any) => ({
+      ...a,
+      responsibles: responsiblesMap[a.id] ?? [],
+    }));
 
     // Strip emails from public response
     const safeParticipants = (participants ?? []).map((p: any) => ({
@@ -68,7 +89,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ...meeting,
         participants: safeParticipants,
-        agendas: agendas ?? [],
+        agendas: agendasWithResponsibles,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
