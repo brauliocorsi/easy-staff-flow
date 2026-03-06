@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Loader2, Users, Shield, Link, Unlink } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { EditUserDialog } from "./EditUserDialog";
+import { UserPlus, Loader2, Users, Shield, Link, Unlink, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +22,7 @@ export function UserManager() {
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const queryClient = useQueryClient();
+  const [editUser, setEditUser] = useState<{ id: string; display_name: string | null } | null>(null);
 
   const { data: profiles, isLoading: loadingProfiles } = useQuery({
     queryKey: ["admin-profiles"],
@@ -150,6 +153,21 @@ export function UserManager() {
     return emp ? `${emp.first_name} ${emp.last_name}` : null;
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "delete", userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Utilizador removido com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-user-roles"] });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover utilizador");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -271,6 +289,38 @@ export function UserManager() {
                             Sem papel
                           </Badge>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setEditUser({ id: profile.id, display_name: profile.display_name })}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remover utilizador?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação é irreversível. O utilizador "{profile.display_name || "Sem nome"}" será permanentemente removido do sistema.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => handleDeleteUser(profile.id)}
+                              >
+                                Remover
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
 
@@ -344,6 +394,12 @@ export function UserManager() {
           )}
         </CardContent>
       </Card>
+      <EditUserDialog
+        open={!!editUser}
+        onOpenChange={(open) => !open && setEditUser(null)}
+        user={editUser}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["admin-profiles"] })}
+      />
     </div>
   );
 }
