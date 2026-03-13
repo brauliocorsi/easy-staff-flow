@@ -100,10 +100,10 @@ export default function VehicleMaintenanceFormDialog({ open, onClose, onSave, ve
           <div><Label>Peças substituídas</Label><Input value={form.parts_replaced} onChange={e => setForm(f => ({ ...f, parts_replaced: e.target.value }))} /></div>
           <div>
             <Label>Realizado por</Label>
-            <Select value={form.performed_by} onValueChange={v => setForm(f => ({ ...f, performed_by: v }))}>
+            <Select value={form.performed_by || "none"} onValueChange={v => setForm(f => ({ ...f, performed_by: v === "none" ? "" : v }))}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {employees.map(e => (
                   <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>
                 ))}
