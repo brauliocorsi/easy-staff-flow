@@ -47,12 +47,7 @@ Deno.serve(async (req) => {
     const checkDate = new Date(targetDate + "T12:00:00Z");
     const dayOfWeek = checkDate.getDay();
 
-    // Skip weekends
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return new Response(JSON.stringify({ message: "Weekend - skipped", date: targetDate, absences_created: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // No longer skip weekends globally — rely on each employee's schedule template is_day_off
 
     // Get all active employees with schedule templates
     const { data: employees, error: empErr } = await supabase
