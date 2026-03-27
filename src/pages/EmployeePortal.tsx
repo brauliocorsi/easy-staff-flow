@@ -295,7 +295,38 @@ export default function EmployeePortal() {
           </CardContent>
         </Card>
 
-        {/* Absences */}
+        {/* Time Clock Records */}
+        <SectionCard title="Registos de Ponto" icon={Clock} iconClass="text-primary" count={(data.time_clock_records || []).length}>
+          {(data.time_clock_records || []).length === 0 ? <EmptyText /> : (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {(data.time_clock_records || []).map((r: any) => {
+                const fmtTime = (ts: string | null) => {
+                  if (!ts) return "—";
+                  const d = new Date(ts);
+                  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+                };
+                const hasAll = r.clock_in && r.clock_out;
+                return (
+                  <div key={r.id} className="p-2 rounded-md border">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">{format(new Date(r.record_date + "T00:00:00"), "dd/MM/yyyy (EEEE)")}</p>
+                      <Badge variant={hasAll ? "default" : "outline"} className="text-xs">
+                        {hasAll ? "Completo" : "Parcial"}
+                      </Badge>
+                    </div>
+                    <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                      <span>Entrada: {fmtTime(r.clock_in)}</span>
+                      <span>Almoço: {fmtTime(r.lunch_out)}</span>
+                      <span>Retorno: {fmtTime(r.lunch_in)}</span>
+                      <span>Saída: {fmtTime(r.clock_out)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
+
         <SectionCard title="Faltas" icon={AlertTriangle} iconClass="text-destructive" count={data.absences.length}>
           {data.absences.length === 0 ? <EmptyText /> : (
             <div className="space-y-2 max-h-52 overflow-y-auto">
