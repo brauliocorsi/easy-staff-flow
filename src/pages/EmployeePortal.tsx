@@ -16,7 +16,8 @@ import {
   Loader2, Lock, AlertTriangle, CheckCircle, XCircle, Palmtree,
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
   MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
-  ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2, ClipboardList
+  ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2, ClipboardList,
+  Clock
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
