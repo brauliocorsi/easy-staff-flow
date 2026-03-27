@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       }
 
       // Fetch related data
-      const [absences, warnings, vacations, meetings, contracts, trainings, epis, tools, maintenanceLogs, maintenanceTasks] = await Promise.all([
+      const [absences, warnings, vacations, meetings, contracts, trainings, epis, tools, maintenanceLogs, maintenanceTasks, timeClockRecords] = await Promise.all([
         supabase.from("absences").select("*").eq("employee_id", emp.id).order("absence_date", { ascending: false }),
         supabase.from("warnings").select("*").eq("employee_id", emp.id).order("warning_date", { ascending: false }),
         supabase.from("vacation_requests").select("*").eq("employee_id", emp.id).order("year", { ascending: false }),
@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
         supabase.from("tool_assignments").select("*").eq("employee_id", emp.id).order("assigned_date", { ascending: false }),
         supabase.from("maintenance_logs").select("*, machines(id, name, checklist_template)").eq("employee_id", emp.id).order("completed_date", { ascending: false }),
         supabase.from("maintenance_tasks").select("*, machines(id, name, location, checklist_template)").eq("employee_id", emp.id).eq("is_active", true).order("created_at", { ascending: false }),
+        supabase.from("time_clock_records").select("*").eq("employee_id", emp.id).order("record_date", { ascending: false }).limit(60),
       ]);
 
       const meetingsList = (meetings.data || [])
@@ -77,6 +78,7 @@ Deno.serve(async (req) => {
         tools: tools.data || [],
         maintenance_logs: maintenanceLogs.data || [],
         maintenance_tasks: maintenanceTasks.data || [],
+        time_clock_records: timeClockRecords.data || [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
