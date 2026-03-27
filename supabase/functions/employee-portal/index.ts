@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
         tools: tools.data || [],
         maintenance_logs: maintenanceLogs.data || [],
         maintenance_tasks: maintenanceTasks.data || [],
+        time_clock_records: timeClockRecords.data || [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
