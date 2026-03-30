@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,8 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
-import { Car, ClipboardCheck, LogOut, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Car, ClipboardCheck, LogOut, Loader2, Camera, X, ImagePlus } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -39,6 +38,33 @@ async function callFn(action: string, body?: any) {
   return data;
 }
 
+async function uploadPhoto(file: File, employeeId: string): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("employee_id", employeeId);
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/vehicle-inspection?action=upload-photo`, {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Erro ao enviar foto");
+  return data.url;
+}
+
+const StatusSelect = ({ label, value, onChange, options = statusOptions }: { label: string; value: string; onChange: (v: string) => void; options?: typeof statusOptions }) => (
+  <div className="space-y-1">
+    <Label className="text-sm font-medium">{label}</Label>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {options.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+);
+
 export default function VehicleInspection() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -65,6 +91,28 @@ export default function VehicleInspection() {
   const [wheelWrench, setWheelWrench] = useState(false);
   const [observations, setObservations] = useState("");
 
+  // Photos
+  const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddFiles = (files: FileList | null) => {
+    if (!files) return;
+    const newPhotos = Array.from(files).map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPhotos(prev => [...prev, ...newPhotos]);
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
   const handleLogin = async () => {
     if (pin.length < 4) return;
     setLoading(true);
@@ -83,16 +131,19 @@ export default function VehicleInspection() {
   };
 
   const handleSubmit = async () => {
-    if (!vehicleId) {
-      toast.error("Selecione um veículo");
-      return;
-    }
-    if (!km || parseInt(km) <= 0) {
-      toast.error("Informe a quilometragem");
-      return;
-    }
+    if (!vehicleId) { toast.error("Selecione um veículo"); return; }
+    if (!km || parseInt(km) <= 0) { toast.error("Informe a quilometragem"); return; }
+
     setLoading(true);
     try {
+      // Upload photos first
+      let photoUrls: string[] = [];
+      if (photos.length > 0) {
+        setUploadingPhotos(true);
+        photoUrls = await Promise.all(photos.map(p => uploadPhoto(p.file, employee!.id)));
+        setUploadingPhotos(false);
+      }
+
       await callFn("submit", {
         employee_id: employee!.id,
         vehicle_id: vehicleId,
@@ -112,6 +163,7 @@ export default function VehicleInspection() {
         jack,
         wheel_wrench: wheelWrench,
         observations: observations || null,
+        photos: photoUrls,
       });
       setSubmitted(true);
       toast.success("Inspeção registada com sucesso!");
@@ -119,66 +171,21 @@ export default function VehicleInspection() {
       toast.error(err.message || "Erro ao registar inspeção");
     } finally {
       setLoading(false);
+      setUploadingPhotos(false);
     }
   };
 
-  const handleLogout = () => {
-    setEmployee(null);
-    setPin("");
-    setSubmitted(false);
-    setVehicleId("");
-    setKm("");
-    setOilLevel("ok");
-    setBrakePads("ok");
-    setBrakes("ok");
-    setWaterLevel("ok");
-    setTireCondition("ok");
-    setCleanliness("ok");
-    setScratches("none");
-    setDents("none");
-    setTurnSignals("ok");
-    setLights("ok");
-    setMaterialReturn("ok");
-    setVest(false);
-    setJack(false);
-    setWheelWrench(false);
-    setObservations("");
+  const resetForm = () => {
+    setVehicleId(""); setKm(""); setOilLevel("ok"); setBrakePads("ok"); setBrakes("ok");
+    setWaterLevel("ok"); setTireCondition("ok"); setCleanliness("ok"); setScratches("none");
+    setDents("none"); setTurnSignals("ok"); setLights("ok"); setMaterialReturn("ok");
+    setVest(false); setJack(false); setWheelWrench(false); setObservations("");
+    photos.forEach(p => URL.revokeObjectURL(p.preview));
+    setPhotos([]);
   };
 
-  const handleNewInspection = () => {
-    setSubmitted(false);
-    setVehicleId("");
-    setKm("");
-    setOilLevel("ok");
-    setBrakePads("ok");
-    setBrakes("ok");
-    setWaterLevel("ok");
-    setTireCondition("ok");
-    setCleanliness("ok");
-    setScratches("none");
-    setDents("none");
-    setTurnSignals("ok");
-    setLights("ok");
-    setMaterialReturn("ok");
-    setVest(false);
-    setJack(false);
-    setWheelWrench(false);
-    setObservations("");
-  };
-
-  const StatusSelect = ({ label, value, onChange, options = statusOptions }: { label: string; value: string; onChange: (v: string) => void; options?: typeof statusOptions }) => (
-    <div className="space-y-1">
-      <Label className="text-sm font-medium">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {options.map(o => (
-            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  const handleLogout = () => { setEmployee(null); setPin(""); setSubmitted(false); resetForm(); };
+  const handleNewInspection = () => { setSubmitted(false); resetForm(); };
 
   // PIN Screen
   if (!employee) {
@@ -319,6 +326,74 @@ export default function VehicleInspection() {
           </CardContent>
         </Card>
 
+        {/* Photos */}
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Fotos</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Tirar Foto
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlus className="h-4 w-4 mr-2" />
+                Galeria
+              </Button>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={e => handleAddFiles(e.target.files)}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={e => handleAddFiles(e.target.files)}
+              />
+            </div>
+
+            {photos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((photo, index) => (
+                  <div key={index} className="relative group rounded-lg overflow-hidden border border-border aspect-square">
+                    <img
+                      src={photo.preview}
+                      alt={`Foto ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(index)}
+                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {photos.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma foto adicionada.</p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Observations */}
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Observações</CardTitle></CardHeader>
@@ -335,7 +410,7 @@ export default function VehicleInspection() {
         {/* Submit */}
         <Button className="w-full h-12 text-base" onClick={handleSubmit} disabled={loading}>
           {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ClipboardCheck className="h-5 w-5 mr-2" />}
-          Registar Inspeção
+          {uploadingPhotos ? "A enviar fotos..." : "Registar Inspeção"}
         </Button>
       </div>
     </div>

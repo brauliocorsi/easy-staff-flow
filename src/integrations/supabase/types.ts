@@ -1562,6 +1562,7 @@ export type Database = {
           material_return: string
           observations: string | null
           oil_level: string
+          photos: string[] | null
           scratches: string
           tire_condition: string
           turn_signals: string
@@ -1585,6 +1586,7 @@ export type Database = {
           material_return?: string
           observations?: string | null
           oil_level?: string
+          photos?: string[] | null
           scratches?: string
           tire_condition?: string
           turn_signals?: string
@@ -1608,6 +1610,7 @@ export type Database = {
           material_return?: string
           observations?: string | null
           oil_level?: string
+          photos?: string[] | null
           scratches?: string
           tire_condition?: string
           turn_signals?: string
