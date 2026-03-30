@@ -608,6 +608,7 @@ export default function OvertimeBank() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Dia</TableHead>
                       <TableHead className="text-right">Previsto</TableHead>
@@ -619,36 +620,82 @@ export default function OvertimeBank() {
                   <TableBody>
                     {rows.map((r, i) => {
                       const accumulated = rows.slice(0, i + 1).reduce((s, x) => s + x.diff, 0);
+                      const isExpanded = expandedDate === r.date;
                       return (
-                        <TableRow key={r.date} className={r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}>
-                          <TableCell className="font-mono text-sm">{format(new Date(r.date + "T12:00:00"), "dd/MM")}</TableCell>
-                          <TableCell className="capitalize text-sm">
-                            {r.dayName}
-                            {r.isDayOff && <Badge variant="outline" className="ml-2 text-[10px]">Folga</Badge>}
-                            {r.isBankDeduction && <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">Falta (Banco)</Badge>}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm">
-                            {String(Math.floor(r.scheduled / 60)).padStart(2, "0")}:{String(r.scheduled % 60).padStart(2, "0")}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm">
-                            {String(Math.floor(r.worked / 60)).padStart(2, "0")}:{String(r.worked % 60).padStart(2, "0")}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant={r.diff > 0 ? "default" : r.diff < 0 ? "destructive" : "secondary"} className="font-mono text-xs">
-                              {minutesToHHMM(r.diff)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className={`font-mono text-sm font-semibold ${accumulated >= 0 ? "text-primary" : "text-destructive"}`}>
-                              {minutesToHHMM(accumulated)}
-                            </span>
-                          </TableCell>
-                        </TableRow>
+                        <>
+                          <TableRow
+                            key={r.date}
+                            className={`cursor-pointer ${r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
+                            onClick={() => setExpandedDate(isExpanded ? null : r.date)}
+                          >
+                            <TableCell className="w-8 px-2">
+                              {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{format(new Date(r.date + "T12:00:00"), "dd/MM")}</TableCell>
+                            <TableCell className="capitalize text-sm">
+                              {r.dayName}
+                              {r.isDayOff && <Badge variant="outline" className="ml-2 text-[10px]">Folga</Badge>}
+                              {r.isBankDeduction && <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">Falta (Banco)</Badge>}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {String(Math.floor(r.scheduled / 60)).padStart(2, "0")}:{String(r.scheduled % 60).padStart(2, "0")}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {String(Math.floor(r.worked / 60)).padStart(2, "0")}:{String(r.worked % 60).padStart(2, "0")}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant={r.diff > 0 ? "default" : r.diff < 0 ? "destructive" : "secondary"} className="font-mono text-xs">
+                                {minutesToHHMM(r.diff)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className={`font-mono text-sm font-semibold ${accumulated >= 0 ? "text-primary" : "text-destructive"}`}>
+                                {minutesToHHMM(accumulated)}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow key={`${r.date}-detail`} className="bg-muted/20 hover:bg-muted/20">
+                              <TableCell colSpan={7} className="py-3 px-6">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-0.5">Entrada</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium">{formatTs(r.clockIn ?? null)}</span>
+                                      {r.schedClockIn && <span className="text-muted-foreground text-xs">(prev: {r.schedClockIn?.slice(0, 5)})</span>}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-0.5">Saída Almoço</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium">{formatTs(r.lunchOut ?? null)}</span>
+                                      {r.schedLunchOut && <span className="text-muted-foreground text-xs">(prev: {r.schedLunchOut?.slice(0, 5)})</span>}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-0.5">Regresso Almoço</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium">{formatTs(r.lunchIn ?? null)}</span>
+                                      {r.schedLunchIn && <span className="text-muted-foreground text-xs">(prev: {r.schedLunchIn?.slice(0, 5)})</span>}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs mb-0.5">Saída</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium">{formatTs(r.clockOut ?? null)}</span>
+                                      {r.schedClockOut && <span className="text-muted-foreground text-xs">(prev: {r.schedClockOut?.slice(0, 5)})</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       );
                     })}
                     {rows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">Sem registos para este período</TableCell>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Sem registos para este período</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
