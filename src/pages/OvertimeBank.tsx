@@ -29,6 +29,68 @@ function minutesToHHMM(mins: number): string {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+type Tolerances = {
+  tolerance_late_minutes: number;
+  tolerance_overtime_minutes: number;
+  tolerance_early_leave_minutes: number;
+};
+
+/**
+ * Calculate the effective diff applying tolerances:
+ * - Late arrival within tolerance → no penalty
+ * - Early leave within tolerance → no penalty
+ * - Overtime only counts if beyond overtime tolerance
+ */
+function calcDiffWithTolerances(
+  record: { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+  schedule: { clock_in_time: string; clock_out_time: string; lunch_out_time: string; lunch_in_time: string },
+  tolerances: Tolerances
+): { worked: number; diff: number } {
+  const actualIn = tsToMinutes(record.clock_in);
+  const actualOut = tsToMinutes(record.clock_out);
+  const schedIn = timeToMinutes(schedule.clock_in_time);
+  const schedOut = timeToMinutes(schedule.clock_out_time);
+  const schedLunchOut = timeToMinutes(schedule.lunch_out_time);
+  const schedLunchIn = timeToMinutes(schedule.lunch_in_time);
+  const scheduledLunch = schedLunchIn - schedLunchOut;
+  const scheduledWork = (schedOut - schedIn) - scheduledLunch;
+
+  let actualLunch = 0;
+  if (record.lunch_out && record.lunch_in) {
+    actualLunch = tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+  }
+  const worked = (actualOut - actualIn) - actualLunch;
+
+  // Calculate late minutes (arrived after scheduled)
+  const lateMinutes = Math.max(0, actualIn - schedIn);
+  // Calculate early leave minutes (left before scheduled)
+  const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
+  // Calculate extra minutes (worked beyond scheduled)
+  const rawDiff = worked - scheduledWork;
+
+  let diff = 0;
+
+  if (rawDiff >= 0) {
+    // Employee worked more than scheduled — apply overtime tolerance
+    diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+  } else {
+    // Employee worked less than scheduled
+    // Check if the deficit is within tolerances (late + early leave)
+    const totalDeficit = Math.abs(rawDiff);
+    const toleratedLate = Math.min(lateMinutes, tolerances.tolerance_late_minutes);
+    const toleratedEarly = Math.min(earlyLeaveMinutes, tolerances.tolerance_early_leave_minutes);
+    const toleratedTotal = toleratedLate + toleratedEarly;
+
+    if (totalDeficit <= toleratedTotal) {
+      diff = 0; // Within tolerance
+    } else {
+      diff = rawDiff; // Full deficit applies
+    }
+  }
+
+  return { worked, diff };
+}
+
 type DayRow = {
   date: string;
   dayName: string;
@@ -95,6 +157,21 @@ export default function OvertimeBank() {
     },
   });
 
+  // Fetch schedule template tolerances for selected employee
+  const { data: selectedTemplate } = useQuery({
+    queryKey: ["template-tolerance", emp?.schedule_template_id],
+    enabled: !!emp?.schedule_template_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_templates")
+        .select("tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes")
+        .eq("id", emp!.schedule_template_id!)
+        .single();
+      if (error) throw error;
+      return data as Tolerances;
+    },
+  });
+
   // Fetch bank-deducted absences for selected employee
   const { data: bankAbsences } = useQuery({
     queryKey: ["bank-absences", selectedEmployee, rangeStart, rangeEnd],
@@ -112,9 +189,12 @@ export default function OvertimeBank() {
     },
   });
 
+  const defaultTolerances: Tolerances = { tolerance_late_minutes: 0, tolerance_overtime_minutes: 0, tolerance_early_leave_minutes: 0 };
+
   const rows = useMemo(() => {
     if (!records || !templateDays) return [];
 
+    const tolerances = selectedTemplate || defaultTolerances;
     const scheduleMap = new Map<number, (typeof templateDays)[0]>();
     templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
 
@@ -141,7 +221,7 @@ export default function OvertimeBank() {
       const record = recordMap.get(dateStr);
       const isBankDeduction = bankAbsenceSet.has(dateStr);
 
-      // Bank deduction: absence deducted from overtime bank
+      // Bank deduction
       if (isBankDeduction && schedule && !schedule.is_day_off) {
         const scheduledWork =
           timeToMinutes(schedule.clock_out_time) -
@@ -172,40 +252,41 @@ export default function OvertimeBank() {
         continue;
       }
 
-      // Working day without record → IGNORE (0h), not deficit
+      // Working day without complete record → IGNORE
       if (!record?.clock_in || !record?.clock_out) {
         continue;
       }
 
-      // Normal working day with record
+      // Normal working day with record — apply tolerances
       const scheduledWork =
         timeToMinutes(schedule.clock_out_time) -
         timeToMinutes(schedule.clock_in_time) -
         (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
 
-      let worked = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
-      if (record.lunch_out && record.lunch_in) {
-        worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-      }
+      const { worked, diff } = calcDiffWithTolerances(
+        record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+        schedule,
+        tolerances
+      );
 
       result.push({
         date: dateStr,
         dayName: format(d, "EEEE", { locale: pt }),
         scheduled: scheduledWork,
         worked,
-        diff: worked - scheduledWork,
+        diff,
         isDayOff: false,
       });
     }
 
     return result;
-  }, [records, templateDays, bankAbsences, selectedMonth, selectedYear]);
+  }, [records, templateDays, bankAbsences, selectedTemplate, selectedMonth, selectedYear]);
 
   const totalBalance = rows.reduce((sum, r) => sum + r.diff, 0);
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
   const totalDeficit = rows.reduce((sum, r) => sum + Math.min(0, r.diff), 0);
 
-  // Summary per employee (all employees)
+  // ---- Summary for all employees ----
   const { data: allRecords } = useQuery({
     queryKey: ["overtime-all-records", rangeStart, rangeEnd],
     queryFn: async () => {
@@ -228,6 +309,17 @@ export default function OvertimeBank() {
     },
   });
 
+  const { data: allTemplates } = useQuery({
+    queryKey: ["overtime-all-templates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_templates")
+        .select("id, tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: allBankAbsences } = useQuery({
     queryKey: ["overtime-all-bank-absences", rangeStart, rangeEnd],
     queryFn: async () => {
@@ -243,15 +335,17 @@ export default function OvertimeBank() {
   });
 
   const summaryPerEmployee = useMemo(() => {
-    if (!employees || !allRecords || !allTemplateDays) return [];
+    if (!employees || !allRecords || !allTemplateDays || !allTemplates) return [];
 
-    const templateMap = new Map<string, Map<number, (typeof allTemplateDays)[0]>>();
+    const templateDayMap = new Map<string, Map<number, (typeof allTemplateDays)[0]>>();
     allTemplateDays.forEach((td) => {
-      if (!templateMap.has(td.template_id)) templateMap.set(td.template_id, new Map());
-      templateMap.get(td.template_id)!.set(td.day_of_week, td);
+      if (!templateDayMap.has(td.template_id)) templateDayMap.set(td.template_id, new Map());
+      templateDayMap.get(td.template_id)!.set(td.day_of_week, td);
     });
 
-    // Bank absence lookup: employee_id -> Set of dates
+    const toleranceMap = new Map<string, Tolerances>();
+    allTemplates.forEach((t) => toleranceMap.set(t.id, t));
+
     const bankAbsMap = new Map<string, Set<string>>();
     allBankAbsences?.forEach((a) => {
       if (!bankAbsMap.has(a.employee_id)) bankAbsMap.set(a.employee_id, new Set());
@@ -262,8 +356,10 @@ export default function OvertimeBank() {
 
     return employees.map((emp) => {
       const empRecords = allRecords.filter((r) => r.employee_id === emp.id);
-      const schedMap = emp.schedule_template_id ? templateMap.get(emp.schedule_template_id) : null;
+      const schedMap = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
       if (!schedMap) return { ...emp, balance: 0 };
+
+      const tolerances = emp.schedule_template_id ? (toleranceMap.get(emp.schedule_template_id) || defaultTolerances) : defaultTolerances;
 
       const recordMap = new Map<string, (typeof empRecords)[0]>();
       empRecords.forEach((r) => recordMap.set(r.record_date, r));
@@ -283,7 +379,6 @@ export default function OvertimeBank() {
         const rec = recordMap.get(dateStr);
         const isBankDeduction = empBankDates.has(dateStr);
 
-        // Bank deduction
         if (isBankDeduction && sched && !sched.is_day_off) {
           const scheduled =
             timeToMinutes(sched.clock_out_time) -
@@ -302,22 +397,19 @@ export default function OvertimeBank() {
           continue;
         }
 
-        // No record → ignore
         if (!rec?.clock_in || !rec?.clock_out) continue;
 
-        const scheduled =
-          timeToMinutes(sched.clock_out_time) -
-          timeToMinutes(sched.clock_in_time) -
-          (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
-
-        let worked = tsToMinutes(rec.clock_out) - tsToMinutes(rec.clock_in);
-        if (rec.lunch_out && rec.lunch_in) worked -= tsToMinutes(rec.lunch_in) - tsToMinutes(rec.lunch_out);
-        balance += worked - scheduled;
+        const { diff } = calcDiffWithTolerances(
+          rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+          sched,
+          tolerances
+        );
+        balance += diff;
       }
 
       return { ...emp, balance };
     });
-  }, [employees, allRecords, allTemplateDays, allBankAbsences, selectedMonth, selectedYear]);
+  }, [employees, allRecords, allTemplateDays, allTemplates, allBankAbsences, selectedMonth, selectedYear]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
@@ -331,33 +423,24 @@ export default function OvertimeBank() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Banco de Horas</h1>
-          <p className="text-muted-foreground">Controlo de horas extra por funcionário</p>
+          <p className="text-muted-foreground">Controlo de horas extra por funcionário (com tolerâncias aplicadas)</p>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap gap-3 items-center">
           <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {months.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  {m.label}
-                </SelectItem>
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select value={year} onValueChange={setYear}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {years.map((y) => (
-                <SelectItem key={y} value={y}>
-                  {y}
-                </SelectItem>
+                <SelectItem key={y} value={y}>{y}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -369,9 +452,7 @@ export default function OvertimeBank() {
             <SelectContent>
               <SelectItem value="all">Todos os funcionários</SelectItem>
               {employees?.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.first_name} {e.last_name}
-                </SelectItem>
+                <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -383,7 +464,7 @@ export default function OvertimeBank() {
           )}
         </div>
 
-        {/* Summary table when no employee selected */}
+        {/* Summary table */}
         {!selectedEmployee && (
           <Card>
             <CardHeader>
@@ -402,19 +483,10 @@ export default function OvertimeBank() {
                 </TableHeader>
                 <TableBody>
                   {summaryPerEmployee?.map((e) => (
-                    <TableRow
-                      key={e.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setSelectedEmployee(e.id)}
-                    >
-                      <TableCell className="font-medium">
-                        {e.first_name} {e.last_name}
-                      </TableCell>
+                    <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedEmployee(e.id)}>
+                      <TableCell className="font-medium">{e.first_name} {e.last_name}</TableCell>
                       <TableCell className="text-right">
-                        <Badge
-                          variant={e.balance > 0 ? "default" : e.balance < 0 ? "destructive" : "secondary"}
-                          className="font-mono"
-                        >
+                        <Badge variant={e.balance > 0 ? "default" : e.balance < 0 ? "destructive" : "secondary"} className="font-mono">
                           {minutesToHHMM(e.balance)}
                         </Badge>
                       </TableCell>
@@ -422,9 +494,7 @@ export default function OvertimeBank() {
                   ))}
                   {(!summaryPerEmployee || summaryPerEmployee.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
-                        Sem dados disponíveis
-                      </TableCell>
+                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -433,9 +503,17 @@ export default function OvertimeBank() {
           </Card>
         )}
 
-        {/* Detail view for selected employee */}
+        {/* Detail view */}
         {selectedEmployee && emp && (
           <>
+            {selectedTemplate && (
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>Tolerância atraso: <strong>{selectedTemplate.tolerance_late_minutes}min</strong></span>
+                <span>Tolerância extra: <strong>{selectedTemplate.tolerance_overtime_minutes}min</strong></span>
+                <span>Tolerância saída antecipada: <strong>{selectedTemplate.tolerance_early_leave_minutes}min</strong></span>
+              </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
                 <CardContent className="pt-6">
@@ -446,8 +524,7 @@ export default function OvertimeBank() {
                     <div>
                       <p className="text-sm text-muted-foreground">Horas Extra</p>
                       <p className="text-xl font-bold font-mono text-primary">
-                        +{String(Math.floor(totalOvertime / 60)).padStart(2, "0")}:
-                        {String(totalOvertime % 60).padStart(2, "0")}
+                        +{String(Math.floor(totalOvertime / 60)).padStart(2, "0")}:{String(totalOvertime % 60).padStart(2, "0")}
                       </p>
                     </div>
                   </div>
@@ -462,9 +539,7 @@ export default function OvertimeBank() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Défice</p>
-                      <p className="text-xl font-bold font-mono text-destructive">
-                        {minutesToHHMM(totalDeficit)}
-                      </p>
+                      <p className="text-xl font-bold font-mono text-destructive">{minutesToHHMM(totalDeficit)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -489,9 +564,7 @@ export default function OvertimeBank() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">
-                  {emp.first_name} {emp.last_name} — Detalhe Diário
-                </CardTitle>
+                <CardTitle className="text-lg">{emp.first_name} {emp.last_name} — Detalhe Diário</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -513,30 +586,17 @@ export default function OvertimeBank() {
                           <TableCell className="font-mono text-sm">{format(new Date(r.date + "T12:00:00"), "dd/MM")}</TableCell>
                           <TableCell className="capitalize text-sm">
                             {r.dayName}
-                            {r.isDayOff && (
-                              <Badge variant="outline" className="ml-2 text-[10px]">
-                                Folga
-                              </Badge>
-                            )}
-                            {r.isBankDeduction && (
-                              <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">
-                                Falta (Banco)
-                              </Badge>
-                            )}
+                            {r.isDayOff && <Badge variant="outline" className="ml-2 text-[10px]">Folga</Badge>}
+                            {r.isBankDeduction && <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">Falta (Banco)</Badge>}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
-                            {String(Math.floor(r.scheduled / 60)).padStart(2, "0")}:
-                            {String(r.scheduled % 60).padStart(2, "0")}
+                            {String(Math.floor(r.scheduled / 60)).padStart(2, "0")}:{String(r.scheduled % 60).padStart(2, "0")}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
-                            {String(Math.floor(r.worked / 60)).padStart(2, "0")}:
-                            {String(r.worked % 60).padStart(2, "0")}
+                            {String(Math.floor(r.worked / 60)).padStart(2, "0")}:{String(r.worked % 60).padStart(2, "0")}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Badge
-                              variant={r.diff > 0 ? "default" : r.diff < 0 ? "destructive" : "secondary"}
-                              className="font-mono text-xs"
-                            >
+                            <Badge variant={r.diff > 0 ? "default" : r.diff < 0 ? "destructive" : "secondary"} className="font-mono text-xs">
                               {minutesToHHMM(r.diff)}
                             </Badge>
                           </TableCell>
@@ -550,9 +610,7 @@ export default function OvertimeBank() {
                     })}
                     {rows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                          Sem registos para este período
-                        </TableCell>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">Sem registos para este período</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
