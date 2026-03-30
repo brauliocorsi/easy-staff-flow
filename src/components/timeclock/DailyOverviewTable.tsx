@@ -305,9 +305,9 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.length === 0 ? (
+                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
+                      <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
                     </TableRow>
                   ) : (
                     data.map((row) => (
