@@ -167,6 +167,7 @@ export default function Vehicles() {
             <TabsTrigger value="vehicles">Veículos</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
             <TabsTrigger value="maintenances">Manutenções</TabsTrigger>
+            <TabsTrigger value="inspections">Inspeções</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vehicles" className="space-y-4">
