@@ -153,7 +153,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     missing: rows.filter(r => r.status === "missing").length,
   };
 
-  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Horas Realizadas", "Status"];
+  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Horas Realizadas", "Status", "Observações"];
 
   const getExportRows = useCallback(() => {
     return rows.map((r) => [
