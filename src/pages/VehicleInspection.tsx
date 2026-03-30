@@ -214,10 +214,10 @@ export default function VehicleInspection() {
       <div className="min-h-screen bg-gradient-to-br from-muted/50 to-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-6 space-y-4">
-            <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-              <ClipboardCheck className="h-10 w-10 text-green-600" />
+            <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+              <ClipboardCheck className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold text-green-700">Inspeção Registada!</h2>
+            <h2 className="text-2xl font-bold text-primary">Inspeção Registada!</h2>
             <p className="text-muted-foreground">A inspeção foi registada com sucesso.</p>
             <div className="flex gap-2 justify-center pt-2">
               <Button variant="outline" onClick={handleNewInspection}>Nova Inspeção</Button>
