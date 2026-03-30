@@ -306,6 +306,14 @@ export default function OvertimeBank() {
         worked,
         diff,
         isDayOff: false,
+        clockIn: record.clock_in,
+        clockOut: record.clock_out,
+        lunchOut: record.lunch_out,
+        lunchIn: record.lunch_in,
+        schedClockIn: schedule.clock_in_time,
+        schedClockOut: schedule.clock_out_time,
+        schedLunchOut: schedule.lunch_out_time,
+        schedLunchIn: schedule.lunch_in_time,
       });
     }
 
