@@ -21,6 +21,7 @@ import {
   UserCircle,
   Wrench,
   CalendarDays,
+  Timer,
 } from "lucide-react";
 import {
   Sidebar,
