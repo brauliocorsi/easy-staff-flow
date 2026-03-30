@@ -119,6 +119,7 @@ type DayRow = {
 export default function OvertimeBank() {
   const currentDate = new Date();
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [month, setMonth] = useState(String(currentDate.getMonth()));
   const [year, setYear] = useState(String(currentDate.getFullYear()));
 
