@@ -67,51 +67,52 @@ function calcDiffWithTolerances(
   const schedLunchOut = timeToMinutes(schedule.lunch_out_time);
   const schedLunchIn = timeToMinutes(schedule.lunch_in_time);
   const scheduledLunch = schedLunchIn - schedLunchOut;
-  const scheduledWork = (schedOut - schedIn) - scheduledLunch;
 
-  // Lunch logic:
-  // - Leaving late for lunch (e.g. 12:15 instead of 12:00) does NOT count as overtime
-  // - Returning early from lunch does NOT count as overtime
-  // - Returning late from lunch DOES count as deficit, with late tolerance applied
-  let lunchPenalty = 0;
+  // Actual lunch calculation
   let actualLunch = scheduledLunch;
   if (record.lunch_out && record.lunch_in) {
-    const actualLunchIn = tsToMinutes(record.lunch_in);
-    actualLunch = actualLunchIn - tsToMinutes(record.lunch_out);
-    const lunchReturnLate = Math.max(0, actualLunchIn - schedLunchIn); // minutes late returning
-    if (lunchReturnLate > tolerances.tolerance_late_minutes) {
-      lunchPenalty = lunchReturnLate; // full penalty if exceeds tolerance
-    }
+    actualLunch = tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
   }
 
   const worked = (actualOut - actualIn) - actualLunch;
 
-  // Late arrival
+  // --- Calculate each component independently ---
+
+  // 1) Late arrival: full penalty if exceeds tolerance, zero if within
   const lateMinutes = Math.max(0, actualIn - schedIn);
-  // Early leave
-  const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
-
-  // Calculate diff: use effective lunch (max of actual vs scheduled)
-  // so that extra lunch time within tolerance doesn't hide deficit
-  const effectiveLunch = Math.max(actualLunch, scheduledLunch);
-  const entryExitWorked = (actualOut - actualIn) - effectiveLunch;
-  const entryExitDiff = entryExitWorked - scheduledWork;
-
-  let diff = 0;
-
-  // Apply tolerance to entry/exit
-  if (entryExitDiff >= 0) {
-    diff = entryExitDiff > tolerances.tolerance_overtime_minutes ? entryExitDiff - tolerances.tolerance_overtime_minutes : 0;
-  } else {
-    const totalDeficit = Math.abs(entryExitDiff);
-    const toleratedLate = Math.min(lateMinutes, tolerances.tolerance_late_minutes);
-    const toleratedEarly = Math.min(earlyLeaveMinutes, tolerances.tolerance_early_leave_minutes);
-    const toleratedTotal = toleratedLate + toleratedEarly;
-    diff = totalDeficit <= toleratedTotal ? 0 : entryExitDiff;
+  let entryDeficit = 0;
+  if (lateMinutes > tolerances.tolerance_late_minutes) {
+    entryDeficit = lateMinutes;
   }
 
-  // Subtract lunch return penalty
-  diff -= lunchPenalty;
+  // 2) Exit: overtime credit or early leave deficit (mutually exclusive)
+  const exitExtra = Math.max(0, actualOut - schedOut);
+  const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
+  let exitCredit = 0;
+  let exitDeficit = 0;
+  if (exitExtra > 0) {
+    // Only credit if beyond overtime tolerance, and subtract tolerance
+    exitCredit = exitExtra > tolerances.tolerance_overtime_minutes
+      ? exitExtra - tolerances.tolerance_overtime_minutes
+      : 0;
+  } else if (earlyLeaveMinutes > 0) {
+    // Full penalty if beyond early leave tolerance
+    exitDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes
+      ? earlyLeaveMinutes
+      : 0;
+  }
+
+  // 3) Lunch: only penalize if returned late beyond tolerance
+  let lunchPenalty = 0;
+  if (record.lunch_out && record.lunch_in) {
+    const actualLunchIn = tsToMinutes(record.lunch_in);
+    const lunchReturnLate = Math.max(0, actualLunchIn - schedLunchIn);
+    if (lunchReturnLate > tolerances.tolerance_late_minutes) {
+      lunchPenalty = lunchReturnLate;
+    }
+  }
+
+  const diff = exitCredit - entryDeficit - exitDeficit - lunchPenalty;
 
   return { worked, diff };
 }
