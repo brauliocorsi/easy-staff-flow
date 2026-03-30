@@ -122,6 +122,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       scheduledIn: sched && !isDayOff ? sched.clock_in_time : null,
       workedHours,
       status,
+      notes: rec?.notes ?? null,
     };
   });
 
