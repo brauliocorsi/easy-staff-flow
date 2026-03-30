@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MoonStar, AlertTriangle } from "lucide-react";
+import { Clock, MoonStar, AlertTriangle, Palmtree } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
 import { useMemo } from "react";
 
