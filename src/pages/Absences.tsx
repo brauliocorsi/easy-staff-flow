@@ -197,6 +197,9 @@ export default function Absences() {
   };
 
   const getStatusBadge = (absence: any) => {
+    if (absence.type === "bank_deduction") {
+      return <Badge variant="outline" className="text-xs text-primary border-primary"><Timer className="h-3 w-3 mr-1" />Banco horas</Badge>;
+    }
     if (absence.type === "vacation_swap") {
       return <Badge variant="outline" className="text-xs text-primary border-primary"><ArrowRightLeft className="h-3 w-3 mr-1" />Troca férias</Badge>;
     }
