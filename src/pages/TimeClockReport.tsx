@@ -307,6 +307,7 @@ export default function TimeClockReport() {
                      <TableHead>Hora Extra</TableHead>
                      <TableHead>Atraso</TableHead>
                      <TableHead>Status</TableHead>
+                     <TableHead>Observações</TableHead>
                      <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
