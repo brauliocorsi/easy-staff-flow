@@ -66,13 +66,19 @@ export function EmployeeCard({ employee, onClick }: Props) {
       onClick={() => onClick(employee)}
     >
       <CardContent className="p-4 flex flex-col items-center text-center gap-3 relative">
-        {isDayOff && (
+        {isOnVacation && (
+          <Badge variant="outline" className="absolute top-2 right-2 text-[10px] gap-1 border-emerald-500/50 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30">
+            <Palmtree className="h-3 w-3" />
+            Férias
+          </Badge>
+        )}
+        {isDayOff && !isOnVacation && (
           <Badge variant="outline" className="absolute top-2 right-2 text-[10px] gap-1 border-amber-500/50 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
             <MoonStar className="h-3 w-3" />
             Folga
           </Badge>
         )}
-        {late && (
+        {late && !isOnVacation && (
           <Badge variant="destructive" className="absolute top-2 right-2 text-[10px] gap-1">
             <AlertTriangle className="h-3 w-3" />
             Atrasado
