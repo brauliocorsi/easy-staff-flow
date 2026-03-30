@@ -1,0 +1,1 @@
+ALTER TABLE public.absences ADD COLUMN deducted_from_bank boolean NOT NULL DEFAULT false;

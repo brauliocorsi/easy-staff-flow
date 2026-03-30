@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, CalendarIcon, Upload, Trash2, FileText, AlertTriangle, CheckCircle, ArrowRightLeft } from "lucide-react";
+import { Plus, Search, Loader2, CalendarIcon, Upload, Trash2, FileText, AlertTriangle, CheckCircle, ArrowRightLeft, Timer } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ export default function Absences() {
   const [justifyOpen, setJustifyOpen] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [swapAbsence, setSwapAbsence] = useState<any | null>(null);
+  const [bankAbsence, setBankAbsence] = useState<any | null>(null);
   const [reason, setReason] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -129,7 +130,6 @@ export default function Absences() {
 
   const swapMutation = useMutation({
     mutationFn: async (absence: any) => {
-      // Create a 1-day approved vacation request
       const { error: vacError } = await supabase.from("vacation_requests").insert({
         employee_id: absence.employee_id,
         start_date: absence.absence_date,
@@ -145,7 +145,6 @@ export default function Absences() {
       });
       if (vacError) throw vacError;
 
-      // Justify the absence
       const { error: absError } = await supabase
         .from("absences")
         .update({
@@ -167,6 +166,29 @@ export default function Absences() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const bankDeductMutation = useMutation({
+    mutationFn: async (absence: any) => {
+      const { error } = await supabase
+        .from("absences")
+        .update({
+          justified: true,
+          type: "bank_deduction",
+          reason: "Abatida no banco de horas",
+          justification_date: new Date().toISOString(),
+          deducted_from_bank: true,
+        } as any)
+        .eq("id", absence.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Falta abatida no banco de horas");
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      queryClient.invalidateQueries({ queryKey: ["overtime"] });
+      setBankAbsence(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const resetForm = () => {
     setSelectedEmployee("");
     setSelectedDate(undefined);
@@ -175,6 +197,9 @@ export default function Absences() {
   };
 
   const getStatusBadge = (absence: any) => {
+    if (absence.type === "bank_deduction") {
+      return <Badge variant="outline" className="text-xs text-primary border-primary"><Timer className="h-3 w-3 mr-1" />Banco horas</Badge>;
+    }
     if (absence.type === "vacation_swap") {
       return <Badge variant="outline" className="text-xs text-primary border-primary"><ArrowRightLeft className="h-3 w-3 mr-1" />Troca férias</Badge>;
     }
@@ -299,6 +324,11 @@ export default function Absences() {
                           {canJustify(absence) && (
                             <Button variant="ghost" size="icon" title="Justificar" onClick={() => { setJustifyOpen(absence.id); setReason(""); }}>
                               <FileText className="h-4 w-4 text-amber-600" />
+                            </Button>
+                          )}
+                          {isAdmin && !absence.justified && (
+                            <Button variant="ghost" size="icon" title="Abater no banco de horas" onClick={() => setBankAbsence(absence)}>
+                              <Timer className="h-4 w-4 text-primary" />
                             </Button>
                           )}
                           {isAdmin && !absence.justified && (
@@ -430,6 +460,31 @@ export default function Absences() {
             <AlertDialogAction onClick={() => swapAbsence && swapMutation.mutate(swapAbsence)}>
               {swapMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
               Confirmar Troca
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Bank deduction confirmation */}
+      <AlertDialog open={!!bankAbsence} onOpenChange={(o) => { if (!o) setBankAbsence(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Abater Falta no Banco de Horas</AlertDialogTitle>
+            <AlertDialogDescription>
+              {bankAbsence && (
+                <>
+                  Tem certeza que deseja abater a falta de{" "}
+                  <strong>{bankAbsence.employees?.first_name} {bankAbsence.employees?.last_name}</strong>{" "}
+                  no dia <strong>{format(new Date(bankAbsence.absence_date + "T12:00:00"), "dd/MM/yyyy")}</strong>{" "}
+                  no banco de horas? As horas previstas desse dia serão subtraídas do saldo de horas extra.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => bankAbsence && bankDeductMutation.mutate(bankAbsence)}>
+              {bankDeductMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
