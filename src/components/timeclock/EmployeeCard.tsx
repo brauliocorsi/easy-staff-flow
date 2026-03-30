@@ -20,6 +20,7 @@ export interface EmployeeData {
   scheduled_clock_out?: string | null;
   tolerance_late_minutes?: number | null;
   is_part_time?: boolean;
+  on_vacation?: boolean;
 }
 
 interface Props {
