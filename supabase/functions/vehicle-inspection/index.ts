@@ -62,6 +62,37 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Upload photo
+    if (action === "upload-photo") {
+      const formData = await req.formData();
+      const file = formData.get("file") as File;
+      const employeeId = formData.get("employee_id") as string;
+
+      if (!file || !employeeId) {
+        return new Response(JSON.stringify({ error: "Ficheiro ou ID em falta" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `${employeeId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("inspection-photos")
+        .upload(filePath, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("inspection-photos")
+        .getPublicUrl(filePath);
+
+      return new Response(JSON.stringify({ url: publicUrlData.publicUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Submit inspection
     if (action === "submit") {
       const body = await req.json();
@@ -69,7 +100,7 @@ Deno.serve(async (req) => {
         employee_id, vehicle_id, km, oil_level, brake_pads, brakes,
         water_level, tire_condition, cleanliness, scratches, dents,
         turn_signals, lights, material_return, vest, jack, wheel_wrench,
-        observations,
+        observations, photos,
       } = body;
 
       if (!employee_id || !vehicle_id) {
@@ -100,6 +131,7 @@ Deno.serve(async (req) => {
           jack: jack ?? false,
           wheel_wrench: wheel_wrench ?? false,
           observations: observations || null,
+          photos: photos || [],
         });
 
       if (insertError) throw insertError;
