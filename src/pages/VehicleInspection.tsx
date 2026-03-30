@@ -233,7 +233,7 @@ export default function VehicleInspection() {
 
   // Inspection form
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-muted/50 to-background p-4">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
