@@ -11,6 +11,12 @@ import { Clock, TrendingUp, TrendingDown, ArrowLeft, ChevronDown, ChevronRight }
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
 
+function formatTs(ts: string | null): string {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 function tsToMinutes(ts: string): number {
   const d = new Date(ts);
   return d.getHours() * 60 + d.getMinutes();
