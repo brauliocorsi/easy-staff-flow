@@ -329,6 +329,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                         <TableCell className="text-muted-foreground text-sm">{row.scheduledIn ? row.scheduledIn.slice(0, 5) : "—"}</TableCell>
                         <TableCell className="font-medium text-sm">{row.workedHours}</TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate" title={row.notes || ""}>{row.notes || "—"}</TableCell>
                       </TableRow>
                     ))
                   )}
