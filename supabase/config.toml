@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.employee-portal]
 verify_jwt = false
+
+[functions.vehicle-inspection]
+verify_jwt = false
