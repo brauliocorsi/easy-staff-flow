@@ -508,7 +508,7 @@ export default function OvertimeBank() {
           const rawDiff = worked - scheduledWork;
           let diff = 0;
           if (rawDiff >= 0) {
-            diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+            diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
           } else {
             const lateMin = Math.max(0, tsToMinutes(rec.clock_in) - timeToMinutes(sched.clock_in_time));
             const earlyMin = Math.max(0, timeToMinutes(sched.lunch_out_time) - tsToMinutes(effectiveOut));
