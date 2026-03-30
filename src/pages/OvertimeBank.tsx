@@ -99,7 +99,7 @@ function calcDiffWithTolerances(
 
   // Apply tolerance to entry/exit
   if (entryExitDiff >= 0) {
-    diff = entryExitDiff > tolerances.tolerance_overtime_minutes ? entryExitDiff : 0;
+    diff = entryExitDiff > tolerances.tolerance_overtime_minutes ? entryExitDiff - tolerances.tolerance_overtime_minutes : 0;
   } else {
     const totalDeficit = Math.abs(entryExitDiff);
     const toleratedLate = Math.min(lateMinutes, tolerances.tolerance_late_minutes);
