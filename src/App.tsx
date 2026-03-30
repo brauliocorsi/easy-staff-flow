@@ -30,6 +30,7 @@ import Equipment from "./pages/Equipment";
 import Vehicles from "./pages/Vehicles";
 import MedicalExams from "./pages/MedicalExams";
 import ResetPassword from "./pages/ResetPassword";
+import OvertimeBank from "./pages/OvertimeBank";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
