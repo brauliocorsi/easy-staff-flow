@@ -322,7 +322,7 @@ export default function OvertimeBank() {
         const rawDiff = worked - scheduledWork;
         let diff = 0;
         if (rawDiff >= 0) {
-          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
         } else {
           const lateMinutes = Math.max(0, actualIn - schedIn);
           const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
