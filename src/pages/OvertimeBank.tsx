@@ -35,6 +35,12 @@ function minutesToHHMM(mins: number): string {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/** Part-time: lunch_in and clock_out are "00:00:00", employee works clock_in → lunch_out only */
+function isPartTimeSchedule(sched: any): boolean {
+  if (!sched || sched.is_day_off) return false;
+  return sched.lunch_in_time === "00:00:00" && sched.clock_out_time === "00:00:00";
+}
+
 type Tolerances = {
   tolerance_late_minutes: number;
   tolerance_overtime_minutes: number;
