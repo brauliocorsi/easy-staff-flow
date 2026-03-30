@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Eye, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Eye, CheckCircle, XCircle, AlertTriangle, ExternalLink, Copy } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 import { useState } from "react";
+import { toast } from "sonner";
 
 const statusLabel: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
   ok: { label: "OK", variant: "default" },
@@ -79,7 +80,14 @@ export default function VehicleInspectionsTab({ vehicles, filterVehicle, onFilte
     { key: "wheel_wrench", label: "Chave de Rodas" },
   ];
 
-  return (
+    const publicUrl = `${window.location.origin}/inspecao-veiculo`;
+
+    const copyUrl = () => {
+      navigator.clipboard.writeText(publicUrl);
+      toast.success("Link copiado!");
+    };
+
+    return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <Select value={filterVehicle} onValueChange={onFilterChange}>
@@ -89,6 +97,16 @@ export default function VehicleInspectionsTab({ vehicles, filterVehicle, onFilte
             {vehicles.map((v: any) => <SelectItem key={v.id} value={v.id}>{v.plate}</SelectItem>)}
           </SelectContent>
         </Select>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={copyUrl}>
+            <Copy className="h-4 w-4 mr-1" /> Copiar Link
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4 mr-1" /> Abrir Inspeção
+            </a>
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border">
