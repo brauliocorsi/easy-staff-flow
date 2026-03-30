@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Car, ShieldCheck, Wrench, AlertTriangle, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Car, ShieldCheck, Wrench, AlertTriangle, Upload, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
 import VehicleDocumentFormDialog from "@/components/vehicles/VehicleDocumentFormDialog";
 import VehicleMaintenanceFormDialog from "@/components/vehicles/VehicleMaintenanceFormDialog";
+import VehicleInspectionsTab from "@/components/vehicles/VehicleInspectionsTab";
 
 const fuelMap: Record<string, string> = { diesel: "Diesel", gasoline: "Gasolina", electric: "Elétrico", hybrid: "Híbrido" };
 const statusMap: Record<string, string> = { active: "Ativo", inactive: "Inativo", sold: "Vendido" };
@@ -166,6 +167,7 @@ export default function Vehicles() {
             <TabsTrigger value="vehicles">Veículos</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
             <TabsTrigger value="maintenances">Manutenções</TabsTrigger>
+            <TabsTrigger value="inspections">Inspeções</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vehicles" className="space-y-4">
@@ -289,6 +291,10 @@ export default function Vehicles() {
                 </TableBody>
               </Table>
             </div>
+          </TabsContent>
+
+          <TabsContent value="inspections" className="space-y-4">
+            <VehicleInspectionsTab vehicles={vehicles} filterVehicle={filterVehicle} onFilterChange={setFilterVehicle} />
           </TabsContent>
         </Tabs>
       </div>
