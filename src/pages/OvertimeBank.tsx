@@ -35,6 +35,12 @@ function minutesToHHMM(mins: number): string {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/** Part-time: lunch_in and clock_out are "00:00:00", employee works clock_in → lunch_out only */
+function isPartTimeSchedule(sched: any): boolean {
+  if (!sched || sched.is_day_off) return false;
+  return sched.lunch_in_time === "00:00:00" && sched.clock_out_time === "00:00:00";
+}
+
 type Tolerances = {
   tolerance_late_minutes: number;
   tolerance_overtime_minutes: number;
@@ -293,39 +299,84 @@ export default function OvertimeBank() {
         continue;
       }
 
+      const partTime = isPartTimeSchedule(schedule);
+
+      // For part-time, the "clock_out" is stored in lunch_out field
+      const effectiveClockOut = partTime ? record?.lunch_out : record?.clock_out;
+
       // Working day without complete record → IGNORE
-      if (!record?.clock_in || !record?.clock_out) {
+      if (!record?.clock_in || !effectiveClockOut) {
         continue;
       }
 
-      // Normal working day with record — apply tolerances
-      const scheduledWork =
-        timeToMinutes(schedule.clock_out_time) -
-        timeToMinutes(schedule.clock_in_time) -
-        (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+      if (partTime) {
+        // Part-time: scheduled work = lunch_out_time - clock_in_time, no lunch break
+        const scheduledWork = timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time);
+        const actualIn = tsToMinutes(record.clock_in);
+        const actualOut = tsToMinutes(effectiveClockOut);
+        const worked = actualOut - actualIn;
+        const schedIn = timeToMinutes(schedule.clock_in_time);
+        const schedOut = timeToMinutes(schedule.lunch_out_time);
 
-      const { worked, diff } = calcDiffWithTolerances(
-        record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-        schedule,
-        tolerances
-      );
+        // Apply tolerances for entry/exit
+        const rawDiff = worked - scheduledWork;
+        let diff = 0;
+        if (rawDiff >= 0) {
+          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+        } else {
+          const lateMinutes = Math.max(0, actualIn - schedIn);
+          const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
+          const toleratedLate = Math.min(lateMinutes, tolerances.tolerance_late_minutes);
+          const toleratedEarly = Math.min(earlyLeaveMinutes, tolerances.tolerance_early_leave_minutes);
+          diff = Math.abs(rawDiff) <= (toleratedLate + toleratedEarly) ? 0 : rawDiff;
+        }
 
-      result.push({
-        date: dateStr,
-        dayName: format(d, "EEEE", { locale: pt }),
-        scheduled: scheduledWork,
-        worked,
-        diff,
-        isDayOff: false,
-        clockIn: record.clock_in,
-        clockOut: record.clock_out,
-        lunchOut: record.lunch_out,
-        lunchIn: record.lunch_in,
-        schedClockIn: schedule.clock_in_time,
-        schedClockOut: schedule.clock_out_time,
-        schedLunchOut: schedule.lunch_out_time,
-        schedLunchIn: schedule.lunch_in_time,
-      });
+        result.push({
+          date: dateStr,
+          dayName: format(d, "EEEE", { locale: pt }),
+          scheduled: scheduledWork,
+          worked,
+          diff,
+          isDayOff: false,
+          clockIn: record.clock_in,
+          clockOut: effectiveClockOut,
+          lunchOut: null,
+          lunchIn: null,
+          schedClockIn: schedule.clock_in_time,
+          schedClockOut: schedule.lunch_out_time,
+          schedLunchOut: undefined,
+          schedLunchIn: undefined,
+        });
+      } else {
+        // Normal working day with record — apply tolerances
+        const scheduledWork =
+          timeToMinutes(schedule.clock_out_time) -
+          timeToMinutes(schedule.clock_in_time) -
+          (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+
+        const { worked, diff } = calcDiffWithTolerances(
+          record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+          schedule,
+          tolerances
+        );
+
+        result.push({
+          date: dateStr,
+          dayName: format(d, "EEEE", { locale: pt }),
+          scheduled: scheduledWork,
+          worked,
+          diff,
+          isDayOff: false,
+          clockIn: record.clock_in,
+          clockOut: record.clock_out,
+          lunchOut: record.lunch_out,
+          lunchIn: record.lunch_in,
+          schedClockIn: schedule.clock_in_time,
+          schedClockOut: schedule.clock_out_time,
+          schedLunchOut: schedule.lunch_out_time,
+          schedLunchIn: schedule.lunch_in_time,
+        });
+      }
     }
 
     return result;
@@ -446,14 +497,33 @@ export default function OvertimeBank() {
           continue;
         }
 
-        if (!rec?.clock_in || !rec?.clock_out) continue;
+        const pt = isPartTimeSchedule(sched);
+        const effectiveOut = pt ? rec?.lunch_out : rec?.clock_out;
 
-        const { diff } = calcDiffWithTolerances(
-          rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-          sched,
-          tolerances
-        );
-        balance += diff;
+        if (!rec?.clock_in || !effectiveOut) continue;
+
+        if (pt) {
+          const scheduledWork = timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time);
+          const worked = tsToMinutes(effectiveOut) - tsToMinutes(rec.clock_in);
+          const rawDiff = worked - scheduledWork;
+          let diff = 0;
+          if (rawDiff >= 0) {
+            diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+          } else {
+            const lateMin = Math.max(0, tsToMinutes(rec.clock_in) - timeToMinutes(sched.clock_in_time));
+            const earlyMin = Math.max(0, timeToMinutes(sched.lunch_out_time) - tsToMinutes(effectiveOut));
+            const tolerated = Math.min(lateMin, tolerances.tolerance_late_minutes) + Math.min(earlyMin, tolerances.tolerance_early_leave_minutes);
+            diff = Math.abs(rawDiff) <= tolerated ? 0 : rawDiff;
+          }
+          balance += diff;
+        } else {
+          const { diff } = calcDiffWithTolerances(
+            rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+            sched,
+            tolerances
+          );
+          balance += diff;
+        }
       }
 
       return { ...emp, balance };

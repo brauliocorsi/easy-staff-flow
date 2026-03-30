@@ -111,15 +111,20 @@ export default function TimeClockReport() {
       const rec = recordMap.get(dateStr);
       const isDayOff = sched?.is_day_off ?? true;
 
+      // Detect part-time schedule (lunch_in=00:00, clock_out=00:00)
+      const partTime = sched && !sched.is_day_off && sched.lunch_in_time === "00:00:00" && sched.clock_out_time === "00:00:00";
+      // For part-time, the effective clock_out is stored in lunch_out field
+      const effectiveClockOut = partTime ? rec?.lunch_out : rec?.clock_out;
+
       let workedMinutes = 0;
       let overtimeMinutes = 0;
       let lateMinutes = 0;
       let status: "normal" | "late" | "overtime" | "absent" | "dayoff" | "incomplete" = isDayOff ? "dayoff" : "absent";
 
       if (rec && rec.clock_in) {
-        if (rec.clock_out) {
-          workedMinutes = (new Date(rec.clock_out).getTime() - new Date(rec.clock_in).getTime()) / 60000;
-          if (rec.lunch_out && rec.lunch_in) {
+        if (effectiveClockOut) {
+          workedMinutes = (new Date(effectiveClockOut).getTime() - new Date(rec.clock_in).getTime()) / 60000;
+          if (!partTime && rec.lunch_out && rec.lunch_in) {
             workedMinutes -= (new Date(rec.lunch_in).getTime() - new Date(rec.lunch_out).getTime()) / 60000;
           }
           workedMinutes = Math.max(0, workedMinutes);
@@ -134,8 +139,8 @@ export default function TimeClockReport() {
               status = "late";
             }
 
-            const clockOutMin = tsToMinutes(rec.clock_out);
-            const schedClockOut = timeToMinutes(sched.clock_out_time);
+            const clockOutMin = tsToMinutes(effectiveClockOut);
+            const schedClockOut = partTime ? timeToMinutes(sched.lunch_out_time) : timeToMinutes(sched.clock_out_time);
             const ot = clockOutMin - schedClockOut - (tol.tolerance_overtime_minutes || 0);
             if (ot > 0) {
               overtimeMinutes = ot;
@@ -155,7 +160,7 @@ export default function TimeClockReport() {
         clockIn: rec?.clock_in ?? null,
         lunchOut: rec?.lunch_out ?? null,
         lunchIn: rec?.lunch_in ?? null,
-        clockOut: rec?.clock_out ?? null,
+        clockOut: partTime ? (rec?.lunch_out ?? null) : (rec?.clock_out ?? null),
         workedMinutes,
         overtimeMinutes,
         lateMinutes,
