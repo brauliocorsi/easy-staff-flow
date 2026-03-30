@@ -166,6 +166,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       r.scheduledIn ? r.scheduledIn.slice(0, 5) : "—",
       r.workedHours,
       statusLabel(r.status),
+      r.notes || "",
     ]);
   }, [rows]);
 
