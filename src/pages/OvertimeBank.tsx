@@ -102,8 +102,8 @@ function calcDiffWithTolerances(
     diff = totalDeficit <= toleratedTotal ? 0 : entryExitDiff;
   }
 
-  // Add lunch effect (already toleranced)
-  diff -= effectiveLunchDiff;
+  // Subtract lunch return penalty
+  diff -= lunchPenalty;
 
   return { worked, diff };
 }
