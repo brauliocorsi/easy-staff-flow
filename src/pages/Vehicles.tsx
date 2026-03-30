@@ -292,6 +292,10 @@ export default function Vehicles() {
               </Table>
             </div>
           </TabsContent>
+
+          <TabsContent value="inspections" className="space-y-4">
+            <VehicleInspectionsTab vehicles={vehicles} filterVehicle={filterVehicle} onFilterChange={setFilterVehicle} />
+          </TabsContent>
         </Tabs>
       </div>
 
