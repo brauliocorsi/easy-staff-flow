@@ -46,6 +46,8 @@ type Tolerances = {
  * - Late arrival within tolerance → no penalty
  * - Early leave within tolerance → no penalty
  * - Overtime only counts if beyond overtime tolerance
+ * - Lunch break: extra lunch time within late tolerance → no penalty;
+ *   shorter lunch within overtime tolerance → no extra
  */
 function calcDiffWithTolerances(
   record: { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
@@ -61,38 +63,48 @@ function calcDiffWithTolerances(
   const scheduledLunch = schedLunchIn - schedLunchOut;
   const scheduledWork = (schedOut - schedIn) - scheduledLunch;
 
-  let actualLunch = 0;
+  let actualLunch = scheduledLunch; // default to scheduled if no lunch record
   if (record.lunch_out && record.lunch_in) {
     actualLunch = tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
   }
+
+  // Apply tolerance to lunch break difference
+  const lunchDiff = actualLunch - scheduledLunch; // positive = longer lunch, negative = shorter lunch
+  let effectiveLunchDiff = 0;
+  if (lunchDiff > 0) {
+    // Took longer lunch → penalize only if exceeds late tolerance
+    effectiveLunchDiff = lunchDiff > tolerances.tolerance_late_minutes ? lunchDiff : 0;
+  } else if (lunchDiff < 0) {
+    // Took shorter lunch → count as extra only if exceeds overtime tolerance
+    effectiveLunchDiff = Math.abs(lunchDiff) > tolerances.tolerance_overtime_minutes ? lunchDiff : 0;
+  }
+
   const worked = (actualOut - actualIn) - actualLunch;
 
-  // Calculate late minutes (arrived after scheduled)
+  // Late arrival
   const lateMinutes = Math.max(0, actualIn - schedIn);
-  // Calculate early leave minutes (left before scheduled)
+  // Early leave
   const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
-  // Calculate extra minutes (worked beyond scheduled)
-  const rawDiff = worked - scheduledWork;
+
+  // Calculate diff without lunch (entry/exit only)
+  const entryExitWorked = (actualOut - actualIn) - scheduledLunch;
+  const entryExitDiff = entryExitWorked - scheduledWork;
 
   let diff = 0;
 
-  if (rawDiff >= 0) {
-    // Employee worked more than scheduled — apply overtime tolerance
-    diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+  // Apply tolerance to entry/exit
+  if (entryExitDiff >= 0) {
+    diff = entryExitDiff > tolerances.tolerance_overtime_minutes ? entryExitDiff : 0;
   } else {
-    // Employee worked less than scheduled
-    // Check if the deficit is within tolerances (late + early leave)
-    const totalDeficit = Math.abs(rawDiff);
+    const totalDeficit = Math.abs(entryExitDiff);
     const toleratedLate = Math.min(lateMinutes, tolerances.tolerance_late_minutes);
     const toleratedEarly = Math.min(earlyLeaveMinutes, tolerances.tolerance_early_leave_minutes);
     const toleratedTotal = toleratedLate + toleratedEarly;
-
-    if (totalDeficit <= toleratedTotal) {
-      diff = 0; // Within tolerance
-    } else {
-      diff = rawDiff; // Full deficit applies
-    }
+    diff = totalDeficit <= toleratedTotal ? 0 : entryExitDiff;
   }
+
+  // Add lunch effect (already toleranced)
+  diff -= effectiveLunchDiff;
 
   return { worked, diff };
 }
