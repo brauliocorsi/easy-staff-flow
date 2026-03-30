@@ -21,6 +21,7 @@ import {
   UserCircle,
   Wrench,
   CalendarDays,
+  Timer,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ const menuGroups = [
     items: [
       { title: "Relógio de Ponto", icon: Clock, path: "/ponto" },
       { title: "Relatório de Ponto", icon: BarChart3, path: "/relatorios/ponto" },
+      { title: "Banco de Horas", icon: Timer, path: "/banco-horas" },
       { title: "Registro de Faltas", icon: CalendarX, path: "/faltas" },
     ],
   },
