@@ -1546,6 +1546,93 @@ export type Database = {
           },
         ]
       }
+      vehicle_inspections: {
+        Row: {
+          brake_pads: string
+          brakes: string
+          cleanliness: string
+          created_at: string
+          dents: string
+          employee_id: string
+          id: string
+          inspection_date: string
+          jack: boolean
+          km: number
+          lights: string
+          material_return: string
+          observations: string | null
+          oil_level: string
+          scratches: string
+          tire_condition: string
+          turn_signals: string
+          vehicle_id: string
+          vest: boolean
+          water_level: string
+          wheel_wrench: boolean
+        }
+        Insert: {
+          brake_pads?: string
+          brakes?: string
+          cleanliness?: string
+          created_at?: string
+          dents?: string
+          employee_id: string
+          id?: string
+          inspection_date?: string
+          jack?: boolean
+          km?: number
+          lights?: string
+          material_return?: string
+          observations?: string | null
+          oil_level?: string
+          scratches?: string
+          tire_condition?: string
+          turn_signals?: string
+          vehicle_id: string
+          vest?: boolean
+          water_level?: string
+          wheel_wrench?: boolean
+        }
+        Update: {
+          brake_pads?: string
+          brakes?: string
+          cleanliness?: string
+          created_at?: string
+          dents?: string
+          employee_id?: string
+          id?: string
+          inspection_date?: string
+          jack?: boolean
+          km?: number
+          lights?: string
+          material_return?: string
+          observations?: string | null
+          oil_level?: string
+          scratches?: string
+          tire_condition?: string
+          turn_signals?: string
+          vehicle_id?: string
+          vest?: boolean
+          water_level?: string
+          wheel_wrench?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_inspections_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_maintenances: {
         Row: {
           cost: number | null
