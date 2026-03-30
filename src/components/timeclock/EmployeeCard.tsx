@@ -54,7 +54,8 @@ function isLate(employee: EmployeeData): boolean {
 export function EmployeeCard({ employee, onClick }: Props) {
   const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
   const isDayOff = employee.schedule_label?.includes("Folga");
-  const late = useMemo(() => !isDayOff && isLate(employee), [employee, isDayOff]);
+  const isOnVacation = employee.on_vacation;
+  const late = useMemo(() => !isDayOff && !isOnVacation && isLate(employee), [employee, isDayOff, isOnVacation]);
 
   return (
     <Card
