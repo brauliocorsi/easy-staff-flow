@@ -106,6 +106,14 @@ type DayRow = {
   isDayOff: boolean;
   incomplete?: boolean;
   isBankDeduction?: boolean;
+  clockIn?: string | null;
+  clockOut?: string | null;
+  lunchOut?: string | null;
+  lunchIn?: string | null;
+  schedClockIn?: string;
+  schedClockOut?: string;
+  schedLunchOut?: string;
+  schedLunchIn?: string;
 };
 
 export default function OvertimeBank() {
