@@ -168,6 +168,132 @@ export default function Absences() {
 
   const bankDeductMutation = useMutation({
     mutationFn: async (absence: any) => {
+      // 1. Get employee schedule template
+      const { data: emp } = await supabase
+        .from("employees")
+        .select("schedule_template_id")
+        .eq("id", absence.employee_id)
+        .single();
+      if (!emp?.schedule_template_id) throw new Error("Funcionário sem modelo de horário definido");
+
+      // 2. Get schedule for the absence day
+      const absDate = new Date(absence.absence_date + "T12:00:00");
+      const dow = absDate.getDay();
+      const { data: schedDay } = await supabase
+        .from("schedule_template_days")
+        .select("*")
+        .eq("template_id", emp.schedule_template_id)
+        .eq("day_of_week", dow)
+        .single();
+      if (!schedDay || schedDay.is_day_off) throw new Error("Este dia é folga, não pode ser abatido");
+
+      const timeToMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
+      const scheduledWork = timeToMin(schedDay.clock_out_time) - timeToMin(schedDay.clock_in_time)
+        - (timeToMin(schedDay.lunch_in_time) - timeToMin(schedDay.lunch_out_time));
+
+      // 3. Calculate current month balance
+      const monthStart = format(new Date(absDate.getFullYear(), absDate.getMonth(), 1), "yyyy-MM-dd");
+      const monthEnd = format(new Date(absDate.getFullYear(), absDate.getMonth() + 1, 0), "yyyy-MM-dd");
+      const today = format(new Date(), "yyyy-MM-dd");
+
+      const [recordsRes, templateDaysRes, templateRes, bankAbsRes] = await Promise.all([
+        supabase.from("time_clock_records").select("*").eq("employee_id", absence.employee_id).gte("record_date", monthStart).lte("record_date", monthEnd),
+        supabase.from("schedule_template_days").select("*").eq("template_id", emp.schedule_template_id),
+        supabase.from("schedule_templates").select("tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes").eq("id", emp.schedule_template_id).single(),
+        supabase.from("absences").select("absence_date").eq("employee_id", absence.employee_id).eq("deducted_from_bank", true).gte("absence_date", monthStart).lte("absence_date", monthEnd),
+      ]);
+
+      const records = recordsRes.data || [];
+      const templateDays = templateDaysRes.data || [];
+      const tolerances = templateRes.data || { tolerance_late_minutes: 10, tolerance_overtime_minutes: 15, tolerance_early_leave_minutes: 5 };
+      const bankDates = new Set((bankAbsRes.data || []).map((a: any) => a.absence_date));
+
+      const schedMap = new Map<number, any>();
+      templateDays.forEach((td: any) => schedMap.set(td.day_of_week, td));
+      const recMap = new Map<string, any>();
+      records.forEach((r: any) => recMap.set(r.record_date, r));
+
+      const tsToMin = (ts: string) => { const d = new Date(ts); return d.getHours() * 60 + d.getMinutes(); };
+
+      const days: Date[] = [];
+      const start = new Date(absDate.getFullYear(), absDate.getMonth(), 1);
+      const end = new Date(absDate.getFullYear(), absDate.getMonth() + 1, 0);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        if (format(d, "yyyy-MM-dd") <= today) days.push(new Date(d));
+      }
+
+      let balance = 0;
+      for (const d of days) {
+        const dateStr = format(d, "yyyy-MM-dd");
+        const dw = d.getDay();
+        const sched = schedMap.get(dw);
+        const rec = recMap.get(dateStr);
+        const isBankDed = bankDates.has(dateStr);
+
+        if (isBankDed && sched && !sched.is_day_off) {
+          const sw = timeToMin(sched.clock_out_time) - timeToMin(sched.clock_in_time)
+            - (timeToMin(sched.lunch_in_time) - timeToMin(sched.lunch_out_time));
+          balance -= sw;
+          continue;
+        }
+        if (!sched || sched.is_day_off) {
+          if (rec?.clock_in && rec?.clock_out) {
+            let w = tsToMin(rec.clock_out) - tsToMin(rec.clock_in);
+            if (rec.lunch_out && rec.lunch_in) w -= tsToMin(rec.lunch_in) - tsToMin(rec.lunch_out);
+            balance += w;
+          }
+          continue;
+        }
+        if (!rec || !rec.clock_in || !rec.clock_out) continue;
+
+        const isPartTime = sched.lunch_in_time === "00:00:00" && sched.clock_out_time === "00:00:00";
+        if (isPartTime) {
+          const actual = tsToMin(rec.lunch_out || rec.clock_out) - tsToMin(rec.clock_in);
+          const expected = timeToMin(sched.lunch_out_time) - timeToMin(sched.clock_in_time);
+          let diff = actual - expected;
+          if (diff > 0 && diff <= tolerances.tolerance_overtime_minutes) diff = 0;
+          else if (diff > tolerances.tolerance_overtime_minutes) diff -= tolerances.tolerance_overtime_minutes;
+          if (diff < 0 && Math.abs(diff) <= tolerances.tolerance_late_minutes) diff = 0;
+          balance += diff;
+        } else {
+          // Entry
+          let entryDiff = timeToMin(sched.clock_in_time) - tsToMin(rec.clock_in);
+          if (entryDiff > 0 && entryDiff <= tolerances.tolerance_overtime_minutes) entryDiff = 0;
+          else if (entryDiff > tolerances.tolerance_overtime_minutes) entryDiff -= tolerances.tolerance_overtime_minutes;
+          if (entryDiff < 0 && Math.abs(entryDiff) <= tolerances.tolerance_late_minutes) entryDiff = 0;
+
+          // Lunch
+          let lunchDiff = 0;
+          if (rec.lunch_out && rec.lunch_in) {
+            const actualLunch = tsToMin(rec.lunch_in) - tsToMin(rec.lunch_out);
+            const schedLunch = timeToMin(sched.lunch_in_time) - timeToMin(sched.lunch_out_time);
+            lunchDiff = actualLunch - schedLunch;
+            if (lunchDiff > 0 && lunchDiff <= tolerances.tolerance_late_minutes) lunchDiff = 0;
+            if (lunchDiff < 0) lunchDiff = 0; // shorter lunch doesn't generate credit
+          }
+
+          // Exit
+          let exitDiff = tsToMin(rec.clock_out) - timeToMin(sched.clock_out_time);
+          if (exitDiff > 0 && exitDiff <= tolerances.tolerance_overtime_minutes) exitDiff = 0;
+          else if (exitDiff > tolerances.tolerance_overtime_minutes) exitDiff -= tolerances.tolerance_overtime_minutes;
+          if (exitDiff < 0 && Math.abs(exitDiff) <= tolerances.tolerance_early_leave_minutes) exitDiff = 0;
+
+          balance += entryDiff - lunchDiff + exitDiff;
+        }
+      }
+
+      // 4. Check if balance is sufficient
+      if (balance < scheduledWork) {
+        const balH = Math.floor(Math.abs(balance) / 60);
+        const balM = Math.abs(balance) % 60;
+        const needH = Math.floor(scheduledWork / 60);
+        const needM = scheduledWork % 60;
+        throw new Error(
+          `Saldo insuficiente no banco de horas. Saldo atual: ${balance < 0 ? "-" : ""}${String(balH).padStart(2, "0")}:${String(balM).padStart(2, "0")}. Necessário: ${String(needH).padStart(2, "0")}:${String(needM).padStart(2, "0")}.`
+        );
+      }
+
+      // 5. Proceed with deduction
       const { error } = await supabase
         .from("absences")
         .update({
