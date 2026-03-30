@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Clock, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Clock, TrendingUp, TrendingDown, ArrowLeft } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
 
 function tsToMinutes(ts: string): number {
@@ -27,6 +28,17 @@ function minutesToHHMM(mins: number): string {
   const m = abs % 60;
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+
+type DayRow = {
+  date: string;
+  dayName: string;
+  scheduled: number;
+  worked: number;
+  diff: number;
+  isDayOff: boolean;
+  incomplete?: boolean;
+  isBankDeduction?: boolean;
+};
 
 export default function OvertimeBank() {
   const currentDate = new Date();
@@ -83,6 +95,23 @@ export default function OvertimeBank() {
     },
   });
 
+  // Fetch bank-deducted absences for selected employee
+  const { data: bankAbsences } = useQuery({
+    queryKey: ["bank-absences", selectedEmployee, rangeStart, rangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("*")
+        .eq("employee_id", selectedEmployee)
+        .eq("deducted_from_bank" as any, true)
+        .gte("absence_date", rangeStart)
+        .lte("absence_date", rangeEnd);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const rows = useMemo(() => {
     if (!records || !templateDays) return [];
 
@@ -92,74 +121,85 @@ export default function OvertimeBank() {
     const recordMap = new Map<string, (typeof records)[0]>();
     records.forEach((r) => recordMap.set(r.record_date, r));
 
+    const bankAbsenceSet = new Set<string>();
+    bankAbsences?.forEach((a) => bankAbsenceSet.add(a.absence_date));
+
     const days = eachDayOfInterval({
       start: new Date(selectedYear, selectedMonth, 1),
       end: endOfMonth(new Date(selectedYear, selectedMonth, 1)),
     });
 
     const today = format(new Date(), "yyyy-MM-dd");
+    const result: DayRow[] = [];
 
-    return days
-      .filter((d) => format(d, "yyyy-MM-dd") <= today)
-      .map((d) => {
-        const dateStr = format(d, "yyyy-MM-dd");
-        const dow = d.getDay();
-        const schedule = scheduleMap.get(dow);
-        const record = recordMap.get(dateStr);
+    for (const d of days) {
+      const dateStr = format(d, "yyyy-MM-dd");
+      if (dateStr > today) continue;
 
-        if (!schedule || schedule.is_day_off) {
-          // If employee worked on a day off, all worked time is overtime
-          if (record?.clock_in && record?.clock_out) {
-            let worked = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
-            if (record.lunch_out && record.lunch_in) {
-              worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-            }
-            return { date: dateStr, dayName: format(d, "EEEE", { locale: pt }), scheduled: 0, worked, diff: worked, isDayOff: true };
-          }
-          return null; // day off, no work
-        }
+      const dow = d.getDay();
+      const schedule = scheduleMap.get(dow);
+      const record = recordMap.get(dateStr);
+      const isBankDeduction = bankAbsenceSet.has(dateStr);
 
+      // Bank deduction: absence deducted from overtime bank
+      if (isBankDeduction && schedule && !schedule.is_day_off) {
         const scheduledWork =
           timeToMinutes(schedule.clock_out_time) -
           timeToMinutes(schedule.clock_in_time) -
           (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
 
-        if (!record?.clock_in || !record?.clock_out) {
-          return {
-            date: dateStr,
-            dayName: format(d, "EEEE", { locale: pt }),
-            scheduled: scheduledWork,
-            worked: 0,
-            diff: -scheduledWork,
-            isDayOff: false,
-            incomplete: true,
-          };
-        }
-
-        let worked = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
-        if (record.lunch_out && record.lunch_in) {
-          worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-        }
-
-        return {
+        result.push({
           date: dateStr,
           dayName: format(d, "EEEE", { locale: pt }),
           scheduled: scheduledWork,
-          worked,
-          diff: worked - scheduledWork,
+          worked: 0,
+          diff: -scheduledWork,
           isDayOff: false,
-        };
-      })
-      .filter(Boolean) as {
-      date: string;
-      dayName: string;
-      scheduled: number;
-      worked: number;
-      diff: number;
-      isDayOff: boolean;
-      incomplete?: boolean;
-    }[];
-  }, [records, templateDays, selectedMonth, selectedYear]);
+          isBankDeduction: true,
+        });
+        continue;
+      }
+
+      // Day off with work → all time is overtime
+      if (!schedule || schedule.is_day_off) {
+        if (record?.clock_in && record?.clock_out) {
+          let worked = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
+          if (record.lunch_out && record.lunch_in) {
+            worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+          }
+          result.push({ date: dateStr, dayName: format(d, "EEEE", { locale: pt }), scheduled: 0, worked, diff: worked, isDayOff: true });
+        }
+        continue;
+      }
+
+      // Working day without record → IGNORE (0h), not deficit
+      if (!record?.clock_in || !record?.clock_out) {
+        continue;
+      }
+
+      // Normal working day with record
+      const scheduledWork =
+        timeToMinutes(schedule.clock_out_time) -
+        timeToMinutes(schedule.clock_in_time) -
+        (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+
+      let worked = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
+      if (record.lunch_out && record.lunch_in) {
+        worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+      }
+
+      result.push({
+        date: dateStr,
+        dayName: format(d, "EEEE", { locale: pt }),
+        scheduled: scheduledWork,
+        worked,
+        diff: worked - scheduledWork,
+        isDayOff: false,
+      });
+    }
+
+    return result;
+  }, [records, templateDays, bankAbsences, selectedMonth, selectedYear]);
 
   const totalBalance = rows.reduce((sum, r) => sum + r.diff, 0);
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
@@ -188,6 +228,20 @@ export default function OvertimeBank() {
     },
   });
 
+  const { data: allBankAbsences } = useQuery({
+    queryKey: ["overtime-all-bank-absences", rangeStart, rangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("employee_id, absence_date")
+        .eq("deducted_from_bank" as any, true)
+        .gte("absence_date", rangeStart)
+        .lte("absence_date", rangeEnd);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const summaryPerEmployee = useMemo(() => {
     if (!employees || !allRecords || !allTemplateDays) return [];
 
@@ -197,6 +251,15 @@ export default function OvertimeBank() {
       templateMap.get(td.template_id)!.set(td.day_of_week, td);
     });
 
+    // Bank absence lookup: employee_id -> Set of dates
+    const bankAbsMap = new Map<string, Set<string>>();
+    allBankAbsences?.forEach((a) => {
+      if (!bankAbsMap.has(a.employee_id)) bankAbsMap.set(a.employee_id, new Set());
+      bankAbsMap.get(a.employee_id)!.add(a.absence_date);
+    });
+
+    const today = format(new Date(), "yyyy-MM-dd");
+
     return employees.map((emp) => {
       const empRecords = allRecords.filter((r) => r.employee_id === emp.id);
       const schedMap = emp.schedule_template_id ? templateMap.get(emp.schedule_template_id) : null;
@@ -205,7 +268,8 @@ export default function OvertimeBank() {
       const recordMap = new Map<string, (typeof empRecords)[0]>();
       empRecords.forEach((r) => recordMap.set(r.record_date, r));
 
-      const today = format(new Date(), "yyyy-MM-dd");
+      const empBankDates = bankAbsMap.get(emp.id) || new Set<string>();
+
       const days = eachDayOfInterval({
         start: new Date(selectedYear, selectedMonth, 1),
         end: endOfMonth(new Date(selectedYear, selectedMonth, 1)),
@@ -217,6 +281,17 @@ export default function OvertimeBank() {
         const dow = d.getDay();
         const sched = schedMap.get(dow);
         const rec = recordMap.get(dateStr);
+        const isBankDeduction = empBankDates.has(dateStr);
+
+        // Bank deduction
+        if (isBankDeduction && sched && !sched.is_day_off) {
+          const scheduled =
+            timeToMinutes(sched.clock_out_time) -
+            timeToMinutes(sched.clock_in_time) -
+            (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
+          balance -= scheduled;
+          continue;
+        }
 
         if (!sched || sched.is_day_off) {
           if (rec?.clock_in && rec?.clock_out) {
@@ -227,15 +302,13 @@ export default function OvertimeBank() {
           continue;
         }
 
+        // No record → ignore
+        if (!rec?.clock_in || !rec?.clock_out) continue;
+
         const scheduled =
           timeToMinutes(sched.clock_out_time) -
           timeToMinutes(sched.clock_in_time) -
           (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
-
-        if (!rec?.clock_in || !rec?.clock_out) {
-          balance -= scheduled;
-          continue;
-        }
 
         let worked = tsToMinutes(rec.clock_out) - tsToMinutes(rec.clock_in);
         if (rec.lunch_out && rec.lunch_in) worked -= tsToMinutes(rec.lunch_in) - tsToMinutes(rec.lunch_out);
@@ -244,7 +317,7 @@ export default function OvertimeBank() {
 
       return { ...emp, balance };
     });
-  }, [employees, allRecords, allTemplateDays, selectedMonth, selectedYear]);
+  }, [employees, allRecords, allTemplateDays, allBankAbsences, selectedMonth, selectedYear]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
@@ -262,7 +335,7 @@ export default function OvertimeBank() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-center">
           <Select value={month} onValueChange={setMonth}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
@@ -289,11 +362,12 @@ export default function OvertimeBank() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+          <Select value={selectedEmployee || "all"} onValueChange={(v) => setSelectedEmployee(v === "all" ? "" : v)}>
             <SelectTrigger className="w-[260px]">
-              <SelectValue placeholder="Selecionar funcionário" />
+              <SelectValue placeholder="Todos os funcionários" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">Todos os funcionários</SelectItem>
               {employees?.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
                   {e.first_name} {e.last_name}
@@ -301,6 +375,12 @@ export default function OvertimeBank() {
               ))}
             </SelectContent>
           </Select>
+
+          {selectedEmployee && (
+            <Button variant="ghost" size="sm" onClick={() => setSelectedEmployee("")}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+            </Button>
+          )}
         </div>
 
         {/* Summary table when no employee selected */}
@@ -429,7 +509,7 @@ export default function OvertimeBank() {
                     {rows.map((r, i) => {
                       const accumulated = rows.slice(0, i + 1).reduce((s, x) => s + x.diff, 0);
                       return (
-                        <TableRow key={r.date} className={r.isDayOff ? "bg-muted/30" : ""}>
+                        <TableRow key={r.date} className={r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}>
                           <TableCell className="font-mono text-sm">{format(new Date(r.date + "T12:00:00"), "dd/MM")}</TableCell>
                           <TableCell className="capitalize text-sm">
                             {r.dayName}
@@ -438,9 +518,9 @@ export default function OvertimeBank() {
                                 Folga
                               </Badge>
                             )}
-                            {r.incomplete && (
+                            {r.isBankDeduction && (
                               <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">
-                                Incompleto
+                                Falta (Banco)
                               </Badge>
                             )}
                           </TableCell>
