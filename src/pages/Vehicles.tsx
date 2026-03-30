@@ -15,6 +15,7 @@ import { pt } from "date-fns/locale";
 import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
 import VehicleDocumentFormDialog from "@/components/vehicles/VehicleDocumentFormDialog";
 import VehicleMaintenanceFormDialog from "@/components/vehicles/VehicleMaintenanceFormDialog";
+import VehicleInspectionsTab from "@/components/vehicles/VehicleInspectionsTab";
 
 const fuelMap: Record<string, string> = { diesel: "Diesel", gasoline: "Gasolina", electric: "Elétrico", hybrid: "Híbrido" };
 const statusMap: Record<string, string> = { active: "Ativo", inactive: "Inativo", sold: "Vendido" };
