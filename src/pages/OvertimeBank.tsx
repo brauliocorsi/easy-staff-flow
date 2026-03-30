@@ -266,7 +266,18 @@ export default function OvertimeBank() {
           if (record.lunch_out && record.lunch_in) {
             worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
           }
-          result.push({ date: dateStr, dayName: format(d, "EEEE", { locale: pt }), scheduled: 0, worked, diff: worked, isDayOff: true });
+          result.push({
+            date: dateStr,
+            dayName: format(d, "EEEE", { locale: pt }),
+            scheduled: 0,
+            worked,
+            diff: worked,
+            isDayOff: true,
+            clockIn: record.clock_in,
+            clockOut: record.clock_out,
+            lunchOut: record.lunch_out,
+            lunchIn: record.lunch_in,
+          });
         }
         continue;
       }
