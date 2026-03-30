@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Car, ShieldCheck, Wrench, AlertTriangle, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Car, ShieldCheck, Wrench, AlertTriangle, Upload, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
