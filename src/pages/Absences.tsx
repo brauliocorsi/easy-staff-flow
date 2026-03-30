@@ -130,7 +130,6 @@ export default function Absences() {
 
   const swapMutation = useMutation({
     mutationFn: async (absence: any) => {
-      // Create a 1-day approved vacation request
       const { error: vacError } = await supabase.from("vacation_requests").insert({
         employee_id: absence.employee_id,
         start_date: absence.absence_date,
@@ -146,7 +145,6 @@ export default function Absences() {
       });
       if (vacError) throw vacError;
 
-      // Justify the absence
       const { error: absError } = await supabase
         .from("absences")
         .update({
@@ -164,6 +162,29 @@ export default function Absences() {
       queryClient.invalidateQueries({ queryKey: ["vacation_requests"] });
       queryClient.invalidateQueries({ queryKey: ["employee_vacations"] });
       setSwapAbsence(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const bankDeductMutation = useMutation({
+    mutationFn: async (absence: any) => {
+      const { error } = await supabase
+        .from("absences")
+        .update({
+          justified: true,
+          type: "bank_deduction",
+          reason: "Abatida no banco de horas",
+          justification_date: new Date().toISOString(),
+          deducted_from_bank: true,
+        } as any)
+        .eq("id", absence.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Falta abatida no banco de horas");
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      queryClient.invalidateQueries({ queryKey: ["overtime"] });
+      setBankAbsence(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
