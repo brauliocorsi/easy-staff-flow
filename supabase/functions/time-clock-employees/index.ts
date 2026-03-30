@@ -181,6 +181,7 @@ Deno.serve(async (req) => {
           ? (partTime ? tDay.lunch_out_time : tDay.clock_out_time)
           : null,
         tolerance_late_minutes: emp.schedule_templates?.tolerance_late_minutes ?? null,
+        on_vacation: vacationSet.has(emp.id),
       };
     });
 
