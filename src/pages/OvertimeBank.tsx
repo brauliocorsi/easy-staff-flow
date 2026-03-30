@@ -99,7 +99,7 @@ function calcDiffWithTolerances(
 
   // Apply tolerance to entry/exit
   if (entryExitDiff >= 0) {
-    diff = entryExitDiff > tolerances.tolerance_overtime_minutes ? entryExitDiff : 0;
+    diff = entryExitDiff > tolerances.tolerance_overtime_minutes ? entryExitDiff - tolerances.tolerance_overtime_minutes : 0;
   } else {
     const totalDeficit = Math.abs(entryExitDiff);
     const toleratedLate = Math.min(lateMinutes, tolerances.tolerance_late_minutes);
@@ -322,7 +322,7 @@ export default function OvertimeBank() {
         const rawDiff = worked - scheduledWork;
         let diff = 0;
         if (rawDiff >= 0) {
-          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
         } else {
           const lateMinutes = Math.max(0, actualIn - schedIn);
           const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
@@ -508,7 +508,7 @@ export default function OvertimeBank() {
           const rawDiff = worked - scheduledWork;
           let diff = 0;
           if (rawDiff >= 0) {
-            diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+            diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
           } else {
             const lateMin = Math.max(0, tsToMinutes(rec.clock_in) - timeToMinutes(sched.clock_in_time));
             const earlyMin = Math.max(0, timeToMinutes(sched.lunch_out_time) - tsToMinutes(effectiveOut));
