@@ -298,9 +298,10 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                     <TableHead>Saída Almoço</TableHead>
                     <TableHead>Retorno Almoço</TableHead>
                     <TableHead>Saída</TableHead>
-                    <TableHead>Horário Previsto</TableHead>
-                    <TableHead>Horas Realizadas</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Horário Previsto</TableHead>
+                     <TableHead>Horas Realizadas</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead>Observações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
