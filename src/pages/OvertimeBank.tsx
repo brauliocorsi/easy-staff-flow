@@ -104,11 +104,11 @@ export default function OvertimeBank() {
         .from("absences")
         .select("*")
         .eq("employee_id", selectedEmployee)
-        .eq("deducted_from_bank" as any, true)
+        .eq("deducted_from_bank", true)
         .gte("absence_date", rangeStart)
         .lte("absence_date", rangeEnd);
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
