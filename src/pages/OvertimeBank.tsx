@@ -251,6 +251,10 @@ export default function OvertimeBank() {
           diff: -scheduledWork,
           isDayOff: false,
           isBankDeduction: true,
+          schedClockIn: schedule.clock_in_time,
+          schedClockOut: schedule.clock_out_time,
+          schedLunchOut: schedule.lunch_out_time,
+          schedLunchIn: schedule.lunch_in_time,
         });
         continue;
       }
