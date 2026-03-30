@@ -91,8 +91,10 @@ function calcDiffWithTolerances(
   // Early leave
   const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
 
-  // Calculate diff without lunch (entry/exit only)
-  const entryExitWorked = (actualOut - actualIn) - scheduledLunch;
+  // Calculate diff: use effective lunch (max of actual vs scheduled)
+  // so that extra lunch time within tolerance doesn't hide deficit
+  const effectiveLunch = Math.max(actualLunch, scheduledLunch);
+  const entryExitWorked = (actualOut - actualIn) - effectiveLunch;
   const entryExitDiff = entryExitWorked - scheduledWork;
 
   let diff = 0;
