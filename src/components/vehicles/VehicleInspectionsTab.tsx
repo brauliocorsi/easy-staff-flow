@@ -211,6 +211,19 @@ export default function VehicleInspectionsTab({ vehicles, filterVehicle, onFilte
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{detailInspection.observations}</p>
                 </div>
               )}
+
+              {detailInspection.photos && detailInspection.photos.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2">Fotos ({detailInspection.photos.length})</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {detailInspection.photos.map((url: string, idx: number) => (
+                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:opacity-80 transition-opacity">
+                        <img src={url} alt={`Foto ${idx + 1}`} className="w-full h-32 object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
