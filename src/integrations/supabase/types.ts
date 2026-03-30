@@ -20,6 +20,7 @@ export type Database = {
           auto_detected: boolean
           created_at: string
           days_count: number
+          deducted_from_bank: boolean
           employee_id: string
           file_url: string | null
           id: string
@@ -34,6 +35,7 @@ export type Database = {
           auto_detected?: boolean
           created_at?: string
           days_count?: number
+          deducted_from_bank?: boolean
           employee_id: string
           file_url?: string | null
           id?: string
@@ -48,6 +50,7 @@ export type Database = {
           auto_detected?: boolean
           created_at?: string
           days_count?: number
+          deducted_from_bank?: boolean
           employee_id?: string
           file_url?: string | null
           id?: string
