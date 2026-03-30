@@ -464,6 +464,31 @@ export default function Absences() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Bank deduction confirmation */}
+      <AlertDialog open={!!bankAbsence} onOpenChange={(o) => { if (!o) setBankAbsence(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Abater Falta no Banco de Horas</AlertDialogTitle>
+            <AlertDialogDescription>
+              {bankAbsence && (
+                <>
+                  Tem certeza que deseja abater a falta de{" "}
+                  <strong>{bankAbsence.employees?.first_name} {bankAbsence.employees?.last_name}</strong>{" "}
+                  no dia <strong>{format(new Date(bankAbsence.absence_date + "T12:00:00"), "dd/MM/yyyy")}</strong>{" "}
+                  no banco de horas? As horas previstas desse dia serão subtraídas do saldo de horas extra.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => bankAbsence && bankDeductMutation.mutate(bankAbsence)}>
+              {bankDeductMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
