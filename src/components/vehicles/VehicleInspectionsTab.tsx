@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Eye, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Eye, CheckCircle, XCircle, AlertTriangle, ExternalLink, Copy } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 import { useState } from "react";
+import { toast } from "sonner";
 
 const statusLabel: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
   ok: { label: "OK", variant: "default" },
