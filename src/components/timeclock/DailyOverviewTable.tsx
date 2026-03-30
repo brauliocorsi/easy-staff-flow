@@ -122,6 +122,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       scheduledIn: sched && !isDayOff ? sched.clock_in_time : null,
       workedHours,
       status,
+      notes: rec?.notes ?? null,
     };
   });
 
@@ -152,7 +153,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     missing: rows.filter(r => r.status === "missing").length,
   };
 
-  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Horas Realizadas", "Status"];
+  const exportHeaders = ["Funcionário", "Cargo", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horário Previsto", "Horas Realizadas", "Status", "Observações"];
 
   const getExportRows = useCallback(() => {
     return rows.map((r) => [
@@ -165,6 +166,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       r.scheduledIn ? r.scheduledIn.slice(0, 5) : "—",
       r.workedHours,
       statusLabel(r.status),
+      r.notes || "",
     ]);
   }, [rows]);
 
@@ -296,15 +298,16 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                     <TableHead>Saída Almoço</TableHead>
                     <TableHead>Retorno Almoço</TableHead>
                     <TableHead>Saída</TableHead>
-                    <TableHead>Horário Previsto</TableHead>
-                    <TableHead>Horas Realizadas</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Horário Previsto</TableHead>
+                     <TableHead>Horas Realizadas</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead>Observações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.length === 0 ? (
+                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
+                      <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">Nenhum funcionário</TableCell>
                     </TableRow>
                   ) : (
                     data.map((row) => (
@@ -326,6 +329,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                         <TableCell className="text-muted-foreground text-sm">{row.scheduledIn ? row.scheduledIn.slice(0, 5) : "—"}</TableCell>
                         <TableCell className="font-medium text-sm">{row.workedHours}</TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate" title={row.notes || ""}>{row.notes || "—"}</TableCell>
                       </TableRow>
                     ))
                   )}

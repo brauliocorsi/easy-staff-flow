@@ -307,14 +307,15 @@ export default function TimeClockReport() {
                      <TableHead>Hora Extra</TableHead>
                      <TableHead>Atraso</TableHead>
                      <TableHead>Status</TableHead>
+                     <TableHead>Observações</TableHead>
                      <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
                    ) : reportRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
                   ) : (
                     reportRows.map((row) => (
                       <TableRow key={row.date} className={row.isDayOff ? "opacity-50" : row.status === "absent" ? "bg-destructive/5" : ""}>
@@ -331,6 +332,9 @@ export default function TimeClockReport() {
                           {row.lateMinutes > 0 ? minutesToHHMM(row.lateMinutes) : "—"}
                         </TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate" title={row.record?.notes || ""}>
+                          {row.record?.notes || "—"}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
