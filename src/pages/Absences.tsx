@@ -327,6 +327,11 @@ export default function Absences() {
                             </Button>
                           )}
                           {isAdmin && !absence.justified && (
+                            <Button variant="ghost" size="icon" title="Abater no banco de horas" onClick={() => setBankAbsence(absence)}>
+                              <Timer className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          {isAdmin && !absence.justified && (
                             <Button variant="ghost" size="icon" title="Trocar por dia de férias" onClick={() => setSwapAbsence(absence)}>
                               <ArrowRightLeft className="h-4 w-4 text-primary" />
                             </Button>
