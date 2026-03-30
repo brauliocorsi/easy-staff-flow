@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MoonStar, AlertTriangle } from "lucide-react";
+import { Clock, MoonStar, AlertTriangle, Palmtree } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
 import { useMemo } from "react";
 
@@ -20,6 +20,7 @@ export interface EmployeeData {
   scheduled_clock_out?: string | null;
   tolerance_late_minutes?: number | null;
   is_part_time?: boolean;
+  on_vacation?: boolean;
 }
 
 interface Props {
@@ -53,23 +54,31 @@ function isLate(employee: EmployeeData): boolean {
 export function EmployeeCard({ employee, onClick }: Props) {
   const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
   const isDayOff = employee.schedule_label?.includes("Folga");
-  const late = useMemo(() => !isDayOff && isLate(employee), [employee, isDayOff]);
+  const isOnVacation = employee.on_vacation;
+  const late = useMemo(() => !isDayOff && !isOnVacation && isLate(employee), [employee, isDayOff, isOnVacation]);
 
   return (
     <Card
       className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
-        isDayOff ? "opacity-60 border-dashed border-muted-foreground/30" : ""
+        isOnVacation ? "opacity-60 border-dashed border-emerald-500/40" : ""
+      } ${isDayOff && !isOnVacation ? "opacity-60 border-dashed border-muted-foreground/30" : ""
       } ${late ? "border-destructive bg-destructive/5 shadow-destructive/20" : ""}`}
       onClick={() => onClick(employee)}
     >
       <CardContent className="p-4 flex flex-col items-center text-center gap-3 relative">
-        {isDayOff && (
+        {isOnVacation && (
+          <Badge variant="outline" className="absolute top-2 right-2 text-[10px] gap-1 border-emerald-500/50 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30">
+            <Palmtree className="h-3 w-3" />
+            Férias
+          </Badge>
+        )}
+        {isDayOff && !isOnVacation && (
           <Badge variant="outline" className="absolute top-2 right-2 text-[10px] gap-1 border-amber-500/50 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
             <MoonStar className="h-3 w-3" />
             Folga
           </Badge>
         )}
-        {late && (
+        {late && !isOnVacation && (
           <Badge variant="destructive" className="absolute top-2 right-2 text-[10px] gap-1">
             <AlertTriangle className="h-3 w-3" />
             Atrasado
@@ -96,7 +105,7 @@ export function EmployeeCard({ employee, onClick }: Props) {
             </p>
           )}
         </div>
-        {!isDayOff && <TodayStatus status={employee.today_status} late={late} />}
+        {!isDayOff && !isOnVacation && <TodayStatus status={employee.today_status} late={late} />}
       </CardContent>
     </Card>
   );

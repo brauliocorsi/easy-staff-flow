@@ -36,13 +36,25 @@ Deno.serve(async (req) => {
     const dayOfWeek = new Date().getDay();
     const employeeIds = employees.map((e: any) => e.id);
 
-    const { data: records, error: recError } = await supabase
-      .from("time_clock_records")
-      .select("employee_id, clock_in, lunch_out, lunch_in, clock_out")
-      .eq("record_date", today)
-      .in("employee_id", employeeIds);
+    const [{ data: records, error: recError }, { data: vacations, error: vacError }] = await Promise.all([
+      supabase
+        .from("time_clock_records")
+        .select("employee_id, clock_in, lunch_out, lunch_in, clock_out")
+        .eq("record_date", today)
+        .in("employee_id", employeeIds),
+      supabase
+        .from("vacation_requests")
+        .select("employee_id, start_date, end_date")
+        .in("status", ["approved", "confirmed"])
+        .lte("start_date", today)
+        .gte("end_date", today)
+        .in("employee_id", employeeIds),
+    ]);
 
     if (recError) throw recError;
+    if (vacError) throw vacError;
+
+    const vacationSet = new Set((vacations || []).map((v: any) => v.employee_id));
 
     const templateIds = [...new Set(employees.filter((e: any) => e.schedule_template_id).map((e: any) => e.schedule_template_id))];
     let templateDayMap = new Map();
@@ -169,6 +181,7 @@ Deno.serve(async (req) => {
           ? (partTime ? tDay.lunch_out_time : tDay.clock_out_time)
           : null,
         tolerance_late_minutes: emp.schedule_templates?.tolerance_late_minutes ?? null,
+        on_vacation: vacationSet.has(emp.id),
       };
     });
 
