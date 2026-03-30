@@ -497,14 +497,33 @@ export default function OvertimeBank() {
           continue;
         }
 
-        if (!rec?.clock_in || !rec?.clock_out) continue;
+        const pt = isPartTimeSchedule(sched);
+        const effectiveOut = pt ? rec?.lunch_out : rec?.clock_out;
 
-        const { diff } = calcDiffWithTolerances(
-          rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-          sched,
-          tolerances
-        );
-        balance += diff;
+        if (!rec?.clock_in || !effectiveOut) continue;
+
+        if (pt) {
+          const scheduledWork = timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time);
+          const worked = tsToMinutes(effectiveOut) - tsToMinutes(rec.clock_in);
+          const rawDiff = worked - scheduledWork;
+          let diff = 0;
+          if (rawDiff >= 0) {
+            diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff : 0;
+          } else {
+            const lateMin = Math.max(0, tsToMinutes(rec.clock_in) - timeToMinutes(sched.clock_in_time));
+            const earlyMin = Math.max(0, timeToMinutes(sched.lunch_out_time) - tsToMinutes(effectiveOut));
+            const tolerated = Math.min(lateMin, tolerances.tolerance_late_minutes) + Math.min(earlyMin, tolerances.tolerance_early_leave_minutes);
+            diff = Math.abs(rawDiff) <= tolerated ? 0 : rawDiff;
+          }
+          balance += diff;
+        } else {
+          const { diff } = calcDiffWithTolerances(
+            rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+            sched,
+            tolerances
+          );
+          balance += diff;
+        }
       }
 
       return { ...emp, balance };
