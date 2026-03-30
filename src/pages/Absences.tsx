@@ -26,6 +26,7 @@ export default function Absences() {
   const [justifyOpen, setJustifyOpen] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [swapAbsence, setSwapAbsence] = useState<any | null>(null);
+  const [bankAbsence, setBankAbsence] = useState<any | null>(null);
   const [reason, setReason] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
