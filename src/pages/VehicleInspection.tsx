@@ -211,7 +211,7 @@ export default function VehicleInspection() {
   // Success screen
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-muted/50 to-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-6 space-y-4">
             <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
