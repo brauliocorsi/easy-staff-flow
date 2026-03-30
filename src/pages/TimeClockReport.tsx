@@ -332,6 +332,9 @@ export default function TimeClockReport() {
                           {row.lateMinutes > 0 ? minutesToHHMM(row.lateMinutes) : "—"}
                         </TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate" title={row.record?.notes || ""}>
+                          {row.record?.notes || "—"}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
