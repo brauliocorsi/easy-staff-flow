@@ -105,7 +105,7 @@ export function EmployeeCard({ employee, onClick }: Props) {
             </p>
           )}
         </div>
-        {!isDayOff && <TodayStatus status={employee.today_status} late={late} />}
+        {!isDayOff && !isOnVacation && <TodayStatus status={employee.today_status} late={late} />}
       </CardContent>
     </Card>
   );
