@@ -60,7 +60,8 @@ export function EmployeeCard({ employee, onClick }: Props) {
   return (
     <Card
       className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
-        isDayOff ? "opacity-60 border-dashed border-muted-foreground/30" : ""
+        isOnVacation ? "opacity-60 border-dashed border-emerald-500/40" : ""
+      } ${isDayOff && !isOnVacation ? "opacity-60 border-dashed border-muted-foreground/30" : ""
       } ${late ? "border-destructive bg-destructive/5 shadow-destructive/20" : ""}`}
       onClick={() => onClick(employee)}
     >
