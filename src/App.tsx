@@ -32,6 +32,7 @@ import MedicalExams from "./pages/MedicalExams";
 import ResetPassword from "./pages/ResetPassword";
 import OvertimeBank from "./pages/OvertimeBank";
 import VehicleInspection from "./pages/VehicleInspection";
+import Purchases from "./pages/Purchases";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
