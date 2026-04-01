@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, DollarSign, Users, AlertTriangle, Loader2, Store } from "lucide-react";
-import { format } from "date-fns";
+import { ShoppingCart, DollarSign, Users, AlertTriangle, Loader2, Store, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 
 interface Purchase {
@@ -197,6 +197,7 @@ function getStoreBadge(lojaNome: string) {
 export default function Purchases() {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
   const [selectedStore, setSelectedStore] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["gestaoclick-purchases-all-stores"],
@@ -213,10 +214,42 @@ export default function Purchases() {
     return s.includes("pagamento pendente");
   });
 
+  // Build available months from data
+  const availableMonths = useMemo(() => {
+    const monthSet = new Map<string, string>();
+    for (const p of statusFiltered) {
+      if (p.data) {
+        try {
+          const date = new Date(p.data);
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          if (!monthSet.has(key)) {
+            const label = format(date, "MMMM yyyy", { locale: pt });
+            monthSet.set(key, label.charAt(0).toUpperCase() + label.slice(1));
+          }
+        } catch { /* skip */ }
+      }
+    }
+    return Array.from(monthSet.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [statusFiltered]);
+
   // Filter by store
-  const purchases = selectedStore === "all"
+  const storeFiltered = selectedStore === "all"
     ? statusFiltered
     : statusFiltered.filter((p) => p.loja_id === selectedStore);
+
+  // Filter by month
+  const purchases = selectedMonth === "all"
+    ? storeFiltered
+    : storeFiltered.filter((p) => {
+        if (!p.data) return false;
+        try {
+          const date = new Date(p.data);
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          return key === selectedMonth;
+        } catch { return false; }
+      });
 
   const suppliers = groupBySupplier(purchases);
   const totalOwed = suppliers.reduce((sum, s) => sum + s.totalAmount, 0);
@@ -235,22 +268,42 @@ export default function Purchases() {
             </p>
           </div>
 
-          {/* Store Filter */}
-          <div className="flex items-center gap-2">
-            <Store className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedStore} onValueChange={setSelectedStore}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Todas as lojas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as Lojas</SelectItem>
-                {stores.map((store) => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Store Filter */}
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedStore} onValueChange={setSelectedStore}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Todas as lojas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Lojas</SelectItem>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Month Filter */}
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Todos os meses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Meses</SelectItem>
+                  {availableMonths.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
