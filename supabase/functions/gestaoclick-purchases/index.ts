@@ -9,9 +9,11 @@ const corsHeaders = {
 const GESTAOCLICK_BASE = "https://api.gestaoclick.com/api";
 
 async function gestaoGet(path: string, params?: Record<string, string>) {
-  const token = Deno.env.get("GESTAOCLICK_TOKEN");
-  const secret = Deno.env.get("GESTAOCLICK_SECRET");
+  const token = (Deno.env.get("GESTAOCLICK_TOKEN") || "").trim();
+  const secret = (Deno.env.get("GESTAOCLICK_SECRET") || "").trim();
   if (!token || !secret) throw new Error("GestaoClick credentials not configured");
+  console.log("Token info:", { len: token.length, prefix: token.substring(0, 4), suffix: token.substring(token.length - 4) });
+  console.log("Secret info:", { len: secret.length, prefix: secret.substring(0, 4), suffix: secret.substring(secret.length - 4) });
 
   const url = new URL(`${GESTAOCLICK_BASE}/${path}`);
   if (params) {
