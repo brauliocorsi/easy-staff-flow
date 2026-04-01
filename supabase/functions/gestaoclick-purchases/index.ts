@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       const lojaId = url.searchParams.get("loja_id") || "";
       const params: Record<string, string> = { pagina: page };
       if (lojaId) params.loja_id = lojaId;
-      const data = await gestaoGet("ordens_servico", params);
+      const data = await gestaoGet("ordens_de_servico", params);
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
