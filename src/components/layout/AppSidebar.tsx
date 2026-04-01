@@ -17,6 +17,7 @@ import {
   HardHat,
   Car,
   Stethoscope,
+  ShoppingCart,
   ChevronDown,
   UserCircle,
   Wrench,
