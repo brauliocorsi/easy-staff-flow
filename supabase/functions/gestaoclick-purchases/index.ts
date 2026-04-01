@@ -70,12 +70,13 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
 
     if (action === "purchases") {
-      // Fetch all purchases with pagination, filtering by situacao_id if provided
       const situacaoId = url.searchParams.get("situacao_id") || "";
       const page = url.searchParams.get("pagina") || "1";
+      const lojaId = url.searchParams.get("loja_id") || "";
 
       const params: Record<string, string> = { pagina: page };
       if (situacaoId) params.situacao_id = situacaoId;
+      if (lojaId) params.loja_id = lojaId;
 
       const data = await gestaoGet("compras", params);
       return new Response(JSON.stringify(data), {
@@ -93,6 +94,13 @@ Deno.serve(async (req) => {
     if (action === "suppliers") {
       const page = url.searchParams.get("pagina") || "1";
       const data = await gestaoGet("fornecedores", { pagina: page });
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "stores") {
+      const data = await gestaoGet("lojas");
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

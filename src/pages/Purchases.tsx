@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, DollarSign, Users, AlertTriangle, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ShoppingCart, DollarSign, Users, AlertTriangle, Loader2, Store } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 
@@ -19,8 +20,15 @@ interface Purchase {
   fornecedor_nome: string;
   fornecedor_id: string;
   observacao?: string;
+  loja_id: string;
+  loja_nome: string;
   produtos?: Array<{ produto: { nome_produto: string; quantidade: string; valor_total: string } }>;
   pagamentos?: Array<{ pagamento: { valor: string; data_vencimento: string; nome_forma_pagamento: string } }>;
+}
+
+interface StoreInfo {
+  id: string;
+  nome: string;
 }
 
 interface SupplierSummary {
@@ -31,10 +39,9 @@ interface SupplierSummary {
   purchases: Purchase[];
 }
 
-function mapCompra(item: Record<string, unknown>): Purchase {
+function mapCompra(item: Record<string, unknown>, lojaId: string, lojaNome: string): Purchase {
   const c = (item as { Compra?: Record<string, unknown> }).Compra || item;
-  
-  // Calculate total from products if valor_total not present at root
+
   let valorTotal = String(c.valor_total || "0");
   if (valorTotal === "0" || valorTotal === "0.00") {
     const produtos = (c.produtos as Array<{ produto: { valor_total: string } }>) || [];
@@ -43,7 +50,6 @@ function mapCompra(item: Record<string, unknown>): Purchase {
     }, 0);
     if (sum > 0) valorTotal = sum.toFixed(2);
   }
-  // Also check pagamentos
   if (valorTotal === "0" || valorTotal === "0.00") {
     const pagamentos = (c.pagamentos as Array<{ pagamento: { valor: string } }>) || [];
     const sum = pagamentos.reduce((acc, p) => {
@@ -61,20 +67,39 @@ function mapCompra(item: Record<string, unknown>): Purchase {
     fornecedor_nome: String(c.nome_fornecedor || c.fornecedor_nome || "Desconhecido"),
     fornecedor_id: String(c.fornecedor_id || "unknown"),
     observacao: String(c.observacoes || c.observacao || ""),
+    loja_id: lojaId,
+    loja_nome: lojaNome,
     produtos: c.produtos as Purchase["produtos"],
     pagamentos: c.pagamentos as Purchase["pagamentos"],
   };
 }
 
-async function fetchAllPurchases(): Promise<Purchase[]> {
+async function fetchStores(): Promise<StoreInfo[]> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=stores`;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(url, {
+    headers: {
+      "Authorization": `Bearer ${session?.access_token}`,
+      "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+  });
+
+  if (!res.ok) throw new Error("Erro ao buscar lojas");
+  const json = await res.json();
+  return json?.data || [];
+}
+
+async function fetchPurchasesForStore(store: StoreInfo): Promise<Purchase[]> {
   const allPurchases: Purchase[] = [];
   let page = 1;
   let totalPages = 1;
 
   while (page <= totalPages) {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=purchases&pagina=${page}`;
-    
+    const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=purchases&pagina=${page}&loja_id=${store.id}`;
+
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch(url, {
       headers: {
@@ -85,25 +110,33 @@ async function fetchAllPurchases(): Promise<Purchase[]> {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Erro ao buscar compras: ${text}`);
+      throw new Error(`Erro ao buscar compras da loja ${store.nome}: ${text}`);
     }
 
     const json = await res.json();
     const items = json?.data || [];
-    
+
     if (json?.meta?.total_paginas) {
       totalPages = json.meta.total_paginas;
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      break;
-    }
+    if (!Array.isArray(items) || items.length === 0) break;
 
-    allPurchases.push(...items.map(mapCompra));
+    allPurchases.push(...items.map((item: Record<string, unknown>) => mapCompra(item, store.id, store.nome)));
     page++;
   }
 
   return allPurchases;
+}
+
+async function fetchAllPurchases(): Promise<{ stores: StoreInfo[]; purchases: Purchase[] }> {
+  const stores = await fetchStores();
+
+  // Fetch purchases from all stores in parallel
+  const results = await Promise.all(stores.map(fetchPurchasesForStore));
+  const purchases = results.flat();
+
+  return { stores, purchases };
 }
 
 function groupBySupplier(purchases: Purchase[]): SupplierSummary[] {
@@ -142,11 +175,11 @@ function formatCurrency(value: number): string {
 
 function getStatusBadge(situacao: string) {
   const lower = (situacao || "").toLowerCase();
+  if (lower.includes("pagamento pendente")) {
+    return <Badge className="bg-amber-500/10 text-amber-700 border-amber-200">{situacao}</Badge>;
+  }
   if (lower.includes("confirmado")) {
     return <Badge className="bg-blue-500/10 text-blue-700 border-blue-200">{situacao}</Badge>;
-  }
-  if (lower.includes("pendente")) {
-    return <Badge className="bg-amber-500/10 text-amber-700 border-amber-200">{situacao}</Badge>;
   }
   if (lower.includes("pago") || lower.includes("finalizado")) {
     return <Badge className="bg-green-500/10 text-green-700 border-green-200">{situacao}</Badge>;
@@ -157,20 +190,33 @@ function getStatusBadge(situacao: string) {
   return <Badge variant="secondary">{situacao}</Badge>;
 }
 
+function getStoreBadge(lojaNome: string) {
+  return <Badge variant="outline" className="text-xs">{lojaNome}</Badge>;
+}
+
 export default function Purchases() {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
+  const [selectedStore, setSelectedStore] = useState<string>("all");
 
-  const { data: rawPurchases, isLoading, error } = useQuery({
-    queryKey: ["gestaoclick-purchases"],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["gestaoclick-purchases-all-stores"],
     queryFn: fetchAllPurchases,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Filter only relevant statuses
-  const purchases = (rawPurchases || []).filter((p) => {
+  const stores = data?.stores || [];
+  const rawPurchases = data?.purchases || [];
+
+  // Filter by status (only "pagamento pendente")
+  const statusFiltered = rawPurchases.filter((p) => {
     const s = (p.situacao || "").toLowerCase();
     return s.includes("pagamento pendente");
   });
+
+  // Filter by store
+  const purchases = selectedStore === "all"
+    ? statusFiltered
+    : statusFiltered.filter((p) => p.loja_id === selectedStore);
 
   const suppliers = groupBySupplier(purchases);
   const totalOwed = suppliers.reduce((sum, s) => sum + s.totalAmount, 0);
@@ -181,11 +227,31 @@ export default function Purchases() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Compras</h1>
-          <p className="text-muted-foreground">
-            Painel de compras por fornecedor — Confirmado / Pagamento Pendente
-          </p>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Compras</h1>
+            <p className="text-muted-foreground">
+              Painel de compras por fornecedor — Pagamento Pendente
+            </p>
+          </div>
+
+          {/* Store Filter */}
+          <div className="flex items-center gap-2">
+            <Store className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedStore} onValueChange={setSelectedStore}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Todas as lojas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Lojas</SelectItem>
+                {stores.map((store) => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -263,7 +329,7 @@ export default function Purchases() {
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">A carregar compras do GestãoClick...</span>
+            <span className="ml-3 text-muted-foreground">A carregar compras de todas as lojas...</span>
           </div>
         ) : (
           <Tabs defaultValue="suppliers" className="space-y-4">
@@ -315,6 +381,7 @@ export default function Purchases() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Código</TableHead>
+                          <TableHead>Loja</TableHead>
                           <TableHead>Data</TableHead>
                           <TableHead>Situação</TableHead>
                           <TableHead className="text-right">Valor</TableHead>
@@ -322,8 +389,9 @@ export default function Purchases() {
                       </TableHeader>
                       <TableBody>
                         {selectedSupplierData.purchases.map((p) => (
-                          <TableRow key={p.id || p.codigo}>
+                          <TableRow key={`${p.loja_id}-${p.id || p.codigo}`}>
                             <TableCell className="font-medium">{p.codigo}</TableCell>
+                            <TableCell>{getStoreBadge(p.loja_nome)}</TableCell>
                             <TableCell>
                               {p.data
                                 ? (() => {
@@ -352,7 +420,7 @@ export default function Purchases() {
               {suppliers.length === 0 && (
                 <Card>
                   <CardContent className="py-10 text-center text-muted-foreground">
-                    Nenhuma compra com situação Confirmado/Pagamento Pendente encontrada.
+                    Nenhuma compra com situação Pagamento Pendente encontrada.
                   </CardContent>
                 </Card>
               )}
@@ -366,6 +434,7 @@ export default function Purchases() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Código</TableHead>
+                        <TableHead>Loja</TableHead>
                         <TableHead>Fornecedor</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead>Situação</TableHead>
@@ -374,8 +443,9 @@ export default function Purchases() {
                     </TableHeader>
                     <TableBody>
                       {purchases.map((p) => (
-                        <TableRow key={p.id || p.codigo}>
+                        <TableRow key={`${p.loja_id}-${p.id || p.codigo}`}>
                           <TableCell className="font-medium">{p.codigo}</TableCell>
+                          <TableCell>{getStoreBadge(p.loja_nome)}</TableCell>
                           <TableCell>{p.fornecedor_nome}</TableCell>
                           <TableCell>
                             {p.data
