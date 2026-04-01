@@ -84,6 +84,13 @@ const menuGroups = [
     ],
   },
   {
+    label: "Compras",
+    icon: ShoppingCart,
+    items: [
+      { title: "Painel de Compras", icon: ShoppingCart, path: "/compras" },
+    ],
+  },
+  {
     label: "Comunicação",
     icon: Handshake,
     items: [
