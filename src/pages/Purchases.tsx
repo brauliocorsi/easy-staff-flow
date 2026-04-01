@@ -16,11 +16,11 @@ interface Purchase {
   data: string;
   valor_total: string;
   situacao: string;
-  situacao_cor?: string;
   fornecedor_nome: string;
   fornecedor_id: string;
   observacao?: string;
-  [key: string]: unknown;
+  produtos?: Array<{ produto: { nome_produto: string; quantidade: string; valor_total: string } }>;
+  pagamentos?: Array<{ pagamento: { valor: string; data_vencimento: string; nome_forma_pagamento: string } }>;
 }
 
 interface SupplierSummary {
@@ -31,12 +31,47 @@ interface SupplierSummary {
   purchases: Purchase[];
 }
 
+function mapCompra(item: Record<string, unknown>): Purchase {
+  const c = (item as { Compra?: Record<string, unknown> }).Compra || item;
+  
+  // Calculate total from products if valor_total not present at root
+  let valorTotal = String(c.valor_total || "0");
+  if (valorTotal === "0" || valorTotal === "0.00") {
+    const produtos = (c.produtos as Array<{ produto: { valor_total: string } }>) || [];
+    const sum = produtos.reduce((acc, p) => {
+      return acc + (parseFloat(String(p.produto?.valor_total || "0").replace(",", ".")) || 0);
+    }, 0);
+    if (sum > 0) valorTotal = sum.toFixed(2);
+  }
+  // Also check pagamentos
+  if (valorTotal === "0" || valorTotal === "0.00") {
+    const pagamentos = (c.pagamentos as Array<{ pagamento: { valor: string } }>) || [];
+    const sum = pagamentos.reduce((acc, p) => {
+      return acc + (parseFloat(String(p.pagamento?.valor || "0").replace(",", ".")) || 0);
+    }, 0);
+    if (sum > 0) valorTotal = sum.toFixed(2);
+  }
+
+  return {
+    id: String(c.id || ""),
+    codigo: String(c.codigo || ""),
+    data: String(c.data_emissao || c.data || ""),
+    valor_total: valorTotal,
+    situacao: String(c.nome_situacao || c.situacao || ""),
+    fornecedor_nome: String(c.nome_fornecedor || c.fornecedor_nome || "Desconhecido"),
+    fornecedor_id: String(c.fornecedor_id || "unknown"),
+    observacao: String(c.observacoes || c.observacao || ""),
+    produtos: c.produtos as Purchase["produtos"],
+    pagamentos: c.pagamentos as Purchase["pagamentos"],
+  };
+}
+
 async function fetchAllPurchases(): Promise<Purchase[]> {
   const allPurchases: Purchase[] = [];
   let page = 1;
-  let hasMore = true;
+  let totalPages = 1;
 
-  while (hasMore) {
+  while (page <= totalPages) {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=purchases&pagina=${page}`;
     
@@ -53,19 +88,19 @@ async function fetchAllPurchases(): Promise<Purchase[]> {
       throw new Error(`Erro ao buscar compras: ${text}`);
     }
 
-    const data = await res.json();
-    const purchases = data?.data || data?.compras || data || [];
+    const json = await res.json();
+    const items = json?.data || [];
     
-    if (!Array.isArray(purchases) || purchases.length === 0) {
-      hasMore = false;
-    } else {
-      allPurchases.push(...purchases);
-      if (purchases.length < 100) {
-        hasMore = false;
-      } else {
-        page++;
-      }
+    if (json?.meta?.total_paginas) {
+      totalPages = json.meta.total_paginas;
     }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      break;
+    }
+
+    allPurchases.push(...items.map(mapCompra));
+    page++;
   }
 
   return allPurchases;
