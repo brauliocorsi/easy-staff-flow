@@ -6,6 +6,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const TIMEZONE = "Europe/Lisbon";
+
+function getLocalTime(date: Date): { hours: number; minutes: number; dayOfWeek: number; dateStr: string; timeStr: string } {
+  const localStr = date.toLocaleString("en-US", { timeZone: TIMEZONE });
+  const local = new Date(localStr);
+  const hours = local.getHours();
+  const minutes = local.getMinutes();
+  const dayOfWeek = local.getDay();
+  const y = local.getFullYear();
+  const m = String(local.getMonth() + 1).padStart(2, "0");
+  const d = String(local.getDate()).padStart(2, "0");
+  const dateStr = `${y}-${m}-${d}`;
+  const timeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+  return { hours, minutes, dayOfWeek, dateStr, timeStr };
+}
+
 function isPartTimeSchedule(schedule: any): boolean {
   if (!schedule || schedule.is_day_off) return false;
   return schedule.lunch_in_time === "00:00:00" && schedule.clock_out_time === "00:00:00";
@@ -54,8 +70,9 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const dayOfWeek = now.getDay();
+    const local = getLocalTime(now);
+    const today = local.dateStr;
+    const dayOfWeek = local.dayOfWeek;
 
     // Get schedule
     let schedule = null;
@@ -131,11 +148,11 @@ Deno.serve(async (req) => {
       const [schH, schM] = scheduledOutTime.split(":").map(Number);
       const earlyLeaveToleranceMin = tolerances.tolerance_early_leave_minutes || 0;
       const scheduledOutMinutes = schH * 60 + schM - earlyLeaveToleranceMin;
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const currentMinutes = local.hours * 60 + local.minutes;
 
       if (currentMinutes < scheduledOutMinutes) {
         const minutesEarly = scheduledOutMinutes - currentMinutes;
-        const actualTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+        const actualTime = local.timeStr;
 
         if (!confirm_early_leave) {
           return new Response(
@@ -204,10 +221,10 @@ Deno.serve(async (req) => {
       clock_out: "Saída",
     };
 
-    const timeStr = now.toLocaleTimeString("pt-BR", {
+    const timeStr = now.toLocaleTimeString("pt-PT", {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "America/Sao_Paulo",
+      timeZone: TIMEZONE,
     });
 
     return new Response(

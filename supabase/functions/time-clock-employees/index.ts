@@ -6,6 +6,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const TIMEZONE = "Europe/Lisbon";
+
+function getLocalTime(date: Date): { hours: number; minutes: number; dayOfWeek: number; dateStr: string } {
+  const localStr = date.toLocaleString("en-US", { timeZone: TIMEZONE });
+  const local = new Date(localStr);
+  const y = local.getFullYear();
+  const m = String(local.getMonth() + 1).padStart(2, "0");
+  const d = String(local.getDate()).padStart(2, "0");
+  return { hours: local.getHours(), minutes: local.getMinutes(), dayOfWeek: local.getDay(), dateStr: `${y}-${m}-${d}` };
+}
+
 function isPartTime(tDay: any): boolean {
   if (!tDay || tDay.is_day_off) return false;
   return (
@@ -32,8 +43,10 @@ Deno.serve(async (req) => {
 
     if (empError) throw empError;
 
-    const today = new Date().toISOString().split("T")[0];
-    const dayOfWeek = new Date().getDay();
+    const now = new Date();
+    const local = getLocalTime(now);
+    const today = local.dateStr;
+    const dayOfWeek = local.dayOfWeek;
     const employeeIds = employees.map((e: any) => e.id);
 
     const [{ data: records, error: recError }, { data: vacations, error: vacError }] = await Promise.all([
@@ -79,8 +92,7 @@ Deno.serve(async (req) => {
     const manualEmps = employees.filter((e: any) => !e.auto_clock);
 
     // Auto-punch logic
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = local.hours * 60 + local.minutes;
 
     for (const emp of autoClockEmps) {
       const tDay = templateDayMap.get(emp.schedule_template_id);
