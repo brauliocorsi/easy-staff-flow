@@ -92,8 +92,7 @@ Deno.serve(async (req) => {
     const manualEmps = employees.filter((e: any) => !e.auto_clock);
 
     // Auto-punch logic
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = local.hours * 60 + local.minutes;
 
     for (const emp of autoClockEmps) {
       const tDay = templateDayMap.get(emp.schedule_template_id);

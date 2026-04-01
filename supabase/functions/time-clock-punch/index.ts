@@ -221,10 +221,10 @@ Deno.serve(async (req) => {
       clock_out: "Saída",
     };
 
-    const timeStr = now.toLocaleTimeString("pt-BR", {
+    const timeStr = now.toLocaleTimeString("pt-PT", {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "America/Sao_Paulo",
+      timeZone: TIMEZONE,
     });
 
     return new Response(
