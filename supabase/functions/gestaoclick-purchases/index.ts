@@ -70,12 +70,13 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
 
     if (action === "purchases") {
-      // Fetch all purchases with pagination, filtering by situacao_id if provided
       const situacaoId = url.searchParams.get("situacao_id") || "";
       const page = url.searchParams.get("pagina") || "1";
+      const lojaId = url.searchParams.get("loja_id") || "";
 
       const params: Record<string, string> = { pagina: page };
       if (situacaoId) params.situacao_id = situacaoId;
+      if (lojaId) params.loja_id = lojaId;
 
       const data = await gestaoGet("compras", params);
       return new Response(JSON.stringify(data), {
@@ -98,18 +99,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (action === "companies") {
-      // Try multiple possible endpoints
-      const endpoints = ["lojas", "filiais", "empresas_filiais"];
-      const results: Record<string, unknown> = {};
-      for (const ep of endpoints) {
-        try {
-          results[ep] = await gestaoGet(ep);
-        } catch (e) {
-          results[ep] = { error: e instanceof Error ? e.message : String(e) };
-        }
-      }
-      return new Response(JSON.stringify(results), {
+    if (action === "stores") {
+      const data = await gestaoGet("lojas");
+      return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
