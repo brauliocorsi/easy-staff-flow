@@ -169,7 +169,7 @@ export default function Purchases() {
   // Filter only relevant statuses
   const purchases = (rawPurchases || []).filter((p) => {
     const s = (p.situacao || "").toLowerCase();
-    return s.includes("confirmado") || s.includes("pagamento pendente") || s.includes("pendente");
+    return s.includes("pagamento pendente");
   });
 
   const suppliers = groupBySupplier(purchases);
