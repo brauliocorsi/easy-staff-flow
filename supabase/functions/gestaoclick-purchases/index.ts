@@ -99,8 +99,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === "companies") {
-      const data = await gestaoGet("empresas");
-      return new Response(JSON.stringify(data), {
+      // Try multiple possible endpoints
+      const endpoints = ["lojas", "filiais", "empresas_filiais"];
+      const results: Record<string, unknown> = {};
+      for (const ep of endpoints) {
+        try {
+          results[ep] = await gestaoGet(ep);
+        } catch (e) {
+          results[ep] = { error: e instanceof Error ? e.message : String(e) };
+        }
+      }
+      return new Response(JSON.stringify(results), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
