@@ -98,6 +98,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "companies") {
+      const data = await gestaoGet("empresas");
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
