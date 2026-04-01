@@ -6,6 +6,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const TIMEZONE = "Europe/Lisbon";
+
+function getLocalTime(date: Date): { hours: number; minutes: number; dayOfWeek: number; dateStr: string; timeStr: string } {
+  const localStr = date.toLocaleString("en-US", { timeZone: TIMEZONE });
+  const local = new Date(localStr);
+  const hours = local.getHours();
+  const minutes = local.getMinutes();
+  const dayOfWeek = local.getDay();
+  const y = local.getFullYear();
+  const m = String(local.getMonth() + 1).padStart(2, "0");
+  const d = String(local.getDate()).padStart(2, "0");
+  const dateStr = `${y}-${m}-${d}`;
+  const timeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+  return { hours, minutes, dayOfWeek, dateStr, timeStr };
+}
+
 function isPartTimeSchedule(schedule: any): boolean {
   if (!schedule || schedule.is_day_off) return false;
   return schedule.lunch_in_time === "00:00:00" && schedule.clock_out_time === "00:00:00";
