@@ -197,6 +197,7 @@ function getStoreBadge(lojaNome: string) {
 export default function Purchases() {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
   const [selectedStore, setSelectedStore] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["gestaoclick-purchases-all-stores"],
@@ -213,10 +214,42 @@ export default function Purchases() {
     return s.includes("pagamento pendente");
   });
 
+  // Build available months from data
+  const availableMonths = useMemo(() => {
+    const monthSet = new Map<string, string>();
+    for (const p of statusFiltered) {
+      if (p.data) {
+        try {
+          const date = new Date(p.data);
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          if (!monthSet.has(key)) {
+            const label = format(date, "MMMM yyyy", { locale: pt });
+            monthSet.set(key, label.charAt(0).toUpperCase() + label.slice(1));
+          }
+        } catch { /* skip */ }
+      }
+    }
+    return Array.from(monthSet.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [statusFiltered]);
+
   // Filter by store
-  const purchases = selectedStore === "all"
+  const storeFiltered = selectedStore === "all"
     ? statusFiltered
     : statusFiltered.filter((p) => p.loja_id === selectedStore);
+
+  // Filter by month
+  const purchases = selectedMonth === "all"
+    ? storeFiltered
+    : storeFiltered.filter((p) => {
+        if (!p.data) return false;
+        try {
+          const date = new Date(p.data);
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          return key === selectedMonth;
+        } catch { return false; }
+      });
 
   const suppliers = groupBySupplier(purchases);
   const totalOwed = suppliers.reduce((sum, s) => sum + s.totalAmount, 0);
