@@ -36,20 +36,24 @@ async function fetchAllPurchases(): Promise<Purchase[]> {
   let page = 1;
   let hasMore = true;
 
-  // First get purchase statuses to find "Confirmado" and "Pagamento Pendente"
-  const { data: statusData } = await supabase.functions.invoke("gestaoclick-purchases", {
-    body: null,
-    method: "GET",
-  });
-
-  // Fetch purchases page by page (API max 100 per page)
   while (hasMore) {
-    const { data, error } = await supabase.functions.invoke("gestaoclick-purchases?action=purchases&pagina=" + page, {
-      method: "GET",
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=purchases&pagina=${page}`;
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${session?.access_token}`,
+        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
     });
 
-    if (error) throw new Error(error.message);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Erro ao buscar compras: ${text}`);
+    }
 
+    const data = await res.json();
     const purchases = data?.data || data?.compras || data || [];
     
     if (!Array.isArray(purchases) || purchases.length === 0) {
