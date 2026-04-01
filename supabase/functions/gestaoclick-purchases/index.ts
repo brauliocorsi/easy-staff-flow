@@ -121,10 +121,9 @@ Deno.serve(async (req) => {
     if (action === "service-orders") {
       const page = url.searchParams.get("pagina") || "1";
       const lojaId = url.searchParams.get("loja_id") || "";
-      const endpoint = url.searchParams.get("endpoint") || "ordens_servicos";
       const params: Record<string, string> = { pagina: page };
       if (lojaId) params.loja_id = lojaId;
-      const data = await gestaoGet(endpoint, params);
+      const data = await gestaoGet("ordens_servicos", params);
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
