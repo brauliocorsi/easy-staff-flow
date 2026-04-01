@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.vehicle-inspection]
 verify_jwt = false
+
+[functions.gestaoclick-purchases]
+verify_jwt = false

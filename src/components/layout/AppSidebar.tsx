@@ -17,6 +17,7 @@ import {
   HardHat,
   Car,
   Stethoscope,
+  ShoppingCart,
   ChevronDown,
   UserCircle,
   Wrench,
@@ -80,6 +81,13 @@ const menuGroups = [
     items: [
       { title: "Equipamentos", icon: HardHat, path: "/equipamentos" },
       { title: "Veículos", icon: Car, path: "/veiculos" },
+    ],
+  },
+  {
+    label: "Compras",
+    icon: ShoppingCart,
+    items: [
+      { title: "Painel de Compras", icon: ShoppingCart, path: "/compras" },
     ],
   },
   {
