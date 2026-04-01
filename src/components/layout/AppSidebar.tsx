@@ -84,10 +84,11 @@ const menuGroups = [
     ],
   },
   {
-    label: "Compras",
+    label: "Compras & Assistências",
     icon: ShoppingCart,
     items: [
       { title: "Painel de Compras", icon: ShoppingCart, path: "/compras" },
+      { title: "Assistências", icon: Wrench, path: "/assistencias" },
     ],
   },
   {
