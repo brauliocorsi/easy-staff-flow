@@ -118,6 +118,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "service-orders") {
+      const page = url.searchParams.get("pagina") || "1";
+      const lojaId = url.searchParams.get("loja_id") || "";
+      const params: Record<string, string> = { pagina: page };
+      if (lojaId) params.loja_id = lojaId;
+      const data = await gestaoGet("ordens_servico", params);
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
