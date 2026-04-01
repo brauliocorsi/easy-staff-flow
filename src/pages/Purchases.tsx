@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, DollarSign, Users, AlertTriangle, Loader2, Store } from "lucide-react";
-import { format } from "date-fns";
+import { ShoppingCart, DollarSign, Users, AlertTriangle, Loader2, Store, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 
 interface Purchase {
