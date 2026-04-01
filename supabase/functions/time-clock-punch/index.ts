@@ -70,8 +70,9 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const dayOfWeek = now.getDay();
+    const local = getLocalTime(now);
+    const today = local.dateStr;
+    const dayOfWeek = local.dayOfWeek;
 
     // Get schedule
     let schedule = null;

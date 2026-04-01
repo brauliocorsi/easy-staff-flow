@@ -43,8 +43,10 @@ Deno.serve(async (req) => {
 
     if (empError) throw empError;
 
-    const today = new Date().toISOString().split("T")[0];
-    const dayOfWeek = new Date().getDay();
+    const now = new Date();
+    const local = getLocalTime(now);
+    const today = local.dateStr;
+    const dayOfWeek = local.dayOfWeek;
     const employeeIds = employees.map((e: any) => e.id);
 
     const [{ data: records, error: recError }, { data: vacations, error: vacError }] = await Promise.all([
