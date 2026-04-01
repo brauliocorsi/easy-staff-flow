@@ -148,11 +148,11 @@ Deno.serve(async (req) => {
       const [schH, schM] = scheduledOutTime.split(":").map(Number);
       const earlyLeaveToleranceMin = tolerances.tolerance_early_leave_minutes || 0;
       const scheduledOutMinutes = schH * 60 + schM - earlyLeaveToleranceMin;
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const currentMinutes = local.hours * 60 + local.minutes;
 
       if (currentMinutes < scheduledOutMinutes) {
         const minutesEarly = scheduledOutMinutes - currentMinutes;
-        const actualTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+        const actualTime = local.timeStr;
 
         if (!confirm_early_leave) {
           return new Response(
