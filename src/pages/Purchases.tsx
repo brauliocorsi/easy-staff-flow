@@ -99,9 +99,9 @@ function groupBySupplier(purchases: Purchase[]): SupplierSummary[] {
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
+  return new Intl.NumberFormat("pt-PT", {
     style: "currency",
-    currency: "BRL",
+    currency: "EUR",
   }).format(value);
 }
 
