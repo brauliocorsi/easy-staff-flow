@@ -20,14 +20,26 @@ async function gestaoGet(path: string, params?: Record<string, string>) {
     }
   }
 
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    headers: {
-      "access-token": token,
-      "secret-access-token": secret,
-      "Content-Type": "application/json",
-    },
-  });
+  // Force HTTP/1.1 to avoid Deno HTTP/2 connection errors
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "access-token": token,
+        "secret-access-token": secret,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      // @ts-ignore Deno-specific option
+      client: Deno.createHttpClient({ http2: false }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     const text = await res.text();
