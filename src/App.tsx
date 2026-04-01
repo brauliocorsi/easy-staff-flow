@@ -33,6 +33,8 @@ import ResetPassword from "./pages/ResetPassword";
 import OvertimeBank from "./pages/OvertimeBank";
 import VehicleInspection from "./pages/VehicleInspection";
 import Purchases from "./pages/Purchases";
+import ServiceOrders from "./pages/ServiceOrders";
+import NotFound from "./pages/NotFound";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
