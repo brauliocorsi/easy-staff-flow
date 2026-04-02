@@ -345,7 +345,7 @@ export default function OvertimeBank() {
       // For part-time, the "clock_out" is stored in lunch_out field
       const effectiveClockOut = partTime ? record?.lunch_out : record?.clock_out;
 
-      // Working day without complete record → count as deficit (incomplete)
+      // Working day without complete record → calculate partial work
       if (!record?.clock_in || !effectiveClockOut) {
         const scheduledWork = partTime
           ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
@@ -353,16 +353,31 @@ export default function OvertimeBank() {
             timeToMinutes(schedule.clock_in_time) -
             (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
 
+        // Calculate partial worked time from available punches
+        let partialWorked = 0;
+        if (record?.clock_in) {
+          // Find the last available punch to calculate worked time
+          const lastPunch = record.clock_out || record.lunch_in || record.lunch_out;
+          if (lastPunch) {
+            partialWorked = tsToMinutes(lastPunch) - tsToMinutes(record.clock_in);
+            // Subtract lunch break if both lunch punches exist
+            if (record.lunch_out && record.lunch_in) {
+              partialWorked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+            }
+            partialWorked = Math.max(0, partialWorked);
+          }
+        }
+
         result.push({
           date: dateStr,
           dayName: format(d, "EEEE", { locale: pt }),
           scheduled: scheduledWork,
-          worked: 0,
-          diff: -scheduledWork,
+          worked: partialWorked,
+          diff: partialWorked - scheduledWork,
           isDayOff: false,
           incomplete: true,
           clockIn: record?.clock_in ?? null,
-          clockOut: null,
+          clockOut: record?.clock_out ?? null,
           lunchOut: record?.lunch_out ?? null,
           lunchIn: record?.lunch_in ?? null,
           schedClockIn: schedule.clock_in_time,
@@ -499,13 +514,24 @@ export default function OvertimeBank() {
       const effectiveOut = pt ? record?.lunch_out : record?.clock_out;
 
       if (!record?.clock_in || !effectiveOut) {
-        // Incomplete record → deficit
+        // Incomplete record → calculate partial work
         const scheduledWork = pt
           ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
           : timeToMinutes(schedule.clock_out_time) -
             timeToMinutes(schedule.clock_in_time) -
             (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
-        balance -= scheduledWork;
+        let partialWorked = 0;
+        if (record?.clock_in) {
+          const lastPunch = record.clock_out || record.lunch_in || record.lunch_out;
+          if (lastPunch) {
+            partialWorked = tsToMinutes(lastPunch) - tsToMinutes(record.clock_in);
+            if (record.lunch_out && record.lunch_in) {
+              partialWorked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+            }
+            partialWorked = Math.max(0, partialWorked);
+          }
+        }
+        balance += partialWorked - scheduledWork;
         continue;
       }
 
@@ -674,7 +700,18 @@ export default function OvertimeBank() {
           const scheduledWork = pt
             ? timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time)
             : timeToMinutes(sched.clock_out_time) - timeToMinutes(sched.clock_in_time) - (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
-          balance -= scheduledWork;
+          let partialWorked = 0;
+          if (rec?.clock_in) {
+            const lastPunch = rec.clock_out || rec.lunch_in || rec.lunch_out;
+            if (lastPunch) {
+              partialWorked = tsToMinutes(lastPunch) - tsToMinutes(rec.clock_in);
+              if (rec.lunch_out && rec.lunch_in) {
+                partialWorked -= tsToMinutes(rec.lunch_in) - tsToMinutes(rec.lunch_out);
+              }
+              partialWorked = Math.max(0, partialWorked);
+            }
+          }
+          balance += partialWorked - scheduledWork;
           continue;
         }
         if (pt) {
