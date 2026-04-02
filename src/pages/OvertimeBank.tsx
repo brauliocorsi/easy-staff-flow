@@ -526,7 +526,16 @@ export default function OvertimeBank() {
         const pt = isPartTimeSchedule(sched);
         const effectiveOut = pt ? rec?.lunch_out : rec?.clock_out;
 
-        if (!rec?.clock_in || !effectiveOut) continue;
+        if (!rec?.clock_in || !effectiveOut) {
+          // Incomplete record → count as full deficit
+          const scheduledWork = pt
+            ? timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time)
+            : timeToMinutes(sched.clock_out_time) -
+              timeToMinutes(sched.clock_in_time) -
+              (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
+          balance -= scheduledWork;
+          continue;
+        }
 
         if (pt) {
           const scheduledWork = timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time);
