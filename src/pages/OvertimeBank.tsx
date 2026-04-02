@@ -161,6 +161,11 @@ export default function OvertimeBank() {
   const rangeStart = format(startOfMonth(new Date(selectedYear, selectedMonth)), "yyyy-MM-dd");
   const rangeEnd = format(endOfMonth(new Date(selectedYear, selectedMonth)), "yyyy-MM-dd");
 
+  // Previous month range
+  const prevMonthDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const prevRangeStart = format(startOfMonth(prevMonthDate), "yyyy-MM-dd");
+  const prevRangeEnd = format(endOfMonth(prevMonthDate), "yyyy-MM-dd");
+
   const { data: records } = useQuery({
     queryKey: ["overtime-records", selectedEmployee, rangeStart, rangeEnd],
     enabled: !!selectedEmployee,
@@ -171,6 +176,23 @@ export default function OvertimeBank() {
         .eq("employee_id", selectedEmployee)
         .gte("record_date", rangeStart)
         .lte("record_date", rangeEnd)
+        .order("record_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Previous month records for selected employee
+  const { data: prevRecords } = useQuery({
+    queryKey: ["overtime-records-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("*")
+        .eq("employee_id", selectedEmployee)
+        .gte("record_date", prevRangeStart)
+        .lte("record_date", prevRangeEnd)
         .order("record_date");
       if (error) throw error;
       return data;
@@ -207,7 +229,7 @@ export default function OvertimeBank() {
     },
   });
 
-  // Fetch bank-deducted absences for selected employee
+  // Fetch bank-deducted absences for selected employee (current + previous month)
   const { data: bankAbsences } = useQuery({
     queryKey: ["bank-absences", selectedEmployee, rangeStart, rangeEnd],
     enabled: !!selectedEmployee,
@@ -219,6 +241,22 @@ export default function OvertimeBank() {
         .eq("deducted_from_bank", true)
         .gte("absence_date", rangeStart)
         .lte("absence_date", rangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: prevBankAbsences } = useQuery({
+    queryKey: ["bank-absences-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("*")
+        .eq("employee_id", selectedEmployee)
+        .eq("deducted_from_bank", true)
+        .gte("absence_date", prevRangeStart)
+        .lte("absence_date", prevRangeEnd);
       if (error) throw error;
       return data as any[];
     },
@@ -412,6 +450,94 @@ export default function OvertimeBank() {
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
   const totalDeficit = rows.reduce((sum, r) => sum + Math.min(0, r.diff), 0);
 
+  // Calculate previous month balance
+  const prevMonthBalance = useMemo(() => {
+    if (!prevRecords || !templateDays) return 0;
+
+    const tolerances = selectedTemplate || defaultTolerances;
+    const scheduleMap = new Map<number, (typeof templateDays)[0]>();
+    templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
+
+    const recordMap = new Map<string, (typeof prevRecords)[0]>();
+    prevRecords.forEach((r) => recordMap.set(r.record_date, r));
+
+    const prevBankSet = new Set<string>();
+    prevBankAbsences?.forEach((a) => prevBankSet.add(a.absence_date));
+
+    const days = eachDayOfInterval({
+      start: new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1),
+      end: endOfMonth(prevMonthDate),
+    });
+
+    let balance = 0;
+    for (const d of days) {
+      const dateStr = format(d, "yyyy-MM-dd");
+      const dow = d.getDay();
+      const schedule = scheduleMap.get(dow);
+      const record = recordMap.get(dateStr);
+      const isBankDeduction = prevBankSet.has(dateStr);
+
+      if (isBankDeduction && schedule && !schedule.is_day_off) {
+        const scheduledWork =
+          timeToMinutes(schedule.clock_out_time) -
+          timeToMinutes(schedule.clock_in_time) -
+          (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+        balance -= scheduledWork;
+        continue;
+      }
+
+      if (!schedule || schedule.is_day_off) {
+        if (record?.clock_in && record?.clock_out) {
+          let w = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
+          if (record.lunch_out && record.lunch_in) w -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+          balance += w;
+        }
+        continue;
+      }
+
+      const pt = isPartTimeSchedule(schedule);
+      const effectiveOut = pt ? record?.lunch_out : record?.clock_out;
+
+      if (!record?.clock_in || !effectiveOut) {
+        // Incomplete record → deficit
+        const scheduledWork = pt
+          ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
+          : timeToMinutes(schedule.clock_out_time) -
+            timeToMinutes(schedule.clock_in_time) -
+            (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+        balance -= scheduledWork;
+        continue;
+      }
+
+      if (pt) {
+        const scheduledWork = timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time);
+        const worked = tsToMinutes(effectiveOut) - tsToMinutes(record.clock_in);
+        const rawDiff = worked - scheduledWork;
+        let diff = 0;
+        if (rawDiff >= 0) {
+          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
+        } else {
+          const lateMin = Math.max(0, tsToMinutes(record.clock_in) - timeToMinutes(schedule.clock_in_time));
+          const earlyMin = Math.max(0, timeToMinutes(schedule.lunch_out_time) - tsToMinutes(effectiveOut));
+          const tolerated = Math.min(lateMin, tolerances.tolerance_late_minutes) + Math.min(earlyMin, tolerances.tolerance_early_leave_minutes);
+          diff = Math.abs(rawDiff) <= tolerated ? 0 : rawDiff;
+        }
+        balance += diff;
+      } else {
+        const { diff } = calcDiffWithTolerances(
+          record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+          schedule,
+          tolerances
+        );
+        balance += diff;
+      }
+    }
+
+    return balance;
+  }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate]);
+
+  const accumulatedBalance = prevMonthBalance + totalBalance;
+
   // ---- Summary for all employees ----
   const { data: allRecords } = useQuery({
     queryKey: ["overtime-all-records", rangeStart, rangeEnd],
@@ -421,6 +547,19 @@ export default function OvertimeBank() {
         .select("employee_id, record_date, clock_in, clock_out, lunch_out, lunch_in")
         .gte("record_date", rangeStart)
         .lte("record_date", rangeEnd);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allPrevRecords } = useQuery({
+    queryKey: ["overtime-all-records-prev", prevRangeStart, prevRangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("employee_id, record_date, clock_in, clock_out, lunch_out, lunch_in")
+        .gte("record_date", prevRangeStart)
+        .lte("record_date", prevRangeEnd);
       if (error) throw error;
       return data;
     },
@@ -460,6 +599,20 @@ export default function OvertimeBank() {
     },
   });
 
+  const { data: allPrevBankAbsences } = useQuery({
+    queryKey: ["overtime-all-bank-absences-prev", prevRangeStart, prevRangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("employee_id, absence_date")
+        .eq("deducted_from_bank", true)
+        .gte("absence_date", prevRangeStart)
+        .lte("absence_date", prevRangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const summaryPerEmployee = useMemo(() => {
     if (!employees || !allRecords || !allTemplateDays || !allTemplates) return [];
 
@@ -472,48 +625,41 @@ export default function OvertimeBank() {
     const toleranceMap = new Map<string, Tolerances>();
     allTemplates.forEach((t) => toleranceMap.set(t.id, t));
 
-    const bankAbsMap = new Map<string, Set<string>>();
-    allBankAbsences?.forEach((a) => {
-      if (!bankAbsMap.has(a.employee_id)) bankAbsMap.set(a.employee_id, new Set());
-      bankAbsMap.get(a.employee_id)!.add(a.absence_date);
-    });
+    function calcEmpBalance(
+      empId: string,
+      templateId: string | null,
+      recs: typeof allRecords,
+      absences: any[] | undefined,
+      monthStart: Date,
+      monthEnd: Date
+    ): number {
+      const schedMap = templateId ? templateDayMap.get(templateId) : null;
+      if (!schedMap) return 0;
+      const tolerances = templateId ? (toleranceMap.get(templateId) || defaultTolerances) : defaultTolerances;
 
-    const today = format(new Date(), "yyyy-MM-dd");
+      const recordMap = new Map<string, (typeof recs)[0]>();
+      recs.filter((r) => r.employee_id === empId).forEach((r) => recordMap.set(r.record_date, r));
 
-    return employees.map((emp) => {
-      const empRecords = allRecords.filter((r) => r.employee_id === emp.id);
-      const schedMap = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
-      if (!schedMap) return { ...emp, balance: 0 };
+      const bankDates = new Set<string>();
+      absences?.filter((a) => a.employee_id === empId).forEach((a) => bankDates.add(a.absence_date));
 
-      const tolerances = emp.schedule_template_id ? (toleranceMap.get(emp.schedule_template_id) || defaultTolerances) : defaultTolerances;
-
-      const recordMap = new Map<string, (typeof empRecords)[0]>();
-      empRecords.forEach((r) => recordMap.set(r.record_date, r));
-
-      const empBankDates = bankAbsMap.get(emp.id) || new Set<string>();
-
-      const days = eachDayOfInterval({
-        start: new Date(selectedYear, selectedMonth, 1),
-        end: endOfMonth(new Date(selectedYear, selectedMonth, 1)),
-      }).filter((d) => format(d, "yyyy-MM-dd") <= today);
+      const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+      const today = format(new Date(), "yyyy-MM-dd");
 
       let balance = 0;
       for (const d of days) {
         const dateStr = format(d, "yyyy-MM-dd");
+        if (dateStr > today) continue;
         const dow = d.getDay();
         const sched = schedMap.get(dow);
         const rec = recordMap.get(dateStr);
-        const isBankDeduction = empBankDates.has(dateStr);
+        const isBankDeduction = bankDates.has(dateStr);
 
         if (isBankDeduction && sched && !sched.is_day_off) {
-          const scheduled =
-            timeToMinutes(sched.clock_out_time) -
-            timeToMinutes(sched.clock_in_time) -
-            (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
+          const scheduled = timeToMinutes(sched.clock_out_time) - timeToMinutes(sched.clock_in_time) - (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
           balance -= scheduled;
           continue;
         }
-
         if (!sched || sched.is_day_off) {
           if (rec?.clock_in && rec?.clock_out) {
             let w = tsToMinutes(rec.clock_out) - tsToMinutes(rec.clock_in);
@@ -522,21 +668,15 @@ export default function OvertimeBank() {
           }
           continue;
         }
-
         const pt = isPartTimeSchedule(sched);
         const effectiveOut = pt ? rec?.lunch_out : rec?.clock_out;
-
         if (!rec?.clock_in || !effectiveOut) {
-          // Incomplete record → count as full deficit
           const scheduledWork = pt
             ? timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time)
-            : timeToMinutes(sched.clock_out_time) -
-              timeToMinutes(sched.clock_in_time) -
-              (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
+            : timeToMinutes(sched.clock_out_time) - timeToMinutes(sched.clock_in_time) - (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
           balance -= scheduledWork;
           continue;
         }
-
         if (pt) {
           const scheduledWork = timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time);
           const worked = tsToMinutes(effectiveOut) - tsToMinutes(rec.clock_in);
@@ -554,16 +694,27 @@ export default function OvertimeBank() {
         } else {
           const { diff } = calcDiffWithTolerances(
             rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-            sched,
-            tolerances
+            sched, tolerances
           );
           balance += diff;
         }
       }
+      return balance;
+    }
 
-      return { ...emp, balance };
+    const curStart = new Date(selectedYear, selectedMonth, 1);
+    const curEnd = endOfMonth(curStart);
+    const pStart = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1);
+    const pEnd = endOfMonth(pStart);
+
+    return employees.map((emp) => {
+      const curBalance = calcEmpBalance(emp.id, emp.schedule_template_id, allRecords, allBankAbsences, curStart, curEnd);
+      const pBalance = allPrevRecords
+        ? calcEmpBalance(emp.id, emp.schedule_template_id, allPrevRecords, allPrevBankAbsences, pStart, pEnd)
+        : 0;
+      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: pBalance + curBalance };
     });
-  }, [employees, allRecords, allTemplateDays, allTemplates, allBankAbsences, selectedMonth, selectedYear]);
+  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
@@ -632,7 +783,9 @@ export default function OvertimeBank() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Funcionário</TableHead>
+                    <TableHead className="text-right">Mês Anterior</TableHead>
                     <TableHead className="text-right">Saldo Mensal</TableHead>
+                    <TableHead className="text-right">Saldo Acumulado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -640,15 +793,25 @@ export default function OvertimeBank() {
                     <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedEmployee(e.id)}>
                       <TableCell className="font-medium">{e.first_name} {e.last_name}</TableCell>
                       <TableCell className="text-right">
+                        <Badge variant={e.prevBalance > 0 ? "default" : e.prevBalance < 0 ? "destructive" : "secondary"} className="font-mono">
+                          {minutesToHHMM(e.prevBalance)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Badge variant={e.balance > 0 ? "default" : e.balance < 0 ? "destructive" : "secondary"} className="font-mono">
                           {minutesToHHMM(e.balance)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={e.accumulated > 0 ? "default" : e.accumulated < 0 ? "destructive" : "secondary"} className="font-mono font-bold">
+                          {minutesToHHMM(e.accumulated)}
                         </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
                   {(!summaryPerEmployee || summaryPerEmployee.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -668,7 +831,23 @@ export default function OvertimeBank() {
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-5">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-muted p-2.5">
+                      <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Mês Anterior</p>
+                      <p className={`text-xl font-bold font-mono ${prevMonthBalance >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {minutesToHHMM(prevMonthBalance)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
@@ -709,6 +888,22 @@ export default function OvertimeBank() {
                       <p className="text-sm text-muted-foreground">Saldo Mensal</p>
                       <p className={`text-xl font-bold font-mono ${totalBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {minutesToHHMM(totalBalance)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-primary/20 p-2.5">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground font-medium">Saldo Acumulado</p>
+                      <p className={`text-xl font-bold font-mono ${accumulatedBalance >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {minutesToHHMM(accumulatedBalance)}
                       </p>
                     </div>
                   </div>
