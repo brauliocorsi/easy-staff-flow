@@ -450,6 +450,94 @@ export default function OvertimeBank() {
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
   const totalDeficit = rows.reduce((sum, r) => sum + Math.min(0, r.diff), 0);
 
+  // Calculate previous month balance
+  const prevMonthBalance = useMemo(() => {
+    if (!prevRecords || !templateDays) return 0;
+
+    const tolerances = selectedTemplate || defaultTolerances;
+    const scheduleMap = new Map<number, (typeof templateDays)[0]>();
+    templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
+
+    const recordMap = new Map<string, (typeof prevRecords)[0]>();
+    prevRecords.forEach((r) => recordMap.set(r.record_date, r));
+
+    const prevBankSet = new Set<string>();
+    prevBankAbsences?.forEach((a) => prevBankSet.add(a.absence_date));
+
+    const days = eachDayOfInterval({
+      start: new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1),
+      end: endOfMonth(prevMonthDate),
+    });
+
+    let balance = 0;
+    for (const d of days) {
+      const dateStr = format(d, "yyyy-MM-dd");
+      const dow = d.getDay();
+      const schedule = scheduleMap.get(dow);
+      const record = recordMap.get(dateStr);
+      const isBankDeduction = prevBankSet.has(dateStr);
+
+      if (isBankDeduction && schedule && !schedule.is_day_off) {
+        const scheduledWork =
+          timeToMinutes(schedule.clock_out_time) -
+          timeToMinutes(schedule.clock_in_time) -
+          (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+        balance -= scheduledWork;
+        continue;
+      }
+
+      if (!schedule || schedule.is_day_off) {
+        if (record?.clock_in && record?.clock_out) {
+          let w = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
+          if (record.lunch_out && record.lunch_in) w -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+          balance += w;
+        }
+        continue;
+      }
+
+      const pt = isPartTimeSchedule(schedule);
+      const effectiveOut = pt ? record?.lunch_out : record?.clock_out;
+
+      if (!record?.clock_in || !effectiveOut) {
+        // Incomplete record → deficit
+        const scheduledWork = pt
+          ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
+          : timeToMinutes(schedule.clock_out_time) -
+            timeToMinutes(schedule.clock_in_time) -
+            (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+        balance -= scheduledWork;
+        continue;
+      }
+
+      if (pt) {
+        const scheduledWork = timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time);
+        const worked = tsToMinutes(effectiveOut) - tsToMinutes(record.clock_in);
+        const rawDiff = worked - scheduledWork;
+        let diff = 0;
+        if (rawDiff >= 0) {
+          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
+        } else {
+          const lateMin = Math.max(0, tsToMinutes(record.clock_in) - timeToMinutes(schedule.clock_in_time));
+          const earlyMin = Math.max(0, timeToMinutes(schedule.lunch_out_time) - tsToMinutes(effectiveOut));
+          const tolerated = Math.min(lateMin, tolerances.tolerance_late_minutes) + Math.min(earlyMin, tolerances.tolerance_early_leave_minutes);
+          diff = Math.abs(rawDiff) <= tolerated ? 0 : rawDiff;
+        }
+        balance += diff;
+      } else {
+        const { diff } = calcDiffWithTolerances(
+          record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+          schedule,
+          tolerances
+        );
+        balance += diff;
+      }
+    }
+
+    return balance;
+  }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate]);
+
+  const accumulatedBalance = prevMonthBalance + totalBalance;
+
   // ---- Summary for all employees ----
   const { data: allRecords } = useQuery({
     queryKey: ["overtime-all-records", rangeStart, rangeEnd],
