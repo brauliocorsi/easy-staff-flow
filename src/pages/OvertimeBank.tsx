@@ -794,7 +794,23 @@ export default function OvertimeBank() {
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-5">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-muted p-2.5">
+                      <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Mês Anterior</p>
+                      <p className={`text-xl font-bold font-mono ${prevMonthBalance >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {minutesToHHMM(prevMonthBalance)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
@@ -835,6 +851,22 @@ export default function OvertimeBank() {
                       <p className="text-sm text-muted-foreground">Saldo Mensal</p>
                       <p className={`text-xl font-bold font-mono ${totalBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {minutesToHHMM(totalBalance)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-primary/20 p-2.5">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground font-medium">Saldo Acumulado</p>
+                      <p className={`text-xl font-bold font-mono ${accumulatedBalance >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {minutesToHHMM(accumulatedBalance)}
                       </p>
                     </div>
                   </div>
