@@ -625,48 +625,41 @@ export default function OvertimeBank() {
     const toleranceMap = new Map<string, Tolerances>();
     allTemplates.forEach((t) => toleranceMap.set(t.id, t));
 
-    const bankAbsMap = new Map<string, Set<string>>();
-    allBankAbsences?.forEach((a) => {
-      if (!bankAbsMap.has(a.employee_id)) bankAbsMap.set(a.employee_id, new Set());
-      bankAbsMap.get(a.employee_id)!.add(a.absence_date);
-    });
+    function calcEmpBalance(
+      empId: string,
+      templateId: string | null,
+      recs: typeof allRecords,
+      absences: any[] | undefined,
+      monthStart: Date,
+      monthEnd: Date
+    ): number {
+      const schedMap = templateId ? templateDayMap.get(templateId) : null;
+      if (!schedMap) return 0;
+      const tolerances = templateId ? (toleranceMap.get(templateId) || defaultTolerances) : defaultTolerances;
 
-    const today = format(new Date(), "yyyy-MM-dd");
+      const recordMap = new Map<string, (typeof recs)[0]>();
+      recs.filter((r) => r.employee_id === empId).forEach((r) => recordMap.set(r.record_date, r));
 
-    return employees.map((emp) => {
-      const empRecords = allRecords.filter((r) => r.employee_id === emp.id);
-      const schedMap = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
-      if (!schedMap) return { ...emp, balance: 0 };
+      const bankDates = new Set<string>();
+      absences?.filter((a) => a.employee_id === empId).forEach((a) => bankDates.add(a.absence_date));
 
-      const tolerances = emp.schedule_template_id ? (toleranceMap.get(emp.schedule_template_id) || defaultTolerances) : defaultTolerances;
-
-      const recordMap = new Map<string, (typeof empRecords)[0]>();
-      empRecords.forEach((r) => recordMap.set(r.record_date, r));
-
-      const empBankDates = bankAbsMap.get(emp.id) || new Set<string>();
-
-      const days = eachDayOfInterval({
-        start: new Date(selectedYear, selectedMonth, 1),
-        end: endOfMonth(new Date(selectedYear, selectedMonth, 1)),
-      }).filter((d) => format(d, "yyyy-MM-dd") <= today);
+      const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+      const today = format(new Date(), "yyyy-MM-dd");
 
       let balance = 0;
       for (const d of days) {
         const dateStr = format(d, "yyyy-MM-dd");
+        if (dateStr > today) continue;
         const dow = d.getDay();
         const sched = schedMap.get(dow);
         const rec = recordMap.get(dateStr);
-        const isBankDeduction = empBankDates.has(dateStr);
+        const isBankDeduction = bankDates.has(dateStr);
 
         if (isBankDeduction && sched && !sched.is_day_off) {
-          const scheduled =
-            timeToMinutes(sched.clock_out_time) -
-            timeToMinutes(sched.clock_in_time) -
-            (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
+          const scheduled = timeToMinutes(sched.clock_out_time) - timeToMinutes(sched.clock_in_time) - (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
           balance -= scheduled;
           continue;
         }
-
         if (!sched || sched.is_day_off) {
           if (rec?.clock_in && rec?.clock_out) {
             let w = tsToMinutes(rec.clock_out) - tsToMinutes(rec.clock_in);
@@ -675,21 +668,15 @@ export default function OvertimeBank() {
           }
           continue;
         }
-
         const pt = isPartTimeSchedule(sched);
         const effectiveOut = pt ? rec?.lunch_out : rec?.clock_out;
-
         if (!rec?.clock_in || !effectiveOut) {
-          // Incomplete record → count as full deficit
           const scheduledWork = pt
             ? timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time)
-            : timeToMinutes(sched.clock_out_time) -
-              timeToMinutes(sched.clock_in_time) -
-              (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
+            : timeToMinutes(sched.clock_out_time) - timeToMinutes(sched.clock_in_time) - (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
           balance -= scheduledWork;
           continue;
         }
-
         if (pt) {
           const scheduledWork = timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time);
           const worked = tsToMinutes(effectiveOut) - tsToMinutes(rec.clock_in);
@@ -707,16 +694,27 @@ export default function OvertimeBank() {
         } else {
           const { diff } = calcDiffWithTolerances(
             rec as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-            sched,
-            tolerances
+            sched, tolerances
           );
           balance += diff;
         }
       }
+      return balance;
+    }
 
-      return { ...emp, balance };
+    const curStart = new Date(selectedYear, selectedMonth, 1);
+    const curEnd = endOfMonth(curStart);
+    const pStart = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1);
+    const pEnd = endOfMonth(pStart);
+
+    return employees.map((emp) => {
+      const curBalance = calcEmpBalance(emp.id, emp.schedule_template_id, allRecords, allBankAbsences, curStart, curEnd);
+      const pBalance = allPrevRecords
+        ? calcEmpBalance(emp.id, emp.schedule_template_id, allPrevRecords, allPrevBankAbsences, pStart, pEnd)
+        : 0;
+      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: pBalance + curBalance };
     });
-  }, [employees, allRecords, allTemplateDays, allTemplates, allBankAbsences, selectedMonth, selectedYear]);
+  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
