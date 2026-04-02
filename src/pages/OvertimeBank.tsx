@@ -941,7 +941,9 @@ export default function OvertimeBank() {
                       <Clock className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground font-medium">Saldo Acumulado</p>
+                      <p className="text-sm text-muted-foreground font-medium">
+                        {isCurrentMonth ? "Saldo Transitado" : "Saldo Acumulado (Fechado)"}
+                      </p>
                       <p className={`text-xl font-bold font-mono ${accumulatedBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {minutesToHHMM(accumulatedBalance)}
                       </p>
