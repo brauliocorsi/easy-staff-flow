@@ -229,7 +229,7 @@ export default function OvertimeBank() {
     },
   });
 
-  // Fetch bank-deducted absences for selected employee
+  // Fetch bank-deducted absences for selected employee (current + previous month)
   const { data: bankAbsences } = useQuery({
     queryKey: ["bank-absences", selectedEmployee, rangeStart, rangeEnd],
     enabled: !!selectedEmployee,
@@ -241,6 +241,22 @@ export default function OvertimeBank() {
         .eq("deducted_from_bank", true)
         .gte("absence_date", rangeStart)
         .lte("absence_date", rangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: prevBankAbsences } = useQuery({
+    queryKey: ["bank-absences-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("*")
+        .eq("employee_id", selectedEmployee)
+        .eq("deducted_from_bank", true)
+        .gte("absence_date", prevRangeStart)
+        .lte("absence_date", prevRangeEnd);
       if (error) throw error;
       return data as any[];
     },
