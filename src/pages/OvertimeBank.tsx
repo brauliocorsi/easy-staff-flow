@@ -562,7 +562,9 @@ export default function OvertimeBank() {
     return balance;
   }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate]);
 
-  const accumulatedBalance = prevMonthBalance + totalBalance;
+  // Only sum prev + current when the month is closed (past month)
+  const isCurrentMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
+  const accumulatedBalance = isCurrentMonth ? prevMonthBalance : prevMonthBalance + totalBalance;
 
   // ---- Summary for all employees ----
   const { data: allRecords } = useQuery({
@@ -749,7 +751,8 @@ export default function OvertimeBank() {
       const pBalance = allPrevRecords
         ? calcEmpBalance(emp.id, emp.schedule_template_id, allPrevRecords, allPrevBankAbsences, pStart, pEnd)
         : 0;
-      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: pBalance + curBalance };
+      const isCurMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
+      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: isCurMonth ? pBalance : pBalance + curBalance };
     });
   }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate]);
 
@@ -938,7 +941,9 @@ export default function OvertimeBank() {
                       <Clock className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground font-medium">Saldo Acumulado</p>
+                      <p className="text-sm text-muted-foreground font-medium">
+                        {isCurrentMonth ? "Saldo Transitado" : "Saldo Acumulado (Fechado)"}
+                      </p>
                       <p className={`text-xl font-bold font-mono ${accumulatedBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {minutesToHHMM(accumulatedBalance)}
                       </p>
