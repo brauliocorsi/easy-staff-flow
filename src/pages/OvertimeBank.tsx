@@ -552,6 +552,19 @@ export default function OvertimeBank() {
     },
   });
 
+  const { data: allPrevRecords } = useQuery({
+    queryKey: ["overtime-all-records-prev", prevRangeStart, prevRangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("employee_id, record_date, clock_in, clock_out, lunch_out, lunch_in")
+        .gte("record_date", prevRangeStart)
+        .lte("record_date", prevRangeEnd);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: allTemplateDays } = useQuery({
     queryKey: ["overtime-all-template-days"],
     queryFn: async () => {
@@ -581,6 +594,20 @@ export default function OvertimeBank() {
         .eq("deducted_from_bank", true)
         .gte("absence_date", rangeStart)
         .lte("absence_date", rangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: allPrevBankAbsences } = useQuery({
+    queryKey: ["overtime-all-bank-absences-prev", prevRangeStart, prevRangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("employee_id, absence_date")
+        .eq("deducted_from_bank", true)
+        .gte("absence_date", prevRangeStart)
+        .lte("absence_date", prevRangeEnd);
       if (error) throw error;
       return data as any[];
     },
