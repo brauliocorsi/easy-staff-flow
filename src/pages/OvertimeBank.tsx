@@ -307,8 +307,31 @@ export default function OvertimeBank() {
       // For part-time, the "clock_out" is stored in lunch_out field
       const effectiveClockOut = partTime ? record?.lunch_out : record?.clock_out;
 
-      // Working day without complete record → IGNORE
+      // Working day without complete record → count as deficit (incomplete)
       if (!record?.clock_in || !effectiveClockOut) {
+        const scheduledWork = partTime
+          ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
+          : timeToMinutes(schedule.clock_out_time) -
+            timeToMinutes(schedule.clock_in_time) -
+            (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+
+        result.push({
+          date: dateStr,
+          dayName: format(d, "EEEE", { locale: pt }),
+          scheduled: scheduledWork,
+          worked: 0,
+          diff: -scheduledWork,
+          isDayOff: false,
+          incomplete: true,
+          clockIn: record?.clock_in ?? null,
+          clockOut: null,
+          lunchOut: record?.lunch_out ?? null,
+          lunchIn: record?.lunch_in ?? null,
+          schedClockIn: schedule.clock_in_time,
+          schedClockOut: partTime ? schedule.lunch_out_time : schedule.clock_out_time,
+          schedLunchOut: partTime ? undefined : schedule.lunch_out_time,
+          schedLunchIn: partTime ? undefined : schedule.lunch_in_time,
+        });
         continue;
       }
 
