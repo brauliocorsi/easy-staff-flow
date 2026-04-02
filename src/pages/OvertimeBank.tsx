@@ -161,6 +161,11 @@ export default function OvertimeBank() {
   const rangeStart = format(startOfMonth(new Date(selectedYear, selectedMonth)), "yyyy-MM-dd");
   const rangeEnd = format(endOfMonth(new Date(selectedYear, selectedMonth)), "yyyy-MM-dd");
 
+  // Previous month range
+  const prevMonthDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const prevRangeStart = format(startOfMonth(prevMonthDate), "yyyy-MM-dd");
+  const prevRangeEnd = format(endOfMonth(prevMonthDate), "yyyy-MM-dd");
+
   const { data: records } = useQuery({
     queryKey: ["overtime-records", selectedEmployee, rangeStart, rangeEnd],
     enabled: !!selectedEmployee,
@@ -171,6 +176,23 @@ export default function OvertimeBank() {
         .eq("employee_id", selectedEmployee)
         .gte("record_date", rangeStart)
         .lte("record_date", rangeEnd)
+        .order("record_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Previous month records for selected employee
+  const { data: prevRecords } = useQuery({
+    queryKey: ["overtime-records-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("*")
+        .eq("employee_id", selectedEmployee)
+        .gte("record_date", prevRangeStart)
+        .lte("record_date", prevRangeEnd)
         .order("record_date");
       if (error) throw error;
       return data;
