@@ -700,7 +700,18 @@ export default function OvertimeBank() {
           const scheduledWork = pt
             ? timeToMinutes(sched.lunch_out_time) - timeToMinutes(sched.clock_in_time)
             : timeToMinutes(sched.clock_out_time) - timeToMinutes(sched.clock_in_time) - (timeToMinutes(sched.lunch_in_time) - timeToMinutes(sched.lunch_out_time));
-          balance -= scheduledWork;
+          let partialWorked = 0;
+          if (rec?.clock_in) {
+            const lastPunch = rec.clock_out || rec.lunch_in || rec.lunch_out;
+            if (lastPunch) {
+              partialWorked = tsToMinutes(lastPunch) - tsToMinutes(rec.clock_in);
+              if (rec.lunch_out && rec.lunch_in) {
+                partialWorked -= tsToMinutes(rec.lunch_in) - tsToMinutes(rec.lunch_out);
+              }
+              partialWorked = Math.max(0, partialWorked);
+            }
+          }
+          balance += partialWorked - scheduledWork;
           continue;
         }
         if (pt) {
