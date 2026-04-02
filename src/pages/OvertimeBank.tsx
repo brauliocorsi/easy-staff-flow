@@ -751,7 +751,8 @@ export default function OvertimeBank() {
       const pBalance = allPrevRecords
         ? calcEmpBalance(emp.id, emp.schedule_template_id, allPrevRecords, allPrevBankAbsences, pStart, pEnd)
         : 0;
-      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: pBalance + curBalance };
+      const isCurMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
+      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: isCurMonth ? pBalance : pBalance + curBalance };
     });
   }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate]);
 
