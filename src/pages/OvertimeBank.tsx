@@ -514,13 +514,24 @@ export default function OvertimeBank() {
       const effectiveOut = pt ? record?.lunch_out : record?.clock_out;
 
       if (!record?.clock_in || !effectiveOut) {
-        // Incomplete record → deficit
+        // Incomplete record → calculate partial work
         const scheduledWork = pt
           ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
           : timeToMinutes(schedule.clock_out_time) -
             timeToMinutes(schedule.clock_in_time) -
             (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
-        balance -= scheduledWork;
+        let partialWorked = 0;
+        if (record?.clock_in) {
+          const lastPunch = record.clock_out || record.lunch_in || record.lunch_out;
+          if (lastPunch) {
+            partialWorked = tsToMinutes(lastPunch) - tsToMinutes(record.clock_in);
+            if (record.lunch_out && record.lunch_in) {
+              partialWorked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
+            }
+            partialWorked = Math.max(0, partialWorked);
+          }
+        }
+        balance += partialWorked - scheduledWork;
         continue;
       }
 
