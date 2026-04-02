@@ -839,7 +839,7 @@ export default function OvertimeBank() {
                   ))}
                   {(!summaryPerEmployee || summaryPerEmployee.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
+                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
