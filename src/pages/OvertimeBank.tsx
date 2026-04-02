@@ -562,7 +562,9 @@ export default function OvertimeBank() {
     return balance;
   }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate]);
 
-  const accumulatedBalance = prevMonthBalance + totalBalance;
+  // Only sum prev + current when the month is closed (past month)
+  const isCurrentMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
+  const accumulatedBalance = isCurrentMonth ? prevMonthBalance : prevMonthBalance + totalBalance;
 
   // ---- Summary for all employees ----
   const { data: allRecords } = useQuery({
