@@ -14,11 +14,7 @@ import { cn } from "@/lib/utils";
 import { useState, useCallback } from "react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
-
-function formatTime(ts: string | null): string {
-  if (!ts) return "—";
-  return format(new Date(ts), "HH:mm");
-}
+import { formatPunchTime } from "@/lib/timeClock";
 
 function calcWorkedHours(clockIn: string | null, lunchOut: string | null, lunchIn: string | null, clockOut: string | null): string {
   if (!clockIn) return "—";
