@@ -170,7 +170,9 @@ export default function Employees() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {employees.map((emp) => {
+                  {employees
+                    .filter((emp) => showInactive || emp.status === "active")
+                    .map((emp) => {
                     const initials = `${emp.first_name[0]}${emp.last_name[0]}`.toUpperCase();
                     const st = statusMap[emp.status] || statusMap.active;
                     return (
