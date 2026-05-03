@@ -516,10 +516,7 @@ export default function OvertimeBank() {
       const isBankDeduction = prevBankSet.has(dateStr);
 
       if (isBankDeduction && schedule && !schedule.is_day_off) {
-        const scheduledWork =
-          timeToMinutes(schedule.clock_out_time) -
-          timeToMinutes(schedule.clock_in_time) -
-          (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
+        const scheduledWork = scheduledWorkMinutes(schedule);
         balance -= scheduledWork;
         continue;
       }
@@ -534,52 +531,7 @@ export default function OvertimeBank() {
       }
 
       const pt = isPartTimeSchedule(schedule);
-      const effectiveOut = pt ? record?.lunch_out : record?.clock_out;
-
-      if (!record?.clock_in || !effectiveOut) {
-        // Incomplete record → calculate partial work
-        const scheduledWork = pt
-          ? timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time)
-          : timeToMinutes(schedule.clock_out_time) -
-            timeToMinutes(schedule.clock_in_time) -
-            (timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time));
-        let partialWorked = 0;
-        if (record?.clock_in) {
-          const lastPunch = record.clock_out || record.lunch_in || record.lunch_out;
-          if (lastPunch) {
-            partialWorked = tsToMinutes(lastPunch) - tsToMinutes(record.clock_in);
-            if (record.lunch_out && record.lunch_in) {
-              partialWorked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-            }
-            partialWorked = Math.max(0, partialWorked);
-          }
-        }
-        balance += partialWorked - scheduledWork;
-        continue;
-      }
-
-      if (pt) {
-        const scheduledWork = timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time);
-        const worked = tsToMinutes(effectiveOut) - tsToMinutes(record.clock_in);
-        const rawDiff = worked - scheduledWork;
-        let diff = 0;
-        if (rawDiff >= 0) {
-          diff = rawDiff > tolerances.tolerance_overtime_minutes ? rawDiff - tolerances.tolerance_overtime_minutes : 0;
-        } else {
-          const lateMin = Math.max(0, tsToMinutes(record.clock_in) - timeToMinutes(schedule.clock_in_time));
-          const earlyMin = Math.max(0, timeToMinutes(schedule.lunch_out_time) - tsToMinutes(effectiveOut));
-          const tolerated = Math.min(lateMin, tolerances.tolerance_late_minutes) + Math.min(earlyMin, tolerances.tolerance_early_leave_minutes);
-          diff = Math.abs(rawDiff) <= tolerated ? 0 : rawDiff;
-        }
-        balance += diff;
-      } else {
-        const { diff } = calcDiffWithTolerances(
-          record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-          schedule,
-          tolerances
-        );
-        balance += diff;
-      }
+      balance += calculateWorkday(record, schedule, tolerances).diff;
     }
 
     return balance;
