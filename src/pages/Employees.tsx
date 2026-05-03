@@ -26,6 +26,7 @@ export default function Employees() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const { data: employees, isLoading, error } = useEmployees(search);
   const deleteMutation = useDeleteEmployee();
   const navigate = useNavigate();
@@ -132,6 +133,12 @@ export default function Employees() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <Button
+            variant={showInactive ? "default" : "outline"}
+            onClick={() => setShowInactive((v) => !v)}
+          >
+            {showInactive ? "A mostrar inativos/afastados" : "Mostrar inativos/afastados"}
+          </Button>
         </div>
 
         <Card>
