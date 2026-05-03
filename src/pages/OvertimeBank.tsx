@@ -47,13 +47,53 @@ type Tolerances = {
   tolerance_early_leave_minutes: number;
 };
 
+function hasAnyPunch(record: any): boolean {
+  return !!(record?.clock_in || record?.lunch_out || record?.lunch_in || record?.clock_out);
+}
+
+function scheduledWorkMinutes(schedule: any): number {
+  if (isPartTimeSchedule(schedule)) {
+    return Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
+  }
+
+  const morning = Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
+  const afternoon = Math.max(0, timeToMinutes(schedule.clock_out_time) - timeToMinutes(schedule.lunch_in_time));
+  return morning + afternoon;
+}
+
+function calcPeriodDiff(
+  actualStartTs: string,
+  actualEndTs: string,
+  scheduledStart: string,
+  scheduledEnd: string,
+  tolerances: Tolerances,
+  creditOvertimeAtEnd: boolean
+): number {
+  const actualStart = tsToMinutes(actualStartTs);
+  const actualEnd = tsToMinutes(actualEndTs);
+  const schedStart = timeToMinutes(scheduledStart);
+  const schedEnd = timeToMinutes(scheduledEnd);
+
+  const lateMinutes = Math.max(0, actualStart - schedStart);
+  const earlyLeaveMinutes = Math.max(0, schedEnd - actualEnd);
+  const overtimeMinutes = Math.max(0, actualEnd - schedEnd);
+
+  const lateDeficit = lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
+  const earlyDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes ? earlyLeaveMinutes : 0;
+  const overtimeCredit = creditOvertimeAtEnd && overtimeMinutes > tolerances.tolerance_overtime_minutes
+    ? overtimeMinutes - tolerances.tolerance_overtime_minutes
+    : 0;
+
+  return overtimeCredit - lateDeficit - earlyDeficit;
+}
+
 /**
  * Calculate the effective diff applying tolerances:
  * - Late arrival within tolerance → no penalty
  * - Early leave within tolerance → no penalty
  * - Overtime only counts if beyond overtime tolerance
- * - Lunch break: extra lunch time within late tolerance → no penalty;
- *   shorter lunch within overtime tolerance → no extra
+ * - Lunch: leaving late or returning early does not create credit;
+ *   leaving early or returning late can create deficit after tolerance
  */
 function calcDiffWithTolerances(
   record: { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
@@ -102,19 +142,100 @@ function calcDiffWithTolerances(
       : 0;
   }
 
-  // 3) Lunch: only penalize if returned late beyond tolerance
+  // 3) Lunch: no credit for leaving late or returning early; penalize missing time only
   let lunchPenalty = 0;
+  if (record.lunch_out) {
+    const actualLunchOut = tsToMinutes(record.lunch_out);
+    const lunchLeaveEarly = Math.max(0, schedLunchOut - actualLunchOut);
+    if (lunchLeaveEarly > tolerances.tolerance_early_leave_minutes) {
+      lunchPenalty += lunchLeaveEarly;
+    }
+  }
   if (record.lunch_out && record.lunch_in) {
     const actualLunchIn = tsToMinutes(record.lunch_in);
     const lunchReturnLate = Math.max(0, actualLunchIn - schedLunchIn);
     if (lunchReturnLate > tolerances.tolerance_late_minutes) {
-      lunchPenalty = lunchReturnLate;
+      lunchPenalty += lunchReturnLate;
     }
   }
 
   const diff = exitCredit - entryDeficit - exitDeficit - lunchPenalty;
 
   return { worked, diff };
+}
+
+function calculateWorkedMinutes(record: any, schedule: any): number {
+  if (!record || !hasAnyPunch(record)) return 0;
+
+  if (isPartTimeSchedule(schedule)) {
+    const effectiveOut = record.lunch_out || record.clock_out;
+    return record.clock_in && effectiveOut ? Math.max(0, tsToMinutes(effectiveOut) - tsToMinutes(record.clock_in)) : 0;
+  }
+
+  if (record.clock_in && record.clock_out && record.lunch_out && record.lunch_in) {
+    return Math.max(0, tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in) - (tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out)));
+  }
+
+  if (record.clock_in && record.clock_out && !record.lunch_out && !record.lunch_in) {
+    const scheduledLunch = timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time);
+    return Math.max(0, tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in) - scheduledLunch);
+  }
+
+  let worked = 0;
+  if (record.clock_in && record.lunch_out) {
+    worked += Math.max(0, tsToMinutes(record.lunch_out) - tsToMinutes(record.clock_in));
+  }
+  if (record.lunch_in && record.clock_out) {
+    worked += Math.max(0, tsToMinutes(record.clock_out) - tsToMinutes(record.lunch_in));
+  }
+  return worked;
+}
+
+function calculateWorkday(record: any, schedule: any, tolerances: Tolerances): { scheduled: number; worked: number; diff: number; incomplete: boolean } {
+  const scheduled = scheduledWorkMinutes(schedule);
+  if (!record || !hasAnyPunch(record)) return { scheduled, worked: 0, diff: 0, incomplete: false };
+
+  const partTime = isPartTimeSchedule(schedule);
+  const worked = calculateWorkedMinutes(record, schedule);
+
+  if (partTime) {
+    const effectiveOut = record.lunch_out || record.clock_out;
+    if (!record.clock_in || !effectiveOut) return { scheduled, worked, diff: -scheduled, incomplete: true };
+    return {
+      scheduled,
+      worked,
+      diff: calcPeriodDiff(record.clock_in, effectiveOut, schedule.clock_in_time, schedule.lunch_out_time, tolerances, true),
+      incomplete: false,
+    };
+  }
+
+  const hasCompleteDay = !!(record.clock_in && record.clock_out && ((record.lunch_out && record.lunch_in) || (!record.lunch_out && !record.lunch_in)));
+  if (hasCompleteDay) {
+    const { diff } = calcDiffWithTolerances(
+      record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
+      schedule,
+      tolerances
+    );
+    return { scheduled, worked, diff, incomplete: !(record.lunch_out && record.lunch_in) };
+  }
+
+  const morningScheduled = Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
+  const afternoonScheduled = Math.max(0, timeToMinutes(schedule.clock_out_time) - timeToMinutes(schedule.lunch_in_time));
+  let diff = 0;
+
+  if (record.clock_in && record.lunch_out) {
+    diff += calcPeriodDiff(record.clock_in, record.lunch_out, schedule.clock_in_time, schedule.lunch_out_time, tolerances, false);
+  } else {
+    diff -= morningScheduled;
+  }
+
+  if (record.lunch_in && record.clock_out) {
+    diff += calcPeriodDiff(record.lunch_in, record.clock_out, schedule.lunch_in_time, schedule.clock_out_time, tolerances, true);
+  } else {
+    diff -= afternoonScheduled;
+  }
+
+  return { scheduled, worked, diff, incomplete: true };
 }
 
 type DayRow = {
