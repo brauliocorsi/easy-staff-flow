@@ -209,10 +209,10 @@ export function MonthlyExportDialog() {
       emp.days.forEach((d) => {
         wsDetail.addRow([
           d.dayLabel,
-          formatTime(d.clockIn),
-          formatTime(d.lunchOut),
-          formatTime(d.lunchIn),
-          formatTime(d.clockOut),
+          formatPunchTime(d.clockIn),
+          formatPunchTime(d.lunchOut),
+          formatPunchTime(d.lunchIn),
+          formatPunchTime(d.clockOut),
           d.workedMinutes > 0 ? minutesToHHMM(d.workedMinutes) : "—",
           d.overtimeMinutes > 0 ? minutesToHHMM(d.overtimeMinutes) : "—",
           d.lateMinutes > 0 ? minutesToHHMM(d.lateMinutes) : "—",
@@ -294,10 +294,10 @@ export function MonthlyExportDialog() {
         x = margin;
         [
           d.dayLabel,
-          formatTime(d.clockIn),
-          formatTime(d.lunchOut),
-          formatTime(d.lunchIn),
-          formatTime(d.clockOut),
+          formatPunchTime(d.clockIn),
+          formatPunchTime(d.lunchOut),
+          formatPunchTime(d.lunchIn),
+          formatPunchTime(d.clockOut),
           d.workedMinutes > 0 ? minutesToHHMM(d.workedMinutes) : "—",
           d.overtimeMinutes > 0 ? minutesToHHMM(d.overtimeMinutes) : "—",
           d.lateMinutes > 0 ? minutesToHHMM(d.lateMinutes) : "—",
