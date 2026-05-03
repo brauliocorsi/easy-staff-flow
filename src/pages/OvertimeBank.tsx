@@ -684,28 +684,28 @@ export default function OvertimeBank() {
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Entrada</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.clockIn ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.clockIn ?? null)}</span>
                                       {r.schedClockIn && <span className="text-muted-foreground text-xs">(prev: {r.schedClockIn?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Saída Almoço</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.lunchOut ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.lunchOut ?? null)}</span>
                                       {r.schedLunchOut && <span className="text-muted-foreground text-xs">(prev: {r.schedLunchOut?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Regresso Almoço</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.lunchIn ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.lunchIn ?? null)}</span>
                                       {r.schedLunchIn && <span className="text-muted-foreground text-xs">(prev: {r.schedLunchIn?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Saída</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.clockOut ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.clockOut ?? null)}</span>
                                       {r.schedClockOut && <span className="text-muted-foreground text-xs">(prev: {r.schedClockOut?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
