@@ -700,7 +700,7 @@ export default function OvertimeBank() {
                         <>
                           <TableRow
                             key={r.date}
-                            className={`cursor-pointer ${r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
+                            className={`cursor-pointer ${r.isVacation ? "bg-emerald-500/10" : r.punchedOnDayOff ? "bg-amber-500/10" : r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
                             onClick={() => setExpandedDate(isExpanded ? null : r.date)}
                           >
                             <TableCell className="w-8 px-2">
@@ -710,6 +710,8 @@ export default function OvertimeBank() {
                             <TableCell className="capitalize text-sm">
                               {r.dayName}
                               {r.isDayOff && <Badge variant="outline" className="ml-2 text-[10px]">Folga</Badge>}
+                              {r.isVacation && <Badge variant="outline" className="ml-2 text-[10px] border-emerald-500 text-emerald-700">Férias</Badge>}
+                              {r.punchedOnDayOff && <Badge variant="outline" className="ml-2 text-[10px] border-amber-500 text-amber-700">Picou em Folga</Badge>}
                               {r.isBankDeduction && <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">Falta (Banco)</Badge>}
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm">
