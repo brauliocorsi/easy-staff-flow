@@ -1,0 +1,289 @@
+const TIME_ZONE = "Europe/Lisbon";
+
+export type Tolerances = {
+  tolerance_late_minutes: number;
+  tolerance_overtime_minutes: number;
+  tolerance_early_leave_minutes: number;
+};
+
+export type TimeClockRecordLike = {
+  clock_in?: string | null;
+  lunch_out?: string | null;
+  lunch_in?: string | null;
+  clock_out?: string | null;
+};
+
+export type ScheduleLike = {
+  clock_in_time: string;
+  lunch_out_time: string;
+  lunch_in_time: string;
+  clock_out_time: string;
+  is_day_off?: boolean;
+};
+
+type PunchField = "clock_in" | "lunch_out" | "lunch_in" | "clock_out";
+
+const punchFields: PunchField[] = ["clock_in", "lunch_out", "lunch_in", "clock_out"];
+
+export function formatPunchTime(ts: string | null | undefined): string {
+  if (!ts) return "—";
+  return new Intl.DateTimeFormat("pt-PT", {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(ts));
+}
+
+export function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+export function timestampToLisbonMinutes(ts: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(ts));
+  const hour = Number(parts.find((p) => p.type === "hour")?.value || 0) % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value || 0);
+  return hour * 60 + minute;
+}
+
+export function minutesToHHMM(mins: number): string {
+  const sign = mins < 0 ? "-" : "+";
+  const abs = Math.abs(mins);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export function minutesToHoursLabel(mins: number): string {
+  const h = Math.floor(Math.abs(mins) / 60);
+  const m = Math.round(Math.abs(mins) % 60);
+  return `${h}h${m.toString().padStart(2, "0")}`;
+}
+
+export function isPartTimeSchedule(schedule: ScheduleLike | null | undefined): boolean {
+  if (!schedule || schedule.is_day_off) return false;
+  return schedule.lunch_in_time === "00:00:00" && schedule.clock_out_time === "00:00:00";
+}
+
+export function hasAnyPunch(record: TimeClockRecordLike | null | undefined): boolean {
+  return !!(record?.clock_in || record?.lunch_out || record?.lunch_in || record?.clock_out);
+}
+
+export function scheduledWorkMinutes(schedule: ScheduleLike): number {
+  if (schedule.is_day_off) return 0;
+  if (isPartTimeSchedule(schedule)) {
+    return Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
+  }
+  const morning = Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
+  const afternoon = Math.max(0, timeToMinutes(schedule.clock_out_time) - timeToMinutes(schedule.lunch_in_time));
+  return morning + afternoon;
+}
+
+function combinations<T>(arr: T[], size: number): T[][] {
+  if (size === 0) return [[]];
+  if (arr.length < size) return [];
+  const [head, ...tail] = arr;
+  return [
+    ...combinations(tail, size - 1).map((combo) => [head, ...combo]),
+    ...combinations(tail, size),
+  ];
+}
+
+export function normalizeTimeRecord<T extends TimeClockRecordLike | null | undefined>(
+  record: T,
+  schedule: ScheduleLike | null | undefined
+): TimeClockRecordLike {
+  const empty = { clock_in: null, lunch_out: null, lunch_in: null, clock_out: null };
+  if (!record || !schedule || schedule.is_day_off) return { ...empty, ...(record || {}) };
+
+  const punches = punchFields
+    .map((field) => ({ field, ts: record[field] || null }))
+    .filter((p): p is { field: PunchField; ts: string } => !!p.ts)
+    .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+  if (punches.length === 0) return empty;
+
+  if (isPartTimeSchedule(schedule)) {
+    return { ...empty, clock_in: punches[0]?.ts || null, lunch_out: punches[punches.length - 1]?.ts || null };
+  }
+
+  const expected = [
+    { field: "clock_in" as PunchField, minutes: timeToMinutes(schedule.clock_in_time) },
+    { field: "lunch_out" as PunchField, minutes: timeToMinutes(schedule.lunch_out_time) },
+    { field: "lunch_in" as PunchField, minutes: timeToMinutes(schedule.lunch_in_time) },
+    { field: "clock_out" as PunchField, minutes: timeToMinutes(schedule.clock_out_time) },
+  ];
+
+  const k = Math.min(punches.length, expected.length);
+  let best = expected.slice(0, k);
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const combo of combinations(expected, k)) {
+    const score = combo.reduce((sum, exp, index) => {
+      const actual = timestampToLisbonMinutes(punches[index].ts);
+      const fieldPenalty = punches[index].field === exp.field ? 0 : 2;
+      return sum + Math.abs(actual - exp.minutes) + fieldPenalty;
+    }, 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = combo;
+    }
+  }
+
+  const normalized: TimeClockRecordLike = { ...empty };
+  best.forEach((exp, index) => {
+    normalized[exp.field] = punches[index].ts;
+  });
+  return normalized;
+}
+
+function calcPeriodDiff(
+  actualStartTs: string,
+  actualEndTs: string,
+  scheduledStart: string,
+  scheduledEnd: string,
+  tolerances: Tolerances,
+  creditOvertimeAtEnd: boolean
+): number {
+  const actualStart = timestampToLisbonMinutes(actualStartTs);
+  const actualEnd = timestampToLisbonMinutes(actualEndTs);
+  const schedStart = timeToMinutes(scheduledStart);
+  const schedEnd = timeToMinutes(scheduledEnd);
+
+  const lateMinutes = Math.max(0, actualStart - schedStart);
+  const earlyLeaveMinutes = Math.max(0, schedEnd - actualEnd);
+  const overtimeMinutes = Math.max(0, actualEnd - schedEnd);
+
+  const lateDeficit = lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
+  const earlyDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes ? earlyLeaveMinutes : 0;
+  const overtimeCredit = creditOvertimeAtEnd && overtimeMinutes > tolerances.tolerance_overtime_minutes
+    ? overtimeMinutes - tolerances.tolerance_overtime_minutes
+    : 0;
+
+  return overtimeCredit - lateDeficit - earlyDeficit;
+}
+
+function calcDiffWithTolerances(record: Required<TimeClockRecordLike>, schedule: ScheduleLike, tolerances: Tolerances): number {
+  const actualIn = timestampToLisbonMinutes(record.clock_in);
+  const actualOut = timestampToLisbonMinutes(record.clock_out);
+  const schedIn = timeToMinutes(schedule.clock_in_time);
+  const schedOut = timeToMinutes(schedule.clock_out_time);
+  const schedLunchOut = timeToMinutes(schedule.lunch_out_time);
+  const schedLunchIn = timeToMinutes(schedule.lunch_in_time);
+
+  const lateMinutes = Math.max(0, actualIn - schedIn);
+  const entryDeficit = lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
+
+  const exitExtra = Math.max(0, actualOut - schedOut);
+  const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
+  const exitCredit = exitExtra > tolerances.tolerance_overtime_minutes ? exitExtra - tolerances.tolerance_overtime_minutes : 0;
+  const exitDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes ? earlyLeaveMinutes : 0;
+
+  let lunchPenalty = 0;
+  if (record.lunch_out) {
+    const lunchLeaveEarly = Math.max(0, schedLunchOut - timestampToLisbonMinutes(record.lunch_out));
+    if (lunchLeaveEarly > tolerances.tolerance_early_leave_minutes) lunchPenalty += lunchLeaveEarly;
+  }
+  if (record.lunch_in) {
+    const lunchReturnLate = Math.max(0, timestampToLisbonMinutes(record.lunch_in) - schedLunchIn);
+    if (lunchReturnLate > tolerances.tolerance_late_minutes) lunchPenalty += lunchReturnLate;
+  }
+
+  return exitCredit - entryDeficit - exitDeficit - lunchPenalty;
+}
+
+export function calculateWorkedMinutes(record: TimeClockRecordLike | null | undefined, schedule: ScheduleLike): number {
+  const normalized = normalizeTimeRecord(record, schedule);
+  if (!hasAnyPunch(normalized) || schedule.is_day_off) return 0;
+
+  if (isPartTimeSchedule(schedule)) {
+    const effectiveOut = normalized.lunch_out || normalized.clock_out;
+    return normalized.clock_in && effectiveOut
+      ? Math.max(0, timestampToLisbonMinutes(effectiveOut) - timestampToLisbonMinutes(normalized.clock_in))
+      : 0;
+  }
+
+  if (normalized.clock_in && normalized.clock_out && normalized.lunch_out && normalized.lunch_in) {
+    return Math.max(
+      0,
+      timestampToLisbonMinutes(normalized.clock_out) - timestampToLisbonMinutes(normalized.clock_in)
+      - (timestampToLisbonMinutes(normalized.lunch_in) - timestampToLisbonMinutes(normalized.lunch_out))
+    );
+  }
+
+  if (normalized.clock_in && normalized.clock_out && !normalized.lunch_out && !normalized.lunch_in) {
+    const scheduledLunch = timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time);
+    return Math.max(0, timestampToLisbonMinutes(normalized.clock_out) - timestampToLisbonMinutes(normalized.clock_in) - scheduledLunch);
+  }
+
+  let worked = 0;
+  if (normalized.clock_in && normalized.lunch_out) {
+    worked += Math.max(0, timestampToLisbonMinutes(normalized.lunch_out) - timestampToLisbonMinutes(normalized.clock_in));
+  }
+  if (normalized.lunch_in && normalized.clock_out) {
+    worked += Math.max(0, timestampToLisbonMinutes(normalized.clock_out) - timestampToLisbonMinutes(normalized.lunch_in));
+  }
+  return worked;
+}
+
+export function calculateWorkday(
+  record: TimeClockRecordLike | null | undefined,
+  schedule: ScheduleLike,
+  tolerances: Tolerances
+): { scheduled: number; worked: number; diff: number; incomplete: boolean; normalized: TimeClockRecordLike } {
+  const scheduled = scheduledWorkMinutes(schedule);
+  const normalized = normalizeTimeRecord(record, schedule);
+  if (schedule.is_day_off || !hasAnyPunch(normalized)) return { scheduled, worked: 0, diff: 0, incomplete: false, normalized };
+
+  const worked = calculateWorkedMinutes(normalized, schedule);
+
+  if (isPartTimeSchedule(schedule)) {
+    const effectiveOut = normalized.lunch_out || normalized.clock_out;
+    if (!normalized.clock_in || !effectiveOut) return { scheduled, worked, diff: -scheduled, incomplete: true, normalized };
+    return {
+      scheduled,
+      worked,
+      diff: calcPeriodDiff(normalized.clock_in, effectiveOut, schedule.clock_in_time, schedule.lunch_out_time, tolerances, true),
+      incomplete: false,
+      normalized,
+    };
+  }
+
+  const hasCompleteDay = !!(normalized.clock_in && normalized.clock_out && ((normalized.lunch_out && normalized.lunch_in) || (!normalized.lunch_out && !normalized.lunch_in)));
+  if (hasCompleteDay) {
+    const diff = calcDiffWithTolerances(normalized as Required<TimeClockRecordLike>, schedule, tolerances);
+    return { scheduled, worked, diff, incomplete: !(normalized.lunch_out && normalized.lunch_in), normalized };
+  }
+
+  const morningScheduled = Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
+  const afternoonScheduled = Math.max(0, timeToMinutes(schedule.clock_out_time) - timeToMinutes(schedule.lunch_in_time));
+  let diff = 0;
+
+  if (normalized.clock_in && normalized.lunch_out) {
+    diff += calcPeriodDiff(normalized.clock_in, normalized.lunch_out, schedule.clock_in_time, schedule.lunch_out_time, tolerances, false);
+  } else if (normalized.clock_in && (normalized.lunch_in || normalized.clock_out)) {
+    const lateMinutes = Math.max(0, timestampToLisbonMinutes(normalized.clock_in) - timeToMinutes(schedule.clock_in_time));
+    diff -= lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
+  } else {
+    diff -= morningScheduled;
+  }
+
+  if (normalized.lunch_in && normalized.clock_out) {
+    diff += calcPeriodDiff(normalized.lunch_in, normalized.clock_out, schedule.lunch_in_time, schedule.clock_out_time, tolerances, true);
+  } else if ((normalized.clock_in || normalized.lunch_out) && normalized.clock_out) {
+    const earlyMinutes = Math.max(0, timeToMinutes(schedule.clock_out_time) - timestampToLisbonMinutes(normalized.clock_out));
+    const extraMinutes = Math.max(0, timestampToLisbonMinutes(normalized.clock_out) - timeToMinutes(schedule.clock_out_time));
+    diff += extraMinutes > tolerances.tolerance_overtime_minutes ? extraMinutes - tolerances.tolerance_overtime_minutes : 0;
+    diff -= earlyMinutes > tolerances.tolerance_early_leave_minutes ? earlyMinutes : 0;
+  } else {
+    diff -= afternoonScheduled;
+  }
+
+  return { scheduled, worked, diff, incomplete: true, normalized };
+}

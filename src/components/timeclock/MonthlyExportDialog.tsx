@@ -9,32 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileSpreadsheet, FileText, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, type Tolerances } from "@/lib/timeClock";
 
 const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-function formatTime(ts: string | null): string {
-  if (!ts) return "—";
-  return format(new Date(ts), "HH:mm");
-}
-
-function timeToMinutes(timeStr: string): number {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function tsToMinutes(ts: string): number {
-  const d = new Date(ts);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-function minutesToHHMM(mins: number): string {
-  const h = Math.floor(Math.abs(mins) / 60);
-  const m = Math.round(Math.abs(mins) % 60);
-  return `${h}h${m.toString().padStart(2, "0")}`;
-}
+const minutesToHHMM = minutesToHoursLabel;
 
 export function MonthlyExportDialog() {
   const now = new Date();
@@ -146,33 +128,19 @@ export function MonthlyExportDialog() {
           const sched = schedDays?.get(dow);
           const rec = recordMap.get(dateStr);
           const isDayOff = sched?.is_day_off ?? (dow === 0 || dow === 6);
+          const partTime = isPartTimeSchedule(sched);
+          const tolerances: Tolerances = tol || { tolerance_late_minutes: 0, tolerance_overtime_minutes: 0, tolerance_early_leave_minutes: 0 };
+          const calculated = sched && !isDayOff ? calculateWorkday(rec, sched, tolerances) : null;
+          const normalized = calculated?.normalized;
 
           let workedMinutes = 0, overtimeMinutes = 0, lateMinutes = 0;
           let status = isDayOff ? "Folga" : "Falta";
 
-          if (rec && rec.clock_in) {
-            if (rec.clock_out) {
-              workedMinutes = (new Date(rec.clock_out).getTime() - new Date(rec.clock_in).getTime()) / 60000;
-              if (rec.lunch_out && rec.lunch_in) {
-                workedMinutes -= (new Date(rec.lunch_in).getTime() - new Date(rec.lunch_out).getTime()) / 60000;
-              }
-              workedMinutes = Math.max(0, workedMinutes);
-              status = "Normal";
-
-              if (sched && tol) {
-                const clockInMin = tsToMinutes(rec.clock_in);
-                const schedClockIn = timeToMinutes(sched.clock_in_time);
-                const late = clockInMin - schedClockIn - (tol.tolerance_late_minutes || 0);
-                if (late > 0) { lateMinutes = late; status = "Atrasado"; }
-
-                const clockOutMin = tsToMinutes(rec.clock_out);
-                const schedClockOut = timeToMinutes(sched.clock_out_time);
-                const ot = clockOutMin - schedClockOut - (tol.tolerance_overtime_minutes || 0);
-                if (ot > 0) { overtimeMinutes = ot; if (status === "Normal") status = "H. Extra"; }
-              }
-            } else {
-              status = "Incompleto";
-            }
+          if (calculated && normalized && (normalized.clock_in || normalized.lunch_out || normalized.lunch_in || normalized.clock_out)) {
+            workedMinutes = calculated.worked;
+            overtimeMinutes = Math.max(0, calculated.diff);
+            lateMinutes = Math.abs(Math.min(0, calculated.diff));
+            status = calculated.incomplete ? "Incompleto" : calculated.diff > 0 ? "H. Extra" : calculated.diff < 0 ? "Atrasado" : "Normal";
           }
 
           if (status === "Falta") absences++;
@@ -183,10 +151,10 @@ export function MonthlyExportDialog() {
           return {
             dateStr,
             dayLabel: format(day, "dd/MM EEE", { locale: pt }),
-            clockIn: rec?.clock_in ?? null,
-            lunchOut: rec?.lunch_out ?? null,
-            lunchIn: rec?.lunch_in ?? null,
-            clockOut: rec?.clock_out ?? null,
+            clockIn: normalized?.clock_in ?? null,
+            lunchOut: partTime ? null : (normalized?.lunch_out ?? null),
+            lunchIn: partTime ? null : (normalized?.lunch_in ?? null),
+            clockOut: partTime ? (normalized?.lunch_out ?? normalized?.clock_out ?? null) : (normalized?.clock_out ?? null),
             workedMinutes,
             overtimeMinutes,
             lateMinutes,
@@ -241,10 +209,10 @@ export function MonthlyExportDialog() {
       emp.days.forEach((d) => {
         wsDetail.addRow([
           d.dayLabel,
-          formatTime(d.clockIn),
-          formatTime(d.lunchOut),
-          formatTime(d.lunchIn),
-          formatTime(d.clockOut),
+          formatPunchTime(d.clockIn),
+          formatPunchTime(d.lunchOut),
+          formatPunchTime(d.lunchIn),
+          formatPunchTime(d.clockOut),
           d.workedMinutes > 0 ? minutesToHHMM(d.workedMinutes) : "—",
           d.overtimeMinutes > 0 ? minutesToHHMM(d.overtimeMinutes) : "—",
           d.lateMinutes > 0 ? minutesToHHMM(d.lateMinutes) : "—",
@@ -326,10 +294,10 @@ export function MonthlyExportDialog() {
         x = margin;
         [
           d.dayLabel,
-          formatTime(d.clockIn),
-          formatTime(d.lunchOut),
-          formatTime(d.lunchIn),
-          formatTime(d.clockOut),
+          formatPunchTime(d.clockIn),
+          formatPunchTime(d.lunchOut),
+          formatPunchTime(d.lunchIn),
+          formatPunchTime(d.clockOut),
           d.workedMinutes > 0 ? minutesToHHMM(d.workedMinutes) : "—",
           d.overtimeMinutes > 0 ? minutesToHHMM(d.overtimeMinutes) : "—",
           d.lateMinutes > 0 ? minutesToHHMM(d.lateMinutes) : "—",

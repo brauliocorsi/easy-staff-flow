@@ -10,233 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, TrendingUp, TrendingDown, ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
-
-function formatTs(ts: string | null): string {
-  if (!ts) return "—";
-  const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function tsToMinutes(ts: string): number {
-  const d = new Date(ts);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + (m || 0);
-}
-
-function minutesToHHMM(mins: number): string {
-  const sign = mins < 0 ? "-" : "+";
-  const abs = Math.abs(mins);
-  const h = Math.floor(abs / 60);
-  const m = abs % 60;
-  return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
-/** Part-time: lunch_in and clock_out are "00:00:00", employee works clock_in → lunch_out only */
-function isPartTimeSchedule(sched: any): boolean {
-  if (!sched || sched.is_day_off) return false;
-  return sched.lunch_in_time === "00:00:00" && sched.clock_out_time === "00:00:00";
-}
-
-type Tolerances = {
-  tolerance_late_minutes: number;
-  tolerance_overtime_minutes: number;
-  tolerance_early_leave_minutes: number;
-};
-
-function hasAnyPunch(record: any): boolean {
-  return !!(record?.clock_in || record?.lunch_out || record?.lunch_in || record?.clock_out);
-}
-
-function scheduledWorkMinutes(schedule: any): number {
-  if (isPartTimeSchedule(schedule)) {
-    return Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
-  }
-
-  const morning = Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
-  const afternoon = Math.max(0, timeToMinutes(schedule.clock_out_time) - timeToMinutes(schedule.lunch_in_time));
-  return morning + afternoon;
-}
-
-function calcPeriodDiff(
-  actualStartTs: string,
-  actualEndTs: string,
-  scheduledStart: string,
-  scheduledEnd: string,
-  tolerances: Tolerances,
-  creditOvertimeAtEnd: boolean
-): number {
-  const actualStart = tsToMinutes(actualStartTs);
-  const actualEnd = tsToMinutes(actualEndTs);
-  const schedStart = timeToMinutes(scheduledStart);
-  const schedEnd = timeToMinutes(scheduledEnd);
-
-  const lateMinutes = Math.max(0, actualStart - schedStart);
-  const earlyLeaveMinutes = Math.max(0, schedEnd - actualEnd);
-  const overtimeMinutes = Math.max(0, actualEnd - schedEnd);
-
-  const lateDeficit = lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
-  const earlyDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes ? earlyLeaveMinutes : 0;
-  const overtimeCredit = creditOvertimeAtEnd && overtimeMinutes > tolerances.tolerance_overtime_minutes
-    ? overtimeMinutes - tolerances.tolerance_overtime_minutes
-    : 0;
-
-  return overtimeCredit - lateDeficit - earlyDeficit;
-}
-
-/**
- * Calculate the effective diff applying tolerances:
- * - Late arrival within tolerance → no penalty
- * - Early leave within tolerance → no penalty
- * - Overtime only counts if beyond overtime tolerance
- * - Lunch: leaving late or returning early does not create credit;
- *   leaving early or returning late can create deficit after tolerance
- */
-function calcDiffWithTolerances(
-  record: { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-  schedule: { clock_in_time: string; clock_out_time: string; lunch_out_time: string; lunch_in_time: string },
-  tolerances: Tolerances
-): { worked: number; diff: number } {
-  const actualIn = tsToMinutes(record.clock_in);
-  const actualOut = tsToMinutes(record.clock_out);
-  const schedIn = timeToMinutes(schedule.clock_in_time);
-  const schedOut = timeToMinutes(schedule.clock_out_time);
-  const schedLunchOut = timeToMinutes(schedule.lunch_out_time);
-  const schedLunchIn = timeToMinutes(schedule.lunch_in_time);
-  const scheduledLunch = schedLunchIn - schedLunchOut;
-
-  // Actual lunch calculation
-  let actualLunch = scheduledLunch;
-  if (record.lunch_out && record.lunch_in) {
-    actualLunch = tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-  }
-
-  const worked = (actualOut - actualIn) - actualLunch;
-
-  // --- Calculate each component independently ---
-
-  // 1) Late arrival: full penalty if exceeds tolerance, zero if within
-  const lateMinutes = Math.max(0, actualIn - schedIn);
-  let entryDeficit = 0;
-  if (lateMinutes > tolerances.tolerance_late_minutes) {
-    entryDeficit = lateMinutes;
-  }
-
-  // 2) Exit: overtime credit or early leave deficit (mutually exclusive)
-  const exitExtra = Math.max(0, actualOut - schedOut);
-  const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
-  let exitCredit = 0;
-  let exitDeficit = 0;
-  if (exitExtra > 0) {
-    // Only credit if beyond overtime tolerance, and subtract tolerance
-    exitCredit = exitExtra > tolerances.tolerance_overtime_minutes
-      ? exitExtra - tolerances.tolerance_overtime_minutes
-      : 0;
-  } else if (earlyLeaveMinutes > 0) {
-    // Full penalty if beyond early leave tolerance
-    exitDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes
-      ? earlyLeaveMinutes
-      : 0;
-  }
-
-  // 3) Lunch: no credit for leaving late or returning early; penalize missing time only
-  let lunchPenalty = 0;
-  if (record.lunch_out) {
-    const actualLunchOut = tsToMinutes(record.lunch_out);
-    const lunchLeaveEarly = Math.max(0, schedLunchOut - actualLunchOut);
-    if (lunchLeaveEarly > tolerances.tolerance_early_leave_minutes) {
-      lunchPenalty += lunchLeaveEarly;
-    }
-  }
-  if (record.lunch_out && record.lunch_in) {
-    const actualLunchIn = tsToMinutes(record.lunch_in);
-    const lunchReturnLate = Math.max(0, actualLunchIn - schedLunchIn);
-    if (lunchReturnLate > tolerances.tolerance_late_minutes) {
-      lunchPenalty += lunchReturnLate;
-    }
-  }
-
-  const diff = exitCredit - entryDeficit - exitDeficit - lunchPenalty;
-
-  return { worked, diff };
-}
-
-function calculateWorkedMinutes(record: any, schedule: any): number {
-  if (!record || !hasAnyPunch(record)) return 0;
-
-  if (isPartTimeSchedule(schedule)) {
-    const effectiveOut = record.lunch_out || record.clock_out;
-    return record.clock_in && effectiveOut ? Math.max(0, tsToMinutes(effectiveOut) - tsToMinutes(record.clock_in)) : 0;
-  }
-
-  if (record.clock_in && record.clock_out && record.lunch_out && record.lunch_in) {
-    return Math.max(0, tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in) - (tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out)));
-  }
-
-  if (record.clock_in && record.clock_out && !record.lunch_out && !record.lunch_in) {
-    const scheduledLunch = timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time);
-    return Math.max(0, tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in) - scheduledLunch);
-  }
-
-  let worked = 0;
-  if (record.clock_in && record.lunch_out) {
-    worked += Math.max(0, tsToMinutes(record.lunch_out) - tsToMinutes(record.clock_in));
-  }
-  if (record.lunch_in && record.clock_out) {
-    worked += Math.max(0, tsToMinutes(record.clock_out) - tsToMinutes(record.lunch_in));
-  }
-  return worked;
-}
-
-function calculateWorkday(record: any, schedule: any, tolerances: Tolerances): { scheduled: number; worked: number; diff: number; incomplete: boolean } {
-  const scheduled = scheduledWorkMinutes(schedule);
-  if (!record || !hasAnyPunch(record)) return { scheduled, worked: 0, diff: 0, incomplete: false };
-
-  const partTime = isPartTimeSchedule(schedule);
-  const worked = calculateWorkedMinutes(record, schedule);
-
-  if (partTime) {
-    const effectiveOut = record.lunch_out || record.clock_out;
-    if (!record.clock_in || !effectiveOut) return { scheduled, worked, diff: -scheduled, incomplete: true };
-    return {
-      scheduled,
-      worked,
-      diff: calcPeriodDiff(record.clock_in, effectiveOut, schedule.clock_in_time, schedule.lunch_out_time, tolerances, true),
-      incomplete: false,
-    };
-  }
-
-  const hasCompleteDay = !!(record.clock_in && record.clock_out && ((record.lunch_out && record.lunch_in) || (!record.lunch_out && !record.lunch_in)));
-  if (hasCompleteDay) {
-    const { diff } = calcDiffWithTolerances(
-      record as { clock_in: string; clock_out: string; lunch_out: string | null; lunch_in: string | null },
-      schedule,
-      tolerances
-    );
-    return { scheduled, worked, diff, incomplete: !(record.lunch_out && record.lunch_in) };
-  }
-
-  const morningScheduled = Math.max(0, timeToMinutes(schedule.lunch_out_time) - timeToMinutes(schedule.clock_in_time));
-  const afternoonScheduled = Math.max(0, timeToMinutes(schedule.clock_out_time) - timeToMinutes(schedule.lunch_in_time));
-  let diff = 0;
-
-  if (record.clock_in && record.lunch_out) {
-    diff += calcPeriodDiff(record.clock_in, record.lunch_out, schedule.clock_in_time, schedule.lunch_out_time, tolerances, false);
-  } else {
-    diff -= morningScheduled;
-  }
-
-  if (record.lunch_in && record.clock_out) {
-    diff += calcPeriodDiff(record.lunch_in, record.clock_out, schedule.lunch_in_time, schedule.clock_out_time, tolerances, true);
-  } else {
-    diff -= afternoonScheduled;
-  }
-
-  return { scheduled, worked, diff, incomplete: true };
-}
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM, scheduledWorkMinutes, type Tolerances } from "@/lib/timeClock";
 
 type DayRow = {
   date: string;
@@ -442,7 +216,8 @@ export default function OvertimeBank() {
 
       const partTime = isPartTimeSchedule(schedule);
       const calculated = calculateWorkday(record, schedule, tolerances);
-      const effectiveClockOut = partTime ? (record?.lunch_out || record?.clock_out) : record?.clock_out;
+      const normalized = calculated.normalized;
+      const effectiveClockOut = partTime ? (normalized.lunch_out || normalized.clock_out) : normalized.clock_out;
 
       result.push({
         date: dateStr,
@@ -452,10 +227,10 @@ export default function OvertimeBank() {
         diff: calculated.diff,
         isDayOff: false,
         incomplete: calculated.incomplete,
-        clockIn: record?.clock_in ?? null,
+        clockIn: normalized.clock_in ?? null,
         clockOut: effectiveClockOut ?? null,
-        lunchOut: partTime ? null : (record?.lunch_out ?? null),
-        lunchIn: partTime ? null : (record?.lunch_in ?? null),
+        lunchOut: partTime ? null : (normalized.lunch_out ?? null),
+        lunchIn: partTime ? null : (normalized.lunch_in ?? null),
         schedClockIn: schedule.clock_in_time,
         schedClockOut: partTime ? schedule.lunch_out_time : schedule.clock_out_time,
         schedLunchOut: partTime ? undefined : schedule.lunch_out_time,
@@ -909,28 +684,28 @@ export default function OvertimeBank() {
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Entrada</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.clockIn ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.clockIn ?? null)}</span>
                                       {r.schedClockIn && <span className="text-muted-foreground text-xs">(prev: {r.schedClockIn?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Saída Almoço</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.lunchOut ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.lunchOut ?? null)}</span>
                                       {r.schedLunchOut && <span className="text-muted-foreground text-xs">(prev: {r.schedLunchOut?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Regresso Almoço</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.lunchIn ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.lunchIn ?? null)}</span>
                                       {r.schedLunchIn && <span className="text-muted-foreground text-xs">(prev: {r.schedLunchIn?.slice(0, 5)})</span>}
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs mb-0.5">Saída</p>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-mono font-medium">{formatTs(r.clockOut ?? null)}</span>
+                                      <span className="font-mono font-medium">{formatPunchTime(r.clockOut ?? null)}</span>
                                       {r.schedClockOut && <span className="text-muted-foreground text-xs">(prev: {r.schedClockOut?.slice(0, 5)})</span>}
                                     </div>
                                   </div>

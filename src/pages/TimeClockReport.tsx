@@ -16,29 +16,11 @@ import { cn } from "@/lib/utils";
 import { TimeClockRecordDialog } from "@/components/timeclock/TimeClockRecordDialog";
 import { DailyOverviewTable } from "@/components/timeclock/DailyOverviewTable";
 import { MonthlyExportDialog } from "@/components/timeclock/MonthlyExportDialog";
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, type Tolerances } from "@/lib/timeClock";
 
 type PeriodType = "day" | "week" | "month";
 
-function formatTime(ts: string | null): string {
-  if (!ts) return "—";
-  return format(new Date(ts), "HH:mm");
-}
-
-function timeToMinutes(timeStr: string): number {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function tsToMinutes(ts: string): number {
-  const d = new Date(ts);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-function minutesToHHMM(mins: number): string {
-  const h = Math.floor(Math.abs(mins) / 60);
-  const m = Math.round(Math.abs(mins) % 60);
-  return `${h}h${m.toString().padStart(2, "0")}`;
-}
+const minutesToHHMM = minutesToHoursLabel;
 
 export default function TimeClockReport() {
   const [employeeId, setEmployeeId] = useState<string>("");
@@ -110,57 +92,31 @@ export default function TimeClockReport() {
       const sched = dayScheduleMap.get(dow);
       const rec = recordMap.get(dateStr);
       const isDayOff = sched?.is_day_off ?? true;
-
-      // Detect part-time schedule (lunch_in=00:00, clock_out=00:00)
-      const partTime = sched && !sched.is_day_off && sched.lunch_in_time === "00:00:00" && sched.clock_out_time === "00:00:00";
-      // For part-time, the effective clock_out is stored in lunch_out field
-      const effectiveClockOut = partTime ? rec?.lunch_out : rec?.clock_out;
+      const partTime = isPartTimeSchedule(sched as any);
+      const tolerances: Tolerances = tol || { tolerance_late_minutes: 0, tolerance_overtime_minutes: 0, tolerance_early_leave_minutes: 0 };
+      const calculated = sched && !isDayOff ? calculateWorkday(rec as any, sched as any, tolerances) : null;
+      const normalized = calculated?.normalized;
 
       let workedMinutes = 0;
       let overtimeMinutes = 0;
       let lateMinutes = 0;
       let status: "normal" | "late" | "overtime" | "absent" | "dayoff" | "incomplete" = isDayOff ? "dayoff" : "absent";
 
-      if (rec && rec.clock_in) {
-        if (effectiveClockOut) {
-          workedMinutes = (new Date(effectiveClockOut).getTime() - new Date(rec.clock_in).getTime()) / 60000;
-          if (!partTime && rec.lunch_out && rec.lunch_in) {
-            workedMinutes -= (new Date(rec.lunch_in).getTime() - new Date(rec.lunch_out).getTime()) / 60000;
-          }
-          workedMinutes = Math.max(0, workedMinutes);
-          status = "normal";
-
-          if (sched && tol) {
-            const clockInMin = tsToMinutes(rec.clock_in);
-            const schedClockIn = timeToMinutes(sched.clock_in_time);
-            const late = clockInMin - schedClockIn - (tol.tolerance_late_minutes || 0);
-            if (late > 0) {
-              lateMinutes = late;
-              status = "late";
-            }
-
-            const clockOutMin = tsToMinutes(effectiveClockOut);
-            const schedClockOut = partTime ? timeToMinutes(sched.lunch_out_time) : timeToMinutes(sched.clock_out_time);
-            const ot = clockOutMin - schedClockOut - (tol.tolerance_overtime_minutes || 0);
-            if (ot > 0) {
-              overtimeMinutes = ot;
-              if (status === "normal") status = "overtime";
-            }
-          }
-        } else {
-          status = "incomplete";
-          workedMinutes = 0;
-        }
+      if (calculated && normalized && (normalized.clock_in || normalized.lunch_out || normalized.lunch_in || normalized.clock_out)) {
+        workedMinutes = calculated.worked;
+        overtimeMinutes = Math.max(0, calculated.diff);
+        lateMinutes = Math.abs(Math.min(0, calculated.diff));
+        status = calculated.incomplete ? "incomplete" : calculated.diff > 0 ? "overtime" : calculated.diff < 0 ? "late" : "normal";
       }
 
       return {
         date: dateStr,
         dayLabel: format(day, "EEE, dd/MM", { locale: pt }),
         isDayOff,
-        clockIn: rec?.clock_in ?? null,
-        lunchOut: rec?.lunch_out ?? null,
-        lunchIn: rec?.lunch_in ?? null,
-        clockOut: partTime ? (rec?.lunch_out ?? null) : (rec?.clock_out ?? null),
+        clockIn: normalized?.clock_in ?? null,
+        lunchOut: partTime ? null : (normalized?.lunch_out ?? null),
+        lunchIn: partTime ? null : (normalized?.lunch_in ?? null),
+        clockOut: partTime ? (normalized?.lunch_out ?? normalized?.clock_out ?? null) : (normalized?.clock_out ?? null),
         workedMinutes,
         overtimeMinutes,
         lateMinutes,
@@ -320,10 +276,10 @@ export default function TimeClockReport() {
                     reportRows.map((row) => (
                       <TableRow key={row.date} className={row.isDayOff ? "opacity-50" : row.status === "absent" ? "bg-destructive/5" : ""}>
                         <TableCell className="font-medium">{row.dayLabel}</TableCell>
-                        <TableCell>{formatTime(row.clockIn)}</TableCell>
-                        <TableCell>{formatTime(row.lunchOut)}</TableCell>
-                        <TableCell>{formatTime(row.lunchIn)}</TableCell>
-                        <TableCell>{formatTime(row.clockOut)}</TableCell>
+                        <TableCell>{formatPunchTime(row.clockIn)}</TableCell>
+                        <TableCell>{formatPunchTime(row.lunchOut)}</TableCell>
+                        <TableCell>{formatPunchTime(row.lunchIn)}</TableCell>
+                        <TableCell>{formatPunchTime(row.clockOut)}</TableCell>
                         <TableCell>{row.workedMinutes > 0 ? minutesToHHMM(row.workedMinutes) : "—"}</TableCell>
                         <TableCell className={row.overtimeMinutes > 0 ? "text-amber-600 font-medium" : ""}>
                           {row.overtimeMinutes > 0 ? minutesToHHMM(row.overtimeMinutes) : "—"}

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatPunchTime } from "@/lib/timeClock";
 
 interface RecordData {
   id?: string;
@@ -32,22 +33,19 @@ interface Props {
 
 function tsToTime(ts: string | null): string {
   if (!ts) return "";
-  return format(new Date(ts), "HH:mm");
+  return formatPunchTime(ts);
 }
 
 function timeToTimestamp(date: string, time: string): string | null {
   if (!time) return null;
-  // Build local Date and serialize with local timezone offset so Postgres stores
-  // the correct instant (avoids +1h shift due to UTC interpretation).
-  const [y, mo, d] = date.split("-").map(Number);
-  const [h, mi] = time.split(":").map(Number);
-  const local = new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0, 0, 0);
-  const tzMin = -local.getTimezoneOffset();
-  const sign = tzMin >= 0 ? "+" : "-";
-  const abs = Math.abs(tzMin);
-  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
-  const mm = String(abs % 60).padStart(2, "0");
-  return `${date}T${time}:00${sign}${hh}:${mm}`;
+  const noonUtc = new Date(`${date}T12:00:00Z`);
+  const tzName = new Intl.DateTimeFormat("en", {
+    timeZone: "Europe/Lisbon",
+    timeZoneName: "shortOffset",
+  }).formatToParts(noonUtc).find((p) => p.type === "timeZoneName")?.value || "GMT";
+  const match = tzName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+  const offset = match ? `${match[1]}${match[2].padStart(2, "0")}:${match[3] || "00"}` : "+00:00";
+  return `${date}T${time}:00${offset}`;
 }
 
 export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName, record, date }: Props) {

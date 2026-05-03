@@ -14,11 +14,7 @@ import { cn } from "@/lib/utils";
 import { useState, useCallback } from "react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
-
-function formatTime(ts: string | null): string {
-  if (!ts) return "—";
-  return format(new Date(ts), "HH:mm");
-}
+import { formatPunchTime } from "@/lib/timeClock";
 
 function calcWorkedHours(clockIn: string | null, lunchOut: string | null, lunchIn: string | null, clockOut: string | null): string {
   if (!clockIn) return "—";
@@ -159,10 +155,10 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
     return rows.map((r) => [
       r.name,
       r.position,
-      formatTime(r.clockIn),
-      formatTime(r.lunchOut),
-      formatTime(r.lunchIn),
-      formatTime(r.clockOut),
+      formatPunchTime(r.clockIn),
+      formatPunchTime(r.lunchOut),
+      formatPunchTime(r.lunchIn),
+      formatPunchTime(r.clockOut),
       r.scheduledIn ? r.scheduledIn.slice(0, 5) : "—",
       r.workedHours,
       statusLabel(r.status),
@@ -322,10 +318,10 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
                       >
                         <TableCell className="font-medium">{row.name}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{row.position}</TableCell>
-                        <TableCell>{formatTime(row.clockIn)}</TableCell>
-                        <TableCell>{formatTime(row.lunchOut)}</TableCell>
-                        <TableCell>{formatTime(row.lunchIn)}</TableCell>
-                        <TableCell>{formatTime(row.clockOut)}</TableCell>
+                        <TableCell>{formatPunchTime(row.clockIn)}</TableCell>
+                        <TableCell>{formatPunchTime(row.lunchOut)}</TableCell>
+                        <TableCell>{formatPunchTime(row.lunchIn)}</TableCell>
+                        <TableCell>{formatPunchTime(row.clockOut)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{row.scheduledIn ? row.scheduledIn.slice(0, 5) : "—"}</TableCell>
                         <TableCell className="font-medium text-sm">{row.workedHours}</TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
