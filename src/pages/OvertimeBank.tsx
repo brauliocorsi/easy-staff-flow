@@ -216,7 +216,8 @@ export default function OvertimeBank() {
 
       const partTime = isPartTimeSchedule(schedule);
       const calculated = calculateWorkday(record, schedule, tolerances);
-      const effectiveClockOut = partTime ? (record?.lunch_out || record?.clock_out) : record?.clock_out;
+      const normalized = calculated.normalized;
+      const effectiveClockOut = partTime ? (normalized.lunch_out || normalized.clock_out) : normalized.clock_out;
 
       result.push({
         date: dateStr,
@@ -226,10 +227,10 @@ export default function OvertimeBank() {
         diff: calculated.diff,
         isDayOff: false,
         incomplete: calculated.incomplete,
-        clockIn: record?.clock_in ?? null,
+        clockIn: normalized.clock_in ?? null,
         clockOut: effectiveClockOut ?? null,
-        lunchOut: partTime ? null : (record?.lunch_out ?? null),
-        lunchIn: partTime ? null : (record?.lunch_in ?? null),
+        lunchOut: partTime ? null : (normalized.lunch_out ?? null),
+        lunchIn: partTime ? null : (normalized.lunch_in ?? null),
         schedClockIn: schedule.clock_in_time,
         schedClockOut: partTime ? schedule.lunch_out_time : schedule.clock_out_time,
         schedLunchOut: partTime ? undefined : schedule.lunch_out_time,
