@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { ChangePasswordDialog } from "@/components/settings/ChangePasswordDialog";
+import { BugReportButton } from "@/components/BugReportButton";
 
 const notificationIcons: Record<string, typeof Bell> = {
   early_leave: LogOut,
@@ -149,6 +150,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="flex-1 p-6">
             {children}
           </div>
+          <BugReportButton />
         </main>
       </div>
     </SidebarProvider>

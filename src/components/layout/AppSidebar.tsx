@@ -23,6 +23,7 @@ import {
   Wrench,
   CalendarDays,
   Timer,
+  Bug,
 } from "lucide-react";
 import {
   Sidebar,
@@ -105,7 +106,8 @@ const menuGroups = [
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  const isSuperAdmin = user?.email === "brauliocorsi@upmoveis.pt";
 
   const handleSignOut = async () => {
     await signOut();
@@ -178,6 +180,16 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {isSuperAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Relatórios de Bugs" isActive={location.pathname === "/bugs"}>
+                <Link to="/bugs">
+                  <Bug className="h-4 w-4" />
+                  <span>Relatórios de Bugs</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Sair"
