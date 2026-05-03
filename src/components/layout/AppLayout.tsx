@@ -74,6 +74,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <SidebarTrigger />
             <div className="flex items-center gap-2">
               <ChangePasswordDialog />
+              <BugReportButton />
             {isAdmin && (
               <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
@@ -150,7 +151,6 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="flex-1 p-6">
             {children}
           </div>
-          <BugReportButton />
         </main>
       </div>
     </SidebarProvider>
