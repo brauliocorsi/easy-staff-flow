@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { EmployeeData } from "./EmployeeCard";
@@ -37,10 +37,18 @@ interface EarlyLeaveWarning {
   message: string;
 }
 
+interface MissingPunchWarning {
+  missing_slot: string;
+  suggested_time: string;
+  next_action: string;
+  message: string;
+}
+
 export function PinModal({ employee, open, onClose, onSuccess }: Props) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [earlyLeaveWarning, setEarlyLeaveWarning] = useState<EarlyLeaveWarning | null>(null);
+  const [missingPunchWarning, setMissingPunchWarning] = useState<MissingPunchWarning | null>(null);
   const [savedPin, setSavedPin] = useState("");
 
   if (!employee) return null;
@@ -48,17 +56,34 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
   const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
   const isComplete = employee.today_status === "complete";
 
-  const doPunch = async (pinCode: string, confirmEarlyLeave = false) => {
+  const doPunch = async (
+    pinCode: string,
+    opts: { confirmEarlyLeave?: boolean; confirmMissingPunch?: { missing_slot: string; suggested_time: string } } = {}
+  ) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("time-clock-punch", {
-        body: { employee_id: employee.id, pin_code: pinCode, confirm_early_leave: confirmEarlyLeave },
+        body: {
+          employee_id: employee.id,
+          pin_code: pinCode,
+          confirm_early_leave: opts.confirmEarlyLeave || false,
+          confirm_missing_punch: !!opts.confirmMissingPunch,
+          missing_slot: opts.confirmMissingPunch?.missing_slot,
+          suggested_time: opts.confirmMissingPunch?.suggested_time,
+        },
       });
 
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
         setPin("");
+        setLoading(false);
+        return;
+      }
+
+      if (data?.missing_punch_warning) {
+        setSavedPin(pinCode);
+        setMissingPunchWarning(data as MissingPunchWarning);
         setLoading(false);
         return;
       }
@@ -91,11 +116,24 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
 
   const handleConfirmEarlyLeave = () => {
     setEarlyLeaveWarning(null);
-    doPunch(savedPin, true);
+    doPunch(savedPin, { confirmEarlyLeave: true });
   };
 
   const handleCancelEarlyLeave = () => {
     setEarlyLeaveWarning(null);
+    setSavedPin("");
+    setPin("");
+  };
+
+  const handleConfirmMissingPunch = () => {
+    if (!missingPunchWarning) return;
+    const w = missingPunchWarning;
+    setMissingPunchWarning(null);
+    doPunch(savedPin, { confirmMissingPunch: { missing_slot: w.missing_slot, suggested_time: w.suggested_time } });
+  };
+
+  const handleCancelMissingPunch = () => {
+    setMissingPunchWarning(null);
     setSavedPin("");
     setPin("");
   };
@@ -105,6 +143,7 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
       setPin("");
       setSavedPin("");
       setEarlyLeaveWarning(null);
+      setMissingPunchWarning(null);
       onClose();
     }
   };
@@ -191,6 +230,30 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
             <AlertDialogAction onClick={handleConfirmEarlyLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
               Confirmar Saída
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!missingPunchWarning} onOpenChange={(o) => !o && handleCancelMissingPunch()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <Clock className="h-5 w-5" />
+              Picagem em Falta
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>{missingPunchWarning?.message}</p>
+              <p className="text-sm font-medium">
+                Ao confirmar, será registado automaticamente o horário sugerido e em seguida a sua picagem actual.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelMissingPunch}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmMissingPunch} className="bg-amber-600 text-white hover:bg-amber-700">
+              {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Confirmar e Continuar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
