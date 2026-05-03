@@ -435,26 +435,8 @@ export default function OvertimeBank() {
         continue;
       }
 
-      // Day off with work → all time is overtime
+      // Day off / no schedule → ignore entirely (respect folga, no credit/deficit)
       if (!schedule || schedule.is_day_off) {
-        if (record?.clock_in && record?.clock_out) {
-          let worked = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
-          if (record.lunch_out && record.lunch_in) {
-            worked -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-          }
-          result.push({
-            date: dateStr,
-            dayName: format(d, "EEEE", { locale: pt }),
-            scheduled: 0,
-            worked,
-            diff: worked,
-            isDayOff: true,
-            clockIn: record.clock_in,
-            clockOut: record.clock_out,
-            lunchOut: record.lunch_out,
-            lunchIn: record.lunch_in,
-          });
-        }
         continue;
       }
 
@@ -522,11 +504,6 @@ export default function OvertimeBank() {
       }
 
       if (!schedule || schedule.is_day_off) {
-        if (record?.clock_in && record?.clock_out) {
-          let w = tsToMinutes(record.clock_out) - tsToMinutes(record.clock_in);
-          if (record.lunch_out && record.lunch_in) w -= tsToMinutes(record.lunch_in) - tsToMinutes(record.lunch_out);
-          balance += w;
-        }
         continue;
       }
 
@@ -664,11 +641,6 @@ export default function OvertimeBank() {
           continue;
         }
         if (!sched || sched.is_day_off) {
-          if (rec?.clock_in && rec?.clock_out) {
-            let w = tsToMinutes(rec.clock_out) - tsToMinutes(rec.clock_in);
-            if (rec.lunch_out && rec.lunch_in) w -= tsToMinutes(rec.lunch_in) - tsToMinutes(rec.lunch_out);
-            balance += w;
-          }
           continue;
         }
         balance += calculateWorkday(rec, sched, tolerances).diff;
