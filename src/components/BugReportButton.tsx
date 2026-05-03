@@ -54,10 +54,12 @@ export function BugReportButton() {
       <DialogTrigger asChild>
         <Button
           size="icon"
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg hover:scale-105 transition-transform"
+          variant="secondary"
+          className="fixed bottom-3 left-3 z-40 h-9 w-9 rounded-full shadow-md opacity-40 hover:opacity-100 hover:scale-105 transition-all"
           aria-label="Reportar problema"
+          title="Reportar bug ou problema"
         >
-          <HelpCircle className="h-6 w-6" />
+          <HelpCircle className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent>
