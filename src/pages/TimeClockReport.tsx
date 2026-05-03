@@ -276,10 +276,10 @@ export default function TimeClockReport() {
                     reportRows.map((row) => (
                       <TableRow key={row.date} className={row.isDayOff ? "opacity-50" : row.status === "absent" ? "bg-destructive/5" : ""}>
                         <TableCell className="font-medium">{row.dayLabel}</TableCell>
-                        <TableCell>{formatTime(row.clockIn)}</TableCell>
-                        <TableCell>{formatTime(row.lunchOut)}</TableCell>
-                        <TableCell>{formatTime(row.lunchIn)}</TableCell>
-                        <TableCell>{formatTime(row.clockOut)}</TableCell>
+                        <TableCell>{formatPunchTime(row.clockIn)}</TableCell>
+                        <TableCell>{formatPunchTime(row.lunchOut)}</TableCell>
+                        <TableCell>{formatPunchTime(row.lunchIn)}</TableCell>
+                        <TableCell>{formatPunchTime(row.clockOut)}</TableCell>
                         <TableCell>{row.workedMinutes > 0 ? minutesToHHMM(row.workedMinutes) : "—"}</TableCell>
                         <TableCell className={row.overtimeMinutes > 0 ? "text-amber-600 font-medium" : ""}>
                           {row.overtimeMinutes > 0 ? minutesToHHMM(row.overtimeMinutes) : "—"}
