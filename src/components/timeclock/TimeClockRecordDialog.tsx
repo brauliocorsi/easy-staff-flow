@@ -37,7 +37,17 @@ function tsToTime(ts: string | null): string {
 
 function timeToTimestamp(date: string, time: string): string | null {
   if (!time) return null;
-  return `${date}T${time}:00`;
+  // Build local Date and serialize with local timezone offset so Postgres stores
+  // the correct instant (avoids +1h shift due to UTC interpretation).
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  const local = new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0, 0, 0);
+  const tzMin = -local.getTimezoneOffset();
+  const sign = tzMin >= 0 ? "+" : "-";
+  const abs = Math.abs(tzMin);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  return `${date}T${time}:00${sign}${hh}:${mm}`;
 }
 
 export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName, record, date }: Props) {
