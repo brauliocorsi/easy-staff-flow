@@ -14,20 +14,12 @@ import { cn } from "@/lib/utils";
 import { useState, useCallback } from "react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
-import { formatPunchTime } from "@/lib/timeClock";
+import { formatPunchTime, calculateWorkedMinutes, minutesToHoursLabel } from "@/lib/timeClock";
 
-function calcWorkedHours(clockIn: string | null, lunchOut: string | null, lunchIn: string | null, clockOut: string | null): string {
-  if (!clockIn) return "—";
-  const start = new Date(clockIn).getTime();
-  const end = clockOut ? new Date(clockOut).getTime() : lunchOut ? new Date(lunchOut).getTime() : Date.now();
-  let totalMs = end - start;
-  if (lunchOut && lunchIn) {
-    totalMs -= (new Date(lunchIn).getTime() - new Date(lunchOut).getTime());
-  }
-  if (totalMs < 0) return "—";
-  const hours = Math.floor(totalMs / 3600000);
-  const mins = Math.floor((totalMs % 3600000) / 60000);
-  return `${hours}h${mins.toString().padStart(2, "0")}`;
+function calcWorkedHours(rec: any, sched: any): string {
+  if (!rec || !sched) return "—";
+  const mins = calculateWorkedMinutes(rec, sched);
+  return mins > 0 ? minutesToHoursLabel(mins) : "—";
 }
 
 interface Props {
@@ -105,7 +97,7 @@ export function DailyOverviewTable({ onSelectEmployee }: Props) {
       status = rec.clock_out ? "ok" : "incomplete";
     }
 
-    const workedHours = rec ? calcWorkedHours(rec.clock_in, rec.lunch_out, rec.lunch_in, rec.clock_out) : "—";
+    const workedHours = rec && sched ? calcWorkedHours(rec, sched) : "—";
 
     return {
       id: emp.id,

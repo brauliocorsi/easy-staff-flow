@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { employee_id, pin_code, confirm_early_leave } = await req.json();
+    const { employee_id, pin_code, confirm_early_leave, confirm_missing_punch, missing_slot, suggested_time } = await req.json();
 
     if (!employee_id || !pin_code) {
       return new Response(
@@ -112,6 +112,52 @@ Deno.serve(async (req) => {
       .eq("employee_id", employee_id)
       .eq("record_date", today)
       .maybeSingle();
+
+    // ---- Missing punch detection (skip for part-time / day off) ----
+    // If a slot was clearly skipped given the current time, suggest auto-fill BEFORE registering the new punch.
+    if (!confirm_missing_punch && existingRecord && schedule && !schedule.is_day_off && !partTime) {
+      const slots: { field: string; time: string }[] = [
+        { field: "clock_in", time: schedule.clock_in_time },
+        { field: "lunch_out", time: schedule.lunch_out_time },
+        { field: "lunch_in", time: schedule.lunch_in_time },
+        { field: "clock_out", time: schedule.clock_out_time },
+      ];
+      const nowMin = local.hours * 60 + local.minutes;
+      for (let i = 0; i < slots.length - 1; i++) {
+        const slot = slots[i];
+        const next = slots[i + 1];
+        const [nh, nm] = next.time.split(":").map(Number);
+        const nextMin = nh * 60 + nm;
+        if (!existingRecord[slot.field] && nowMin >= nextMin - 15) {
+          return new Response(
+            JSON.stringify({
+              missing_punch_warning: true,
+              missing_slot: slot.field,
+              suggested_time: slot.time.slice(0, 5),
+              next_action: next.field,
+              message: `Faltou registar "${slot.field === 'lunch_out' ? 'Saída Almoço' : slot.field === 'lunch_in' ? 'Retorno Almoço' : slot.field === 'clock_in' ? 'Entrada' : 'Saída'}" às ${slot.time.slice(0,5)}. Deseja preencher automaticamente e continuar?`,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // If user confirmed the suggested missing punch, fill it first using suggested time
+    if (confirm_missing_punch && missing_slot && suggested_time && existingRecord) {
+      const [sh, sm] = String(suggested_time).split(":").map(Number);
+      const filled = new Date(now);
+      // Set time using local timezone offset
+      const tzNow = new Date(now.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const offsetMs = now.getTime() - tzNow.getTime();
+      filled.setHours(sh, sm, 0, 0);
+      const filledTs = new Date(filled.getTime() + offsetMs).toISOString();
+      await supabase
+        .from("time_clock_records")
+        .update({ [missing_slot]: filledTs })
+        .eq("id", existingRecord.id);
+      existingRecord[missing_slot] = filledTs;
+    }
 
     // Determine next action
     let action: string;

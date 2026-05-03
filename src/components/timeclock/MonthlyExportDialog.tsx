@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileSpreadsheet, FileText, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
-import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, type Tolerances } from "@/lib/timeClock";
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, resolveTolerances, type Tolerances } from "@/lib/timeClock";
 
 const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -129,7 +129,7 @@ export function MonthlyExportDialog() {
           const rec = recordMap.get(dateStr);
           const isDayOff = sched?.is_day_off ?? (dow === 0 || dow === 6);
           const partTime = isPartTimeSchedule(sched);
-          const tolerances: Tolerances = tol || { tolerance_late_minutes: 0, tolerance_overtime_minutes: 0, tolerance_early_leave_minutes: 0 };
+          const tolerances: Tolerances = resolveTolerances(tol);
           const calculated = sched && !isDayOff ? calculateWorkday(rec, sched, tolerances) : null;
           const normalized = calculated?.normalized;
 

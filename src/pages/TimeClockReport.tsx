@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { TimeClockRecordDialog } from "@/components/timeclock/TimeClockRecordDialog";
 import { DailyOverviewTable } from "@/components/timeclock/DailyOverviewTable";
 import { MonthlyExportDialog } from "@/components/timeclock/MonthlyExportDialog";
-import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, type Tolerances } from "@/lib/timeClock";
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, resolveTolerances, type Tolerances } from "@/lib/timeClock";
 
 type PeriodType = "day" | "week" | "month";
 
@@ -93,7 +93,7 @@ export default function TimeClockReport() {
       const rec = recordMap.get(dateStr);
       const isDayOff = sched?.is_day_off ?? true;
       const partTime = isPartTimeSchedule(sched as any);
-      const tolerances: Tolerances = tol || { tolerance_late_minutes: 0, tolerance_overtime_minutes: 0, tolerance_early_leave_minutes: 0 };
+      const tolerances: Tolerances = resolveTolerances(tol);
       const calculated = sched && !isDayOff ? calculateWorkday(rec as any, sched as any, tolerances) : null;
       const normalized = calculated?.normalized;
 

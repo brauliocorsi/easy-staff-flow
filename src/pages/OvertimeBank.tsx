@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, TrendingUp, TrendingDown, ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
-import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM, scheduledWorkMinutes, type Tolerances } from "@/lib/timeClock";
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM, scheduledWorkMinutes, resolveTolerances, type Tolerances } from "@/lib/timeClock";
 
 type DayRow = {
   date: string;
@@ -21,6 +21,8 @@ type DayRow = {
   isDayOff: boolean;
   incomplete?: boolean;
   isBankDeduction?: boolean;
+  isVacation?: boolean;
+  punchedOnDayOff?: boolean;
   clockIn?: string | null;
   clockOut?: string | null;
   lunchOut?: string | null;
@@ -141,6 +143,23 @@ export default function OvertimeBank() {
     },
   });
 
+  // Vacations for selected employee in current month
+  const { data: vacations } = useQuery({
+    queryKey: ["vacations-overtime", selectedEmployee, rangeStart, rangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .select("start_date, end_date, status")
+        .eq("employee_id", selectedEmployee)
+        .in("status", ["approved", "confirmed"])
+        .lte("start_date", rangeEnd)
+        .gte("end_date", rangeStart);
+      if (error) throw error;
+      return data as { start_date: string; end_date: string }[];
+    },
+  });
+
   const { data: prevBankAbsences } = useQuery({
     queryKey: ["bank-absences-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
     enabled: !!selectedEmployee,
@@ -157,12 +176,12 @@ export default function OvertimeBank() {
     },
   });
 
-  const defaultTolerances: Tolerances = { tolerance_late_minutes: 0, tolerance_overtime_minutes: 0, tolerance_early_leave_minutes: 0 };
+  const defaultTolerances: Tolerances = resolveTolerances(null);
 
   const rows = useMemo(() => {
     if (!records || !templateDays) return [];
 
-    const tolerances = selectedTemplate || defaultTolerances;
+    const tolerances = resolveTolerances(selectedTemplate);
     const scheduleMap = new Map<number, (typeof templateDays)[0]>();
     templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
 
@@ -171,6 +190,9 @@ export default function OvertimeBank() {
 
     const bankAbsenceSet = new Set<string>();
     bankAbsences?.forEach((a) => bankAbsenceSet.add(a.absence_date));
+
+    const isVacationDate = (dateStr: string): boolean =>
+      (vacations || []).some((v) => dateStr >= v.start_date && dateStr <= v.end_date);
 
     const days = eachDayOfInterval({
       start: new Date(selectedYear, selectedMonth, 1),
@@ -188,6 +210,21 @@ export default function OvertimeBank() {
       const schedule = scheduleMap.get(dow);
       const record = recordMap.get(dateStr);
       const isBankDeduction = bankAbsenceSet.has(dateStr);
+      const onVacation = isVacationDate(dateStr);
+
+      // Vacation: respect — no credit/deficit, show informational row
+      if (onVacation) {
+        result.push({
+          date: dateStr,
+          dayName: format(d, "EEEE", { locale: pt }),
+          scheduled: 0,
+          worked: 0,
+          diff: 0,
+          isDayOff: false,
+          isVacation: true,
+        });
+        continue;
+      }
 
       // Bank deduction
       if (isBankDeduction && schedule && !schedule.is_day_off) {
@@ -209,8 +246,23 @@ export default function OvertimeBank() {
         continue;
       }
 
-      // Day off / no schedule → ignore entirely (respect folga, no credit/deficit)
+      // Day off / no schedule → respect folga; if there ARE punches highlight visually
       if (!schedule || schedule.is_day_off) {
+        if (record && (record.clock_in || record.lunch_out || record.lunch_in || record.clock_out)) {
+          result.push({
+            date: dateStr,
+            dayName: format(d, "EEEE", { locale: pt }),
+            scheduled: 0,
+            worked: 0,
+            diff: 0,
+            isDayOff: true,
+            punchedOnDayOff: true,
+            clockIn: record.clock_in,
+            clockOut: record.clock_out,
+            lunchOut: record.lunch_out,
+            lunchIn: record.lunch_in,
+          });
+        }
         continue;
       }
 
@@ -239,7 +291,7 @@ export default function OvertimeBank() {
     }
 
     return result;
-  }, [records, templateDays, bankAbsences, selectedTemplate, selectedMonth, selectedYear]);
+  }, [records, templateDays, bankAbsences, vacations, selectedTemplate, selectedMonth, selectedYear]);
 
   const totalBalance = rows.reduce((sum, r) => sum + r.diff, 0);
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
@@ -249,7 +301,7 @@ export default function OvertimeBank() {
   const prevMonthBalance = useMemo(() => {
     if (!prevRecords || !templateDays) return 0;
 
-    const tolerances = selectedTemplate || defaultTolerances;
+    const tolerances = resolveTolerances(selectedTemplate);
     const scheduleMap = new Map<number, (typeof templateDays)[0]>();
     templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
 
@@ -390,7 +442,7 @@ export default function OvertimeBank() {
     ): number {
       const schedMap = templateId ? templateDayMap.get(templateId) : null;
       if (!schedMap) return 0;
-      const tolerances = templateId ? (toleranceMap.get(templateId) || defaultTolerances) : defaultTolerances;
+      const tolerances = resolveTolerances(templateId ? toleranceMap.get(templateId) : null);
 
       const recordMap = new Map<string, (typeof recs)[0]>();
       recs.filter((r) => r.employee_id === empId).forEach((r) => recordMap.set(r.record_date, r));
@@ -648,7 +700,7 @@ export default function OvertimeBank() {
                         <>
                           <TableRow
                             key={r.date}
-                            className={`cursor-pointer ${r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
+                            className={`cursor-pointer ${r.isVacation ? "bg-emerald-500/10" : r.punchedOnDayOff ? "bg-amber-500/10" : r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
                             onClick={() => setExpandedDate(isExpanded ? null : r.date)}
                           >
                             <TableCell className="w-8 px-2">
@@ -658,6 +710,8 @@ export default function OvertimeBank() {
                             <TableCell className="capitalize text-sm">
                               {r.dayName}
                               {r.isDayOff && <Badge variant="outline" className="ml-2 text-[10px]">Folga</Badge>}
+                              {r.isVacation && <Badge variant="outline" className="ml-2 text-[10px] border-emerald-500 text-emerald-700">Férias</Badge>}
+                              {r.punchedOnDayOff && <Badge variant="outline" className="ml-2 text-[10px] border-amber-500 text-amber-700">Picou em Folga</Badge>}
                               {r.isBankDeduction && <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">Falta (Banco)</Badge>}
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm">

@@ -6,6 +6,70 @@ export type Tolerances = {
   tolerance_early_leave_minutes: number;
 };
 
+/** Default tolerances per business rule (req #5): 10 min late entry, 15 min overtime, 5 min early leave. */
+export const DEFAULT_TOLERANCES: Tolerances = {
+  tolerance_late_minutes: 10,
+  tolerance_overtime_minutes: 15,
+  tolerance_early_leave_minutes: 5,
+};
+
+/** Returns tolerances ensuring sensible defaults whenever the template values are missing/zero. */
+export function resolveTolerances(t?: Partial<Tolerances> | null): Tolerances {
+  return {
+    tolerance_late_minutes: t?.tolerance_late_minutes ?? DEFAULT_TOLERANCES.tolerance_late_minutes,
+    tolerance_overtime_minutes: t?.tolerance_overtime_minutes ?? DEFAULT_TOLERANCES.tolerance_overtime_minutes,
+    tolerance_early_leave_minutes: t?.tolerance_early_leave_minutes ?? DEFAULT_TOLERANCES.tolerance_early_leave_minutes,
+  };
+}
+
+export type DayStatus =
+  | "day_off"
+  | "vacation"
+  | "no_record"
+  | "half_day_morning"
+  | "half_day_afternoon"
+  | "incomplete"
+  | "complete"
+  | "punched_on_day_off";
+
+/**
+ * Detects if a punch slot was skipped given the current time and the schedule.
+ * Used by the terminal to suggest auto-filling a missed punch.
+ * Returns the missed slot + suggested time (HH:mm) or null if nothing is missing.
+ */
+export function detectMissingPunch(
+  record: TimeClockRecordLike | null | undefined,
+  schedule: ScheduleLike | null | undefined,
+  nowMinutes: number
+): { missing_slot: PunchField; suggested_time: string; next_action: PunchField } | null {
+  if (!schedule || schedule.is_day_off || isPartTimeSchedule(schedule)) return null;
+  const scheduleSlots: { field: PunchField; minutes: number }[] = [
+    { field: "clock_in", minutes: timeToMinutes(schedule.clock_in_time) },
+    { field: "lunch_out", minutes: timeToMinutes(schedule.lunch_out_time) },
+    { field: "lunch_in", minutes: timeToMinutes(schedule.lunch_in_time) },
+    { field: "clock_out", minutes: timeToMinutes(schedule.clock_out_time) },
+  ];
+  // Find the next slot that should logically be punched given current time.
+  // A slot is "missing" if its scheduled time is already passed (>= 15 min in the past)
+  // and it's still null AND a later slot would otherwise be the next action.
+  const filled = (f: PunchField) => !!record?.[f];
+  for (let i = 0; i < scheduleSlots.length - 1; i++) {
+    const slot = scheduleSlots[i];
+    const next = scheduleSlots[i + 1];
+    if (!filled(slot.field) && nowMinutes >= next.minutes - 15) {
+      // Slot was skipped; user is now at or near the next slot's expected time
+      return {
+        missing_slot: slot.field,
+        suggested_time: scheduleSlots[i].minutes
+          ? `${String(Math.floor(slot.minutes / 60)).padStart(2, "0")}:${String(slot.minutes % 60).padStart(2, "0")}`
+          : "00:00",
+        next_action: next.field,
+      };
+    }
+  }
+  return null;
+}
+
 export type TimeClockRecordLike = {
   clock_in?: string | null;
   lunch_out?: string | null;
