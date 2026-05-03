@@ -16,29 +16,11 @@ import { cn } from "@/lib/utils";
 import { TimeClockRecordDialog } from "@/components/timeclock/TimeClockRecordDialog";
 import { DailyOverviewTable } from "@/components/timeclock/DailyOverviewTable";
 import { MonthlyExportDialog } from "@/components/timeclock/MonthlyExportDialog";
+import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHoursLabel, type Tolerances } from "@/lib/timeClock";
 
 type PeriodType = "day" | "week" | "month";
 
-function formatTime(ts: string | null): string {
-  if (!ts) return "—";
-  return format(new Date(ts), "HH:mm");
-}
-
-function timeToMinutes(timeStr: string): number {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function tsToMinutes(ts: string): number {
-  const d = new Date(ts);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-function minutesToHHMM(mins: number): string {
-  const h = Math.floor(Math.abs(mins) / 60);
-  const m = Math.round(Math.abs(mins) % 60);
-  return `${h}h${m.toString().padStart(2, "0")}`;
-}
+const minutesToHHMM = minutesToHoursLabel;
 
 export default function TimeClockReport() {
   const [employeeId, setEmployeeId] = useState<string>("");
