@@ -34,6 +34,7 @@ import OvertimeBank from "./pages/OvertimeBank";
 import VehicleInspection from "./pages/VehicleInspection";
 import Purchases from "./pages/Purchases";
 import ServiceOrders from "./pages/ServiceOrders";
+import BugReports from "./pages/BugReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="/inspecao-veiculo" element={<VehicleInspection />} />
             <Route path="/compras" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
             <Route path="/assistencias" element={<ProtectedRoute><ServiceOrders /></ProtectedRoute>} />
+            <Route path="/bugs" element={<ProtectedRoute><BugReports /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
