@@ -7,13 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Link2, ToggleRight, ChevronDown, Trash2, CalendarDays, DollarSign, XCircle } from "lucide-react";
+import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Link2, ToggleRight, ChevronDown, Trash2, CalendarDays, DollarSign, XCircle, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useVacationRequests, useUpdateVacationRequest, useGetVacationPublicLink, useDeleteVacationRequest, VacationRequest } from "@/hooks/useVacations";
 import { VacationFormDialog } from "@/components/vacations/VacationFormDialog";
 import { CollectiveVacationForm } from "@/components/vacations/CollectiveVacationForm";
 import { VacationMap } from "@/components/vacations/VacationMap";
+import { generateVacationMapPdf } from "@/lib/generateVacationMapPdf";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -165,6 +166,18 @@ export default function Vacations() {
             </Select>
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" /> Novo Pedido
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!vacations || vacations.length === 0) {
+                  toast.error("Sem dados para imprimir");
+                  return;
+                }
+                generateVacationMapPdf(vacations, year);
+              }}
+            >
+              <Printer className="h-4 w-4 mr-2" /> Imprimir Mapa
             </Button>
           </div>
         </div>
