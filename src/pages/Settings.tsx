@@ -3,11 +3,12 @@ import { ScheduleTemplateManager } from "@/components/settings/ScheduleTemplateM
 import { AlarmManager } from "@/components/settings/AlarmManager";
 import { DepartmentManager } from "@/components/settings/DepartmentManager";
 import { UserManager } from "@/components/settings/UserManager";
+import { HolidayManager } from "@/components/settings/HolidayManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, ExternalLink, Monitor, Clock, UserPlus, Building2, Bell, CalendarClock, Link } from "lucide-react";
+import { Copy, ExternalLink, Monitor, Clock, UserPlus, Building2, Bell, CalendarClock, Link, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +42,7 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="links" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="links" className="gap-2">
               <Link className="h-4 w-4" />
               <span className="hidden sm:inline">Links</span>
@@ -61,6 +62,10 @@ export default function Settings() {
             <TabsTrigger value="schedules" className="gap-2">
               <CalendarClock className="h-4 w-4" />
               <span className="hidden sm:inline">Horários</span>
+            </TabsTrigger>
+            <TabsTrigger value="holidays" className="gap-2">
+              <CalendarDays className="h-4 w-4" />
+              <span className="hidden sm:inline">Feriados</span>
             </TabsTrigger>
           </TabsList>
 
@@ -171,6 +176,10 @@ export default function Settings() {
 
           <TabsContent value="schedules" className="mt-6">
             <ScheduleTemplateManager />
+          </TabsContent>
+
+          <TabsContent value="holidays" className="mt-6">
+            <HolidayManager />
           </TabsContent>
         </Tabs>
       </div>

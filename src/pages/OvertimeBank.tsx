@@ -11,6 +11,7 @@ import { Clock, TrendingUp, TrendingDown, ArrowLeft, ChevronDown, ChevronRight }
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
 import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM, scheduledWorkMinutes, resolveTolerances, type Tolerances } from "@/lib/timeClock";
+import { useHolidays } from "@/hooks/useHolidays";
 
 type DayRow = {
   date: string;
@@ -22,6 +23,8 @@ type DayRow = {
   incomplete?: boolean;
   isBankDeduction?: boolean;
   isVacation?: boolean;
+  isHoliday?: boolean;
+  holidayName?: string;
   punchedOnDayOff?: boolean;
   clockIn?: string | null;
   clockOut?: string | null;
@@ -39,6 +42,7 @@ export default function OvertimeBank() {
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [month, setMonth] = useState(String(currentDate.getMonth()));
   const [year, setYear] = useState(String(currentDate.getFullYear()));
+  const { isHoliday, getHoliday } = useHolidays();
 
   const { data: employees } = useQuery({
     queryKey: ["employees-active-overtime"],
@@ -211,6 +215,7 @@ export default function OvertimeBank() {
       const record = recordMap.get(dateStr);
       const isBankDeduction = bankAbsenceSet.has(dateStr);
       const onVacation = isVacationDate(dateStr);
+      const holiday = getHoliday(dateStr);
 
       // Vacation: respect — no credit/deficit, show informational row
       if (onVacation) {
@@ -222,6 +227,21 @@ export default function OvertimeBank() {
           diff: 0,
           isDayOff: false,
           isVacation: true,
+        });
+        continue;
+      }
+
+      // Holiday: respect — no credit/deficit, no scheduled work, show informational row
+      if (holiday) {
+        result.push({
+          date: dateStr,
+          dayName: format(d, "EEEE", { locale: pt }),
+          scheduled: 0,
+          worked: 0,
+          diff: 0,
+          isDayOff: false,
+          isHoliday: true,
+          holidayName: holiday.name,
         });
         continue;
       }
@@ -291,7 +311,7 @@ export default function OvertimeBank() {
     }
 
     return result;
-  }, [records, templateDays, bankAbsences, vacations, selectedTemplate, selectedMonth, selectedYear]);
+  }, [records, templateDays, bankAbsences, vacations, selectedTemplate, selectedMonth, selectedYear, getHoliday]);
 
   const totalBalance = rows.reduce((sum, r) => sum + r.diff, 0);
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
@@ -324,6 +344,10 @@ export default function OvertimeBank() {
       const record = recordMap.get(dateStr);
       const isBankDeduction = prevBankSet.has(dateStr);
 
+      if (isHoliday(dateStr)) {
+        continue;
+      }
+
       if (isBankDeduction && schedule && !schedule.is_day_off) {
         const scheduledWork = scheduledWorkMinutes(schedule);
         balance -= scheduledWork;
@@ -339,7 +363,7 @@ export default function OvertimeBank() {
     }
 
     return balance;
-  }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate]);
+  }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate, isHoliday]);
 
   // Only sum prev + current when the month is closed (past month)
   const isCurrentMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
@@ -462,6 +486,10 @@ export default function OvertimeBank() {
         const rec = recordMap.get(dateStr);
         const isBankDeduction = bankDates.has(dateStr);
 
+        if (isHoliday(dateStr)) {
+          continue;
+        }
+
         if (isBankDeduction && sched && !sched.is_day_off) {
           const scheduled = scheduledWorkMinutes(sched);
           balance -= scheduled;
@@ -488,7 +516,7 @@ export default function OvertimeBank() {
       const isCurMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
       return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: isCurMonth ? pBalance : pBalance + curBalance };
     });
-  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate]);
+  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate, isHoliday]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
@@ -700,7 +728,7 @@ export default function OvertimeBank() {
                         <>
                           <TableRow
                             key={r.date}
-                            className={`cursor-pointer ${r.isVacation ? "bg-emerald-500/10" : r.punchedOnDayOff ? "bg-amber-500/10" : r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
+                            className={`cursor-pointer ${r.isHoliday ? "bg-blue-500/10" : r.isVacation ? "bg-emerald-500/10" : r.punchedOnDayOff ? "bg-amber-500/10" : r.isDayOff ? "bg-muted/30" : r.isBankDeduction ? "bg-destructive/5" : ""}`}
                             onClick={() => setExpandedDate(isExpanded ? null : r.date)}
                           >
                             <TableCell className="w-8 px-2">
@@ -711,6 +739,7 @@ export default function OvertimeBank() {
                               {r.dayName}
                               {r.isDayOff && <Badge variant="outline" className="ml-2 text-[10px]">Folga</Badge>}
                               {r.isVacation && <Badge variant="outline" className="ml-2 text-[10px] border-emerald-500 text-emerald-700">Férias</Badge>}
+                              {r.isHoliday && <Badge variant="outline" className="ml-2 text-[10px] border-blue-500 text-blue-700">Feriado{r.holidayName ? ` — ${r.holidayName}` : ""}</Badge>}
                               {r.punchedOnDayOff && <Badge variant="outline" className="ml-2 text-[10px] border-amber-500 text-amber-700">Picou em Folga</Badge>}
                               {r.isBankDeduction && <Badge variant="outline" className="ml-2 text-[10px] border-destructive text-destructive">Falta (Banco)</Badge>}
                             </TableCell>

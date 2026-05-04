@@ -686,6 +686,36 @@ export type Database = {
           },
         ]
       }
+      holidays: {
+        Row: {
+          created_at: string
+          description: string | null
+          holiday_date: string
+          id: string
+          name: string
+          recurring_yearly: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          holiday_date: string
+          id?: string
+          name: string
+          recurring_yearly?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          holiday_date?: string
+          id?: string
+          name?: string
+          recurring_yearly?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       machine_repairs: {
         Row: {
           company_name: string | null

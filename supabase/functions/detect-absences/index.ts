@@ -49,6 +49,23 @@ Deno.serve(async (req) => {
 
     // No longer skip weekends globally — rely on each employee's schedule template is_day_off
 
+    // Skip if targetDate is a holiday (single or recurring yearly)
+    const mmdd = targetDate.slice(5); // MM-DD
+    const { data: holidays } = await supabase
+      .from("holidays")
+      .select("holiday_date, name, recurring_yearly");
+    const isHoliday = (holidays || []).some((h: any) => {
+      if (h.holiday_date === targetDate) return true;
+      if (h.recurring_yearly && String(h.holiday_date).slice(5) === mmdd) return true;
+      return false;
+    });
+    if (isHoliday) {
+      return new Response(
+        JSON.stringify({ message: "Date is a holiday — no absences detected", date: targetDate, absences_created: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get all active employees with schedule templates
     const { data: employees, error: empErr } = await supabase
       .from("employees")
