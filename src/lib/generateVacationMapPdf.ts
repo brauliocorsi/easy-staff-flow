@@ -211,5 +211,6 @@ export function generateVacationMapPdf(
     doc.text("RH UP Móveis — Mapa de Férias", marginLeft, pageHeight - 6);
   }
 
-  doc.save(`mapa-ferias-${year}.pdf`);
+  const suffix = scope === "all" ? "" : `-${scope}`;
+  doc.save(`mapa-ferias${suffix}-${year}.pdf`);
 }
