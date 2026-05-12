@@ -405,7 +405,7 @@ export default function EmployeePortal() {
                       <p className="text-xs text-muted-foreground">{v.days_count} dias · {v.year}</p>
                     </div>
                     <div className="flex gap-1">
-                      {v.enjoyed && <Badge variant="default" className="text-xs">Gozado</Badge>}
+                      {isVacationEnjoyed(v) && <Badge variant="default" className="text-xs">Gozado</Badge>}
                       <Badge variant={vs.variant} className="text-xs">{vs.label}</Badge>
                     </div>
                   </div>
