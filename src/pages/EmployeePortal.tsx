@@ -17,9 +17,10 @@ import {
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
   MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
   ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2, ClipboardList,
-  Clock
+  Clock, Printer
 } from "lucide-react";
 import { format } from "date-fns";
+import { generateVacationMapPdf } from "@/lib/generateVacationMapPdf";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
