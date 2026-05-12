@@ -6,6 +6,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { VacationRequest } from "@/hooks/useVacations";
 import { format } from "date-fns";
 import { useHolidays } from "@/hooks/useHolidays";
+import { isVacationEnjoyed } from "@/lib/vacationStatus";
 
 interface Props {
   vacations: VacationRequest[];
@@ -99,8 +100,9 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
       const row = map.get(v.employee_id)!;
       row.requests.push(v);
       if (v.total_entitled_days > row.totalEntitled) row.totalEntitled = v.total_entitled_days;
-      if (v.status === "approved" || v.enjoyed) row.approvedDays += v.days_count;
-      if (v.enjoyed) row.enjoyedDays += v.days_count;
+      const enj = isVacationEnjoyed(v as any);
+      if (v.status === "approved" || enj) row.approvedDays += v.days_count;
+      if (enj) row.enjoyedDays += v.days_count;
     }
     return Array.from(map.values())
       .map((r) => ({
@@ -265,7 +267,7 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
                     const barWidth = Math.max((endDoy - startDoy + 1) * dayWidth, dayWidth);
                     const colorClass = categoryColors[v.category] || "bg-primary";
                     const opacityClass = statusOpacity[v.status] || "opacity-80";
-                    const isEnjoyed = v.enjoyed;
+                    const isEnjoyed = isVacationEnjoyed(v as any);
 
                     return (
                       <Tooltip key={v.id}>
@@ -288,7 +290,7 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
                             <div className="flex gap-1 pt-0.5">
                               <Badge variant="outline" className="text-[10px] capitalize">{v.category}</Badge>
                               <Badge variant="outline" className="text-[10px]">{v.status}</Badge>
-                              {v.enjoyed && <Badge className="text-[10px] bg-success text-success-foreground">Gozada</Badge>}
+                              {isEnjoyed && <Badge className="text-[10px] bg-success text-success-foreground">Gozada</Badge>}
                             </div>
                           </div>
                         </TooltipContent>

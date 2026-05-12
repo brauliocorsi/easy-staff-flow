@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import type { VacationRequest } from "@/hooks/useVacations";
+import { isVacationEnjoyed } from "./vacationStatus";
 
 interface EmployeeRow {
   name: string;
@@ -76,15 +77,16 @@ export function generateVacationMapPdf(
       });
     }
     const row = map.get(v.employee_id)!;
+    const enj = isVacationEnjoyed(v as any);
     if (v.total_entitled_days > row.totalEntitled) row.totalEntitled = v.total_entitled_days;
-    if (v.status === "approved" || v.enjoyed) row.approvedDays += v.days_count;
-    if (v.enjoyed) row.enjoyedDays += v.days_count;
+    if (v.status === "approved" || enj) row.approvedDays += v.days_count;
+    if (enj) row.enjoyedDays += v.days_count;
     row.periods.push({
       start: v.start_date,
       end: v.end_date,
       days: v.days_count,
       status: v.status,
-      enjoyed: v.enjoyed,
+      enjoyed: enj,
       category: v.category,
     });
   }

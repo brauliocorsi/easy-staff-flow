@@ -16,6 +16,7 @@ import {
   HardHat, Wrench, Settings2, Stethoscope
 } from "lucide-react";
 import { format } from "date-fns";
+import { isVacationEnjoyed } from "@/lib/vacationStatus";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -284,8 +285,8 @@ export default function EmployeeProfile() {
   const totalWarnings = warnings?.length || 0;
   const currentYear = new Date().getFullYear();
   const currentVacations = vacations?.filter((v) => v.year === currentYear) || [];
-  const vacDaysApproved = currentVacations.reduce((s, v) => s + (v.status === "approved" || v.enjoyed ? v.days_count : 0), 0);
-  const vacDaysEnjoyed = currentVacations.reduce((s, v) => s + (v.enjoyed ? v.days_count : 0), 0);
+  const vacDaysApproved = currentVacations.reduce((s, v) => s + (v.status === "approved" || isVacationEnjoyed(v as any) ? v.days_count : 0), 0);
+  const vacDaysEnjoyed = currentVacations.reduce((s, v) => s + (isVacationEnjoyed(v as any) ? v.days_count : 0), 0);
   const vacEntitled = currentVacations[0]?.total_entitled_days || 22;
   const totalMeetings = meetings?.length || 0;
   const meetingsPresent = meetings?.filter((m: any) => m.present && m.status === "completed").length || 0;
@@ -502,7 +503,7 @@ export default function EmployeeProfile() {
                             <p className="text-xs text-muted-foreground">{v.days_count} dias · {v.year}</p>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {v.enjoyed && <Badge variant="default" className="text-xs">Gozado</Badge>}
+                            {isVacationEnjoyed(v as any) && <Badge variant="default" className="text-xs">Gozado</Badge>}
                             <Badge variant={vs.variant} className="text-xs">{vs.label}</Badge>
                           </div>
                         </div>
