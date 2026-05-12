@@ -290,7 +290,7 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
                             <div className="flex gap-1 pt-0.5">
                               <Badge variant="outline" className="text-[10px] capitalize">{v.category}</Badge>
                               <Badge variant="outline" className="text-[10px]">{v.status}</Badge>
-                              {v.enjoyed && <Badge className="text-[10px] bg-success text-success-foreground">Gozada</Badge>}
+                              {isEnjoyed && <Badge className="text-[10px] bg-success text-success-foreground">Gozada</Badge>}
                             </div>
                           </div>
                         </TooltipContent>
