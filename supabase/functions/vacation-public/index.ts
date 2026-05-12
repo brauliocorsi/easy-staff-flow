@@ -26,6 +26,38 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Fetch holidays once (used for working-day count)
+    const { data: holidaysData } = await supabase
+      .from("holidays")
+      .select("holiday_date, recurring_yearly");
+    const holidays = holidaysData || [];
+    const fixedHolidays = new Set<string>();
+    const recurringHolidays = new Set<string>();
+    for (const h of holidays) {
+      if (!h?.holiday_date) continue;
+      fixedHolidays.add(h.holiday_date);
+      if (h.recurring_yearly) recurringHolidays.add(h.holiday_date.slice(5));
+    }
+    const countWorkingDays = (startStr: string, endStr: string): number => {
+      const start = new Date(startStr);
+      const end = new Date(endStr);
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return 0;
+      let count = 0;
+      const d = new Date(start);
+      while (d <= end) {
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          const iso = `${yyyy}-${mm}-${dd}`;
+          if (!fixedHolidays.has(iso) && !recurringHolidays.has(`${mm}-${dd}`)) count++;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return count;
+    };
+
     // GET vacation data by token
     if (!action || action === "get") {
       const { data: vacation, error } = await supabase
@@ -61,7 +93,7 @@ Deno.serve(async (req) => {
         if (p.sell_status === "sell_rejected") soldInfo.rejected_sell += (p.sold_days || 0);
       }
 
-      return new Response(JSON.stringify({ vacation, all_periods: allPeriods || [], sold_info: soldInfo }), {
+      return new Response(JSON.stringify({ vacation, all_periods: allPeriods || [], sold_info: soldInfo, holidays }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -103,15 +135,7 @@ Deno.serve(async (req) => {
 
       // Create new periods
       const newRecords = periodsToCreate.map((p: any, idx: number) => {
-        const start = new Date(p.start_date);
-        const end = new Date(p.end_date);
-        let count = 0;
-        const d = new Date(start);
-        while (d <= end) {
-          const day = d.getDay();
-          if (day !== 0 && day !== 6) count++;
-          d.setDate(d.getDate() + 1);
-        }
+        const count = countWorkingDays(p.start_date, p.end_date);
         return {
           employee_id: vacation.employee_id,
           year: vacation.year,
