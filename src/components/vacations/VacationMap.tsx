@@ -32,6 +32,10 @@ interface EmployeeRow {
   id: string;
   name: string;
   requests: VacationRequest[];
+  totalEntitled: number;
+  enjoyedDays: number;
+  approvedDays: number;
+  remaining: number;
 }
 
 function getDayOfYear(dateStr: string, year: number): number {
@@ -54,7 +58,7 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
   const totalDays = getDaysInYear(year);
   const dayWidth = 3; // px per day
   const timelineWidth = totalDays * dayWidth;
-  const nameColWidth = 160;
+  const nameColWidth = 240;
   const { isHoliday } = useHolidays();
 
   // Pre-compute background segments per day-of-year (weekend/holiday)
@@ -77,15 +81,35 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
   const employees = useMemo<EmployeeRow[]>(() => {
     const map = new Map<string, EmployeeRow>();
     for (const v of vacations) {
+      if ((v as any).sell_status) continue;
       if (!map.has(v.employee_id)) {
         const name = v.employees
           ? `${v.employees.first_name} ${v.employees.last_name}`
           : "—";
-        map.set(v.employee_id, { id: v.employee_id, name, requests: [] });
+        map.set(v.employee_id, {
+          id: v.employee_id,
+          name,
+          requests: [],
+          totalEntitled: 0,
+          enjoyedDays: 0,
+          approvedDays: 0,
+          remaining: 0,
+        });
       }
-      map.get(v.employee_id)!.requests.push(v);
+      const row = map.get(v.employee_id)!;
+      row.requests.push(v);
+      if (v.total_entitled_days > row.totalEntitled) row.totalEntitled = v.total_entitled_days;
+      if (v.status === "approved" || v.enjoyed) row.approvedDays += v.days_count;
+      if (v.enjoyed) row.enjoyedDays += v.days_count;
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values())
+      .map((r) => ({
+        ...r,
+        totalEntitled: r.totalEntitled || 22,
+        remaining: Math.max(0, (r.totalEntitled || 22) - r.approvedDays),
+        requests: [...r.requests].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [vacations]);
 
   if (isLoading) {
