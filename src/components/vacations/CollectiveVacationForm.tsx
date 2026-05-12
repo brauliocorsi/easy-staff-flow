@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Loader2, Save, Plus, Trash2, Users, ChevronDown } from "lucide-react";
+import { CalendarIcon, Loader2, Save, Plus, Trash2, Users, ChevronDown, ArrowUp, ArrowDown, ArrowDownUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -126,6 +126,26 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
 
   const removePeriod = (index: number) => {
     setPeriods((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const movePeriod = (index: number, direction: -1 | 1) => {
+    setPeriods((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const sortPeriodsByDate = () => {
+    setPeriods((prev) =>
+      [...prev].sort((a, b) => {
+        if (!a.start_date) return 1;
+        if (!b.start_date) return -1;
+        return a.start_date.localeCompare(b.start_date);
+      })
+    );
   };
 
   const updatePeriod = (index: number, field: keyof PeriodEntry, value: any) => {
@@ -250,11 +270,41 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
             <div key={index} className="border rounded-lg p-4 space-y-3 relative">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">Período {index + 1}</span>
-                {periods.length > 1 && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removePeriod(index)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  {periods.length > 1 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={index === 0}
+                        onClick={() => movePeriod(index, -1)}
+                        title="Mover para cima"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={index === periods.length - 1}
+                        onClick={() => movePeriod(index, 1)}
+                        title="Mover para baixo"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => removePeriod(index)}
+                        title="Remover período"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -372,9 +422,20 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
           ))}
         </div>
 
-        <Button variant="outline" onClick={addPeriod} className="w-full">
-          <Plus className="mr-2 h-4 w-4" /> Adicionar Período
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={addPeriod} className="flex-1">
+            <Plus className="mr-2 h-4 w-4" /> Adicionar Período
+          </Button>
+          {periods.length > 1 && (
+            <Button
+              variant="outline"
+              onClick={sortPeriodsByDate}
+              title="Ordenar períodos por data de início"
+            >
+              <ArrowDownUp className="mr-2 h-4 w-4" /> Ordenar por data
+            </Button>
+          )}
+        </div>
 
         {totalDays > 0 && (
           <div className="bg-muted/50 rounded-lg p-3 text-sm">
