@@ -446,7 +446,15 @@ export default function EmployeeProfile() {
                 <CardTitle className="font-display text-base flex items-center gap-2">
                   <Palmtree className="h-4 w-4 text-primary" />
                   Férias
-                  <Badge variant="secondary" className="ml-auto text-xs">{vacations?.length || 0} pedidos</Badge>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <Badge variant="default" className="text-xs bg-green-600">
+                      {vacDaysEnjoyed}d gozados
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {Math.max(0, vacEntitled - vacDaysApproved)}d restantes
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">{vacEntitled}d direito</Badge>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
