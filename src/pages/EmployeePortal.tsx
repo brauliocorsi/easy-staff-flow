@@ -17,9 +17,10 @@ import {
   CalendarCheck2, Play, CheckCircle2, FileText, Briefcase, Star,
   MessageSquarePlus, User, Mail, Phone, Calendar, MapPin, Hash,
   ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2, ClipboardList,
-  Clock
+  Clock, Printer
 } from "lucide-react";
 import { format } from "date-fns";
+import { generateVacationMapPdf } from "@/lib/generateVacationMapPdf";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
@@ -364,6 +365,26 @@ export default function EmployeePortal() {
 
         {/* Vacations */}
         <SectionCard title="Férias" icon={Palmtree} iconClass="text-primary" count={data.vacations.length}>
+          {(() => {
+            const deptName: string | undefined = emp.departments?.name;
+            const sectorScope = deptName === "Fábrica" ? "factory" : deptName === "Armazém" ? "warehouse" : null;
+            const sectorVacs = data.sector_vacations || [];
+            if (!sectorScope || sectorVacs.length === 0) return null;
+            return (
+              <div className="mb-3 flex items-center justify-between p-2 rounded-md bg-muted/50 border">
+                <div className="text-xs text-muted-foreground">
+                  Mapa de férias do setor <strong>{deptName}</strong> ({currentYear})
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateVacationMapPdf(sectorVacs, currentYear, sectorScope as any)}
+                >
+                  <Printer className="h-3.5 w-3.5 mr-1" /> Imprimir
+                </Button>
+              </div>
+            );
+          })()}
           {data.vacations.length === 0 ? <EmptyText /> : (
             <div className="space-y-2 max-h-52 overflow-y-auto">
               {data.vacations.map((v: any) => {

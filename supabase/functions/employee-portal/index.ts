@@ -66,11 +66,49 @@ Deno.serve(async (req) => {
         }))
         .sort((a: any, b: any) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime());
 
+      // Sector vacations: fetch all vacation requests of the employee's department for current year
+      let sectorVacations: any[] = [];
+      try {
+        const deptName = (emp as any).departments?.name as string | undefined;
+        const currentYear = new Date().getFullYear();
+        if (deptName) {
+          const { data: deptRow } = await supabase
+            .from("departments")
+            .select("id")
+            .eq("name", deptName)
+            .maybeSingle();
+          if (deptRow?.id) {
+            const { data: deptEmps } = await supabase
+              .from("employees")
+              .select("id, first_name, last_name")
+              .eq("department_id", deptRow.id);
+            const empIds = (deptEmps || []).map((e: any) => e.id);
+            const empNameMap = new Map(
+              (deptEmps || []).map((e: any) => [e.id, { first_name: e.first_name, last_name: e.last_name }])
+            );
+            if (empIds.length > 0) {
+              const { data: secVacs } = await supabase
+                .from("vacation_requests")
+                .select("*")
+                .in("employee_id", empIds)
+                .eq("year", currentYear);
+              sectorVacations = (secVacs || []).map((v: any) => ({
+                ...v,
+                employees: empNameMap.get(v.employee_id) || null,
+              }));
+            }
+          }
+        }
+      } catch (_) {
+        sectorVacations = [];
+      }
+
       return new Response(JSON.stringify({
         employee: emp,
         absences: absences.data || [],
         warnings: warnings.data || [],
         vacations: vacations.data || [],
+        sector_vacations: sectorVacations,
         meetings: meetingsList,
         contracts: contracts.data || [],
         trainings: trainings.data || [],
