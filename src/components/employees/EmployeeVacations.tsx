@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { Palmtree, CheckCircle, Clock } from "lucide-react";
 import { useEmployeeVacations } from "@/hooks/useVacations";
 import { format } from "date-fns";
+import { isVacationEnjoyed } from "@/lib/vacationStatus";
 
 interface Props {
   employeeId: string;
@@ -23,10 +24,10 @@ export function EmployeeVacations({ employeeId }: Props) {
 
   const totalEntitled = Math.max(...(vacations || []).map(v => v.total_entitled_days), 22);
   const approvedDays = (vacations || [])
-    .filter((v) => (v.status === "approved" || v.enjoyed) && !(v as any).sell_status)
+    .filter((v) => (v.status === "approved" || isVacationEnjoyed(v as any)) && !(v as any).sell_status)
     .reduce((sum, v) => sum + v.days_count, 0);
   const enjoyedDays = (vacations || [])
-    .filter((v) => v.enjoyed)
+    .filter((v) => isVacationEnjoyed(v as any))
     .reduce((sum, v) => sum + v.days_count, 0);
   const soldDaysApproved = (vacations || [])
     .filter((v) => (v as any).sell_status === "sell_approved")
@@ -57,10 +58,11 @@ export function EmployeeVacations({ employeeId }: Props) {
         <div className="space-y-2">
           {vacations.map((v) => {
             const st = statusLabels[v.status] || statusLabels.pending;
+            const enjoyed = isVacationEnjoyed(v as any);
             return (
               <div key={v.id} className="flex items-center justify-between text-sm border rounded-md p-2">
                 <div className="flex items-center gap-2">
-                  {v.enjoyed ? (
+                  {enjoyed ? (
                     <CheckCircle className="h-4 w-4 text-green-500" />
                   ) : (
                     <Clock className="h-4 w-4 text-muted-foreground" />
@@ -73,7 +75,7 @@ export function EmployeeVacations({ employeeId }: Props) {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs capitalize">{v.category}</Badge>
                   <Badge variant={st.variant} className="text-xs">{st.label}</Badge>
-                  {v.enjoyed && <Badge variant="default" className="text-xs bg-green-600">Gozada</Badge>}
+                  {enjoyed && <Badge variant="default" className="text-xs bg-green-600">Gozada</Badge>}
                 </div>
               </div>
             );
