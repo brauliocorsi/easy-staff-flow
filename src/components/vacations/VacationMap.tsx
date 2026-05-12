@@ -99,8 +99,9 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
       const row = map.get(v.employee_id)!;
       row.requests.push(v);
       if (v.total_entitled_days > row.totalEntitled) row.totalEntitled = v.total_entitled_days;
-      if (v.status === "approved" || v.enjoyed) row.approvedDays += v.days_count;
-      if (v.enjoyed) row.enjoyedDays += v.days_count;
+      const enj = isVacationEnjoyed(v as any);
+      if (v.status === "approved" || enj) row.approvedDays += v.days_count;
+      if (enj) row.enjoyedDays += v.days_count;
     }
     return Array.from(map.values())
       .map((r) => ({
