@@ -503,7 +503,7 @@ export default function EmployeeProfile() {
                             <p className="text-xs text-muted-foreground">{v.days_count} dias · {v.year}</p>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {v.enjoyed && <Badge variant="default" className="text-xs">Gozado</Badge>}
+                            {isVacationEnjoyed(v as any) && <Badge variant="default" className="text-xs">Gozado</Badge>}
                             <Badge variant={vs.variant} className="text-xs">{vs.label}</Badge>
                           </div>
                         </div>
