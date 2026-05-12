@@ -32,7 +32,26 @@ const categoryLabel: Record<string, string> = {
   warehouse: "Armazém",
 };
 
-export function generateVacationMapPdf(vacations: VacationRequest[], year: number) {
+export type VacationMapScope = "all" | "individual" | "factory" | "warehouse";
+
+const scopeTitle: Record<VacationMapScope, string> = {
+  all: "Geral",
+  individual: "Individual",
+  factory: "Fábrica",
+  warehouse: "Armazém",
+};
+
+export function generateVacationMapPdf(
+  vacations: VacationRequest[],
+  year: number,
+  scope: VacationMapScope = "all"
+) {
+  // Filter by scope (category). For "individual" we also include records with
+  // no category set (legacy) treated as individual.
+  const filtered = scope === "all"
+    ? vacations
+    : vacations.filter((v) => (v.category || "individual") === scope);
+
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -43,7 +62,7 @@ export function generateVacationMapPdf(vacations: VacationRequest[], year: numbe
 
   // Group by employee (ignore sell-only records)
   const map = new Map<string, EmployeeRow>();
-  for (const v of vacations) {
+  for (const v of filtered) {
     if ((v as any).sell_status) continue;
     const name = v.employees ? `${v.employees.first_name} ${v.employees.last_name}` : "—";
     if (!map.has(v.employee_id)) {
@@ -76,7 +95,12 @@ export function generateVacationMapPdf(vacations: VacationRequest[], year: numbe
   // Header
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text(`MAPA DE FÉRIAS — ${year}`, pageWidth / 2, y, { align: "center" });
+  doc.text(
+    `MAPA DE FÉRIAS ${scope === "all" ? "" : `— ${scopeTitle[scope].toUpperCase()} `}— ${year}`,
+    pageWidth / 2,
+    y,
+    { align: "center" }
+  );
   y += 6;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
