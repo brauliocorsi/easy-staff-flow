@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateBulkVacationRequests, useGetVacationPublicLink, useVacationRequests } from "@/hooks/useVacations";
+import { useHolidays } from "@/hooks/useHolidays";
+import { calcWorkingDays } from "@/lib/vacationDays";
 
 interface DatePeriod {
   start_date: string;
@@ -25,25 +27,15 @@ interface Props {
   year: number;
 }
 
-function calcDays(start: string, end: string): number {
-  if (!start || !end) return 0;
-  const s = new Date(start);
-  const e = new Date(end);
-  let count = 0;
-  const d = new Date(s);
-  while (d <= e) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
 export function VacationFormDialog({ open, onClose, year }: Props) {
   const { data: employees } = useEmployees("");
   const { data: allVacations } = useVacationRequests(year);
+  const { holidays } = useHolidays();
   const createBulkMutation = useCreateBulkVacationRequests();
   const getLinkMutation = useGetVacationPublicLink();
   const loading = createBulkMutation.isPending;
+
+  const calcDays = (s: string, e: string) => calcWorkingDays(s, e, holidays);
 
   const [employeeId, setEmployeeId] = useState("");
   const [totalEntitledDays, setTotalEntitledDays] = useState("22");
