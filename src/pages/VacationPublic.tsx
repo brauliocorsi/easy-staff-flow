@@ -14,29 +14,18 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { calcWorkingDays, type HolidayLike } from "@/lib/vacationDays";
 
 interface DatePeriod {
   start_date: string;
   end_date: string;
 }
 
-function calcDays(start: string, end: string): number {
-  if (!start || !end) return 0;
-  const s = new Date(start);
-  const e = new Date(end);
-  let count = 0;
-  const d = new Date(s);
-  while (d <= e) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
 export default function VacationPublic() {
   const { token } = useParams<{ token: string }>();
   const [vacation, setVacation] = useState<any>(null);
   const [allPeriods, setAllPeriods] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<HolidayLike[]>([]);
   const [soldInfo, setSoldInfo] = useState<{ pending_sell: number; approved_sell: number; rejected_sell: number }>({ pending_sell: 0, approved_sell: 0, rejected_sell: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +50,7 @@ export default function VacationPublic() {
         setVacation(data.vacation);
         if (data.vacation.employee_confirmed) setSubmitted(true);
         if (data.sold_info) setSoldInfo(data.sold_info);
+        if (data.holidays) setHolidays(data.holidays);
         if (data.all_periods && data.all_periods.length > 0) {
           setAllPeriods(data.all_periods);
           const existingPeriods = data.all_periods
