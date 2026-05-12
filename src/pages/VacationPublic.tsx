@@ -35,6 +35,8 @@ export default function VacationPublic() {
   const [sellDays, setSellDays] = useState(1);
   const [sellSubmitting, setSellSubmitting] = useState(false);
 
+  const calcDays = (s: string, e: string) => calcWorkingDays(s, e, holidays);
+
   useEffect(() => {
     if (!token) return;
     fetchVacation();
