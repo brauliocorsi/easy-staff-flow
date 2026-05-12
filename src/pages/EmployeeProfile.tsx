@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,28 @@ const warningTypeMap: Record<string, string> = {
 export default function EmployeeProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Realtime: refresh health data when vacations / absences / warnings change
+  useEffect(() => {
+    if (!id) return;
+    const filter = `employee_id=eq.${id}`;
+    const channel = supabase
+      .channel(`employee-profile-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "vacation_requests", filter }, () => {
+        queryClient.invalidateQueries({ queryKey: ["employee-vacations", id] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "absences", filter }, () => {
+        queryClient.invalidateQueries({ queryKey: ["employee-absences", id] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "warnings", filter }, () => {
+        queryClient.invalidateQueries({ queryKey: ["employee-warnings", id] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
 
   // Employee data
   const { data: employee, isLoading: loadingEmp } = useQuery({
