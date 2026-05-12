@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { VacationRequest } from "@/hooks/useVacations";
 import { format } from "date-fns";
+import { useHolidays } from "@/hooks/useHolidays";
 
 interface Props {
   vacations: VacationRequest[];
@@ -54,6 +55,24 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
   const dayWidth = 3; // px per day
   const timelineWidth = totalDays * dayWidth;
   const nameColWidth = 160;
+  const { isHoliday } = useHolidays();
+
+  // Pre-compute background segments per day-of-year (weekend/holiday)
+  const dayBackgrounds = useMemo(() => {
+    const arr: Array<"weekend" | "holiday" | null> = [];
+    const start = new Date(year, 0, 1);
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = format(d, "yyyy-MM-dd");
+      if (isHoliday(iso)) arr.push("holiday");
+      else {
+        const dow = d.getDay();
+        arr.push(dow === 0 || dow === 6 ? "weekend" : null);
+      }
+    }
+    return arr;
+  }, [year, totalDays, isHoliday]);
 
   const employees = useMemo<EmployeeRow[]>(() => {
     const map = new Map<string, EmployeeRow>();
@@ -107,6 +126,12 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
               <div className="w-3 h-3 rounded-sm bg-warning" /> Armazém
             </div>
             <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm bg-muted" /> Fim de semana
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm bg-destructive/20" /> Feriado
+            </div>
+            <div className="flex items-center gap-1">
               <div className="w-3 h-3 rounded-sm border-2 border-dashed border-muted-foreground" /> Pendente
             </div>
           </div>
@@ -155,6 +180,20 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
                   {emp.name}
                 </div>
                 <div className="relative" style={{ width: timelineWidth, height: 36 }}>
+                  {/* Weekend / holiday backgrounds */}
+                  {dayBackgrounds.map((kind, i) =>
+                    kind ? (
+                      <div
+                        key={`bg-${i}`}
+                        className={
+                          kind === "holiday"
+                            ? "absolute top-0 h-full bg-destructive/15"
+                            : "absolute top-0 h-full bg-muted/40"
+                        }
+                        style={{ left: i * dayWidth, width: dayWidth }}
+                      />
+                    ) : null
+                  )}
                   {/* Month grid lines */}
                   {MONTHS.map((_, i) => {
                     const startDay = getMonthStartDay(year, i);

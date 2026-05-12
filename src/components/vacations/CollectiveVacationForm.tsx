@@ -16,6 +16,7 @@ import { useVacationSettings, useCreateBulkVacationRequests } from "@/hooks/useV
 import { useEmployees } from "@/hooks/useEmployees";
 import { useHolidays } from "@/hooks/useHolidays";
 import { calcWorkingDays } from "@/lib/vacationDays";
+import { useCategoryWorkingDays } from "@/hooks/useCategoryWorkingDays";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
@@ -41,15 +42,18 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
   const { holidays } = useHolidays();
   const createBulkMutation = useCreateBulkVacationRequests();
 
-  const calcDays = (s: string, e: string) => calcWorkingDays(s, e, holidays);
+  // Get active employees for this department category
+  const deptName = category === "factory" ? "Fábrica" : "Armazém";
+  const { data: workingDays } = useCategoryWorkingDays(deptName);
+
+  const calcDays = (s: string, e: string) =>
+    calcWorkingDays(s, e, holidays, workingDays);
 
   const [periods, setPeriods] = useState<PeriodEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   
 
-  // Get active employees for this department category
-  const deptName = category === "factory" ? "Fábrica" : "Armazém";
   const categoryEmployees = (employees || []).filter(
     (e) => e.status === "active" && (e as any).departments?.name === deptName
   );
@@ -308,6 +312,7 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
               {period.start_date && period.end_date && (
                 <p className="text-sm text-muted-foreground">
                   Dias úteis: <strong>{calcDays(period.start_date, period.end_date)}</strong>
+                  <span className="ml-2 text-xs">(considerando horário de {deptName.toLowerCase()} e feriados)</span>
                 </p>
               )}
 
