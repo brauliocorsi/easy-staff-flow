@@ -16,6 +16,7 @@ import { CollectiveVacationForm } from "@/components/vacations/CollectiveVacatio
 import { VacationMap } from "@/components/vacations/VacationMap";
 import { generateVacationMapPdf } from "@/lib/generateVacationMapPdf";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "outline" },
@@ -167,18 +168,53 @@ export default function Vacations() {
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" /> Novo Pedido
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (!vacations || vacations.length === 0) {
-                  toast.error("Sem dados para imprimir");
-                  return;
-                }
-                generateVacationMapPdf(vacations, year);
-              }}
-            >
-              <Printer className="h-4 w-4 mr-2" /> Imprimir Mapa
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Printer className="h-4 w-4 mr-2" /> Imprimir Mapa
+                  <ChevronDown className="h-3 w-3 ml-2 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Imprimir Mapa de Férias</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!vacations || vacations.length === 0) { toast.error("Sem dados para imprimir"); return; }
+                    generateVacationMapPdf(vacations, year, "all");
+                  }}
+                >
+                  <CalendarDays className="h-4 w-4 mr-2" /> Geral (todos)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const f = (vacations || []).filter((v) => (v.category || "individual") === "individual");
+                    if (f.length === 0) { toast.error("Sem dados individuais"); return; }
+                    generateVacationMapPdf(vacations || [], year, "individual");
+                  }}
+                >
+                  <Palmtree className="h-4 w-4 mr-2" /> Individual
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const f = (vacations || []).filter((v) => v.category === "factory");
+                    if (f.length === 0) { toast.error("Sem dados da Fábrica"); return; }
+                    generateVacationMapPdf(vacations || [], year, "factory");
+                  }}
+                >
+                  <Factory className="h-4 w-4 mr-2" /> Fábrica
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const f = (vacations || []).filter((v) => v.category === "warehouse");
+                    if (f.length === 0) { toast.error("Sem dados do Armazém"); return; }
+                    generateVacationMapPdf(vacations || [], year, "warehouse");
+                  }}
+                >
+                  <Warehouse className="h-4 w-4 mr-2" /> Armazém
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
