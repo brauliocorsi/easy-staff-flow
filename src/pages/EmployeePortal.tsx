@@ -19,6 +19,7 @@ import {
   ClipboardCheck, GraduationCap, HardHat, Wrench, Settings2, ClipboardList,
   Clock, Printer
 } from "lucide-react";
+import { isVacationEnjoyed } from "@/lib/vacationStatus";
 import { format } from "date-fns";
 import { generateVacationMapPdf } from "@/lib/generateVacationMapPdf";
 import { toast } from "sonner";
@@ -241,7 +242,7 @@ export default function EmployeePortal() {
   const justified = data.absences.filter((a: any) => a.justified).length;
   const currentYear = new Date().getFullYear();
   const curVac = data.vacations.filter((v: any) => v.year === currentYear);
-  const vacEnjoyed = curVac.reduce((s: number, v: any) => s + (v.enjoyed ? v.days_count : 0), 0);
+  const vacEnjoyed = curVac.reduce((s: number, v: any) => s + (isVacationEnjoyed(v) ? v.days_count : 0), 0);
   const vacEntitled = curVac[0]?.total_entitled_days || 22;
   const meetingsCompleted = data.meetings.filter((m: any) => m.status === "completed").length;
   const meetingsPresent = data.meetings.filter((m: any) => m.present && m.status === "completed").length;
