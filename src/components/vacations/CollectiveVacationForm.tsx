@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useVacationSettings, useCreateBulkVacationRequests } from "@/hooks/useVacations";
 import { useEmployees } from "@/hooks/useEmployees";
+import { useHolidays } from "@/hooks/useHolidays";
+import { calcWorkingDays } from "@/lib/vacationDays";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
@@ -33,23 +35,13 @@ interface PeriodEntry {
   selectedEmployeeIds: string[];
 }
 
-function calcDays(start: string, end: string): number {
-  if (!start || !end) return 0;
-  const s = new Date(start);
-  const e = new Date(end);
-  let count = 0;
-  const d = new Date(s);
-  while (d <= e) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
 export function CollectiveVacationForm({ year, category, title }: Props) {
   const { data: settings, isLoading } = useVacationSettings(year);
   const { data: employees } = useEmployees("");
+  const { holidays } = useHolidays();
   const createBulkMutation = useCreateBulkVacationRequests();
+
+  const calcDays = (s: string, e: string) => calcWorkingDays(s, e, holidays);
 
   const [periods, setPeriods] = useState<PeriodEntry[]>([]);
   const [saving, setSaving] = useState(false);
