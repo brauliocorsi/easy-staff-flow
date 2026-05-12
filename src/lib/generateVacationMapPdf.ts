@@ -89,7 +89,12 @@ export function generateVacationMapPdf(
     });
   }
   const employees = Array.from(map.values())
-    .map((r) => ({ ...r, remaining: Math.max(0, (r.totalEntitled || 22) - r.approvedDays) }))
+    .map((r) => ({
+      ...r,
+      // Ordenar períodos cronologicamente (data de início ascendente)
+      periods: [...r.periods].sort((a, b) => a.start.localeCompare(b.start)),
+      remaining: Math.max(0, (r.totalEntitled || 22) - r.approvedDays),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Header
