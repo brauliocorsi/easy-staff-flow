@@ -6,6 +6,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { VacationRequest } from "@/hooks/useVacations";
 import { format } from "date-fns";
 import { useHolidays } from "@/hooks/useHolidays";
+import { isVacationEnjoyed } from "@/lib/vacationStatus";
 
 interface Props {
   vacations: VacationRequest[];
@@ -266,7 +267,7 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
                     const barWidth = Math.max((endDoy - startDoy + 1) * dayWidth, dayWidth);
                     const colorClass = categoryColors[v.category] || "bg-primary";
                     const opacityClass = statusOpacity[v.status] || "opacity-80";
-                    const isEnjoyed = v.enjoyed;
+                    const isEnjoyed = isVacationEnjoyed(v as any);
 
                     return (
                       <Tooltip key={v.id}>
