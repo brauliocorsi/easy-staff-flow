@@ -15,6 +15,7 @@ import { VacationFormDialog } from "@/components/vacations/VacationFormDialog";
 import { CollectiveVacationForm } from "@/components/vacations/CollectiveVacationForm";
 import { VacationMap } from "@/components/vacations/VacationMap";
 import { generateVacationMapPdf } from "@/lib/generateVacationMapPdf";
+import { isVacationEnjoyed } from "@/lib/vacationStatus";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -70,9 +71,10 @@ function groupByEmployee(vacations: VacationRequest[]): EmployeeGroup[] {
     if (v.total_entitled_days > g.totalEntitled) {
       g.totalEntitled = v.total_entitled_days;
     }
+    const enjoyed = isVacationEnjoyed(v as any);
     g.totalDays += v.days_count;
-    if (v.status === "approved" || v.enjoyed) g.approvedDays += v.days_count;
-    if (v.enjoyed) g.enjoyedDays += v.days_count;
+    if (v.status === "approved" || enjoyed) g.approvedDays += v.days_count;
+    if (enjoyed) g.enjoyedDays += v.days_count;
   }
   return Array.from(map.values()).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }
@@ -146,9 +148,9 @@ export default function Vacations() {
   };
 
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-  const totalPending = (vacations || []).filter((v) => !v.enjoyed && v.status !== "rejected" && !v.sell_status).length;
+  const totalPending = (vacations || []).filter((v) => !isVacationEnjoyed(v as any) && v.status !== "rejected" && !v.sell_status).length;
   const totalApproved = (vacations || []).filter((v) => v.status === "approved" && !v.sell_status).length;
-  const totalEnjoyed = (vacations || []).filter((v) => v.enjoyed).length;
+  const totalEnjoyed = (vacations || []).filter((v) => isVacationEnjoyed(v as any)).length;
 
   return (
     <AppLayout>
@@ -370,11 +372,12 @@ export default function Vacations() {
 
                                 {/* Regular vacation requests */}
                                 {group.requests.map((v) => {
-                                  const st = statusLabels[v.status] || statusLabels.pending;
+                                   const st = statusLabels[v.status] || statusLabels.pending;
+                                   const enjoyed = isVacationEnjoyed(v as any);
                                   return (
                                     <div key={v.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-md p-2">
                                       <div className="flex items-center gap-2">
-                                        {v.enjoyed ? (
+                                         {enjoyed ? (
                                           <CheckCircle className="h-4 w-4 text-green-500" />
                                         ) : (
                                           <Clock className="h-4 w-4 text-muted-foreground" />
@@ -394,10 +397,10 @@ export default function Vacations() {
                                       <div className="flex items-center gap-1">
                                         <Badge variant={st.variant} className="text-xs">{st.label}</Badge>
                                         {v.employee_confirmed && <Badge variant="outline" className="text-xs">Func. OK</Badge>}
-                                        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => handleToggleEnjoyed(v.id, v.enjoyed)}>
-                                          <ToggleRight className={`h-3.5 w-3.5 mr-1 ${v.enjoyed ? "text-green-600" : "text-muted-foreground"}`} />
-                                          <span className="text-xs">{v.enjoyed ? "Gozada" : "Não gozada"}</span>
-                                        </Button>
+                                         <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => handleToggleEnjoyed(v.id, v.enjoyed)}>
+                                           <ToggleRight className={`h-3.5 w-3.5 mr-1 ${enjoyed ? "text-green-600" : "text-muted-foreground"}`} />
+                                           <span className="text-xs">{enjoyed ? "Gozada" : "Não gozada"}</span>
+                                         </Button>
                                         {v.status !== "approved" && (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
