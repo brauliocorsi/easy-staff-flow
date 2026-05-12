@@ -201,7 +201,27 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
                   style={{ width: nameColWidth }}
                   title={emp.name}
                 >
-                  {emp.name}
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <span className="truncate">{emp.name}</span>
+                    <div className="flex gap-1 shrink-0">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge className="text-[10px] bg-success text-success-foreground h-4 px-1">
+                            {emp.enjoyedDays}g
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>{emp.enjoyedDays} dias gozados</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-[10px] h-4 px-1">
+                            {emp.remaining}r
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>{emp.remaining} dias restantes (de {emp.totalEntitled})</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
                 </div>
                 <div className="relative" style={{ width: timelineWidth, height: 36 }}>
                   {/* Weekend / holiday backgrounds */}
