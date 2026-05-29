@@ -282,9 +282,9 @@ export default function Equipment() {
                             <TableCell>{epi.expiry_date ? format(new Date(epi.expiry_date + "T00:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
                             <TableCell>
                               {epi.signed_file_url ? (
-                                <a href={epi.signed_file_url} target="_blank" rel="noopener noreferrer">
+                                <SignedFileLink bucket="equipment" urlOrPath={epi.signed_file_url}>
                                   <Badge variant="default" className="gap-1 cursor-pointer"><FileCheck2 className="h-3 w-3" /> Sim</Badge>
-                                </a>
+                                </SignedFileLink>
                               ) : (
                                 <Badge variant="outline">Não</Badge>
                               )}
@@ -543,9 +543,9 @@ export default function Equipment() {
                                 <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                                 <TableCell>
                                   {r.invoice_url ? (
-                                    <a href={r.invoice_url} target="_blank" rel="noopener noreferrer">
+                                    <SignedFileLink bucket="equipment" urlOrPath={r.invoice_url}>
                                       <Badge variant="default" className="gap-1 cursor-pointer"><FileText className="h-3 w-3" /> Ver</Badge>
-                                    </a>
+                                    </SignedFileLink>
                                   ) : (
                                     <Badge variant="outline">—</Badge>
                                   )}

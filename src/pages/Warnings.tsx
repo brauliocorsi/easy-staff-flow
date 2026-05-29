@@ -231,9 +231,9 @@ export default function Warnings() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" asChild>
-                                    <a href={w.file_url} target="_blank" rel="noopener noreferrer">
+                                    <SignedFileLink bucket="documents" urlOrPath={w.file_url}>
                                       <FileText className="h-4 w-4 text-green-600" />
-                                    </a>
+                                    </SignedFileLink>
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>Ver documento assinado</TooltipContent>
@@ -369,9 +369,9 @@ export default function Warnings() {
                     </Button>
                     {w.file_url && (
                       <Button variant="outline" size="sm" asChild>
-                        <a href={w.file_url} target="_blank" rel="noopener noreferrer">
+                        <SignedFileLink bucket="documents" urlOrPath={w.file_url}>
                           <FileText className="h-4 w-4 mr-2" />Ver Documento
-                        </a>
+                        </SignedFileLink>
                       </Button>
                     )}
                   </div>

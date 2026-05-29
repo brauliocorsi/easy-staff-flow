@@ -243,7 +243,11 @@ export default function Vehicles() {
                       <TableCell>
                         <div className="flex gap-1">
                           <Button size="icon" variant="ghost" onClick={() => handleFileUpload(d.id)}><Upload className="h-4 w-4" /></Button>
-                          {d.file_url && <a href={d.file_url} target="_blank" rel="noopener noreferrer"><Button size="icon" variant="ghost"><ShieldCheck className="h-4 w-4" /></Button></a>}
+                          {d.file_url && (
+                            <SignedFileLink bucket="equipment" urlOrPath={d.file_url}>
+                              <Button size="icon" variant="ghost"><ShieldCheck className="h-4 w-4" /></Button>
+                            </SignedFileLink>
+                          )}
                           <Button size="icon" variant="ghost" onClick={() => { if (confirm("Eliminar?")) deleteDoc.mutate(d.id); }}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>

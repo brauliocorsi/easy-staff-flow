@@ -93,7 +93,7 @@ export default function Documents() {
                     <div className="flex gap-1">
                       {doc.file_url && (
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">Ver</a>
+                          <SignedFileLink bucket="documents" urlOrPath={doc.file_url}>Ver</SignedFileLink>
                         </Button>
                       )}
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>

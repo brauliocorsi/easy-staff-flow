@@ -805,9 +805,9 @@ export default function EmployeeProfile() {
                           </div>
                           <div className="flex items-center gap-1.5">
                             {ex.file_url && (
-                              <a href={ex.file_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">
+                              <SignedFileLink bucket="documents" urlOrPath={ex.file_url} className="text-primary hover:underline text-xs">
                                 Ficheiro
-                              </a>
+                              </SignedFileLink>
                             )}
                             <Badge variant={r.variant} className="text-xs">{r.label}</Badge>
                           </div>
