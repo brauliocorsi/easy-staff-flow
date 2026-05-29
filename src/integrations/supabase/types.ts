@@ -2062,6 +2062,10 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_manager_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      review_overtime_approval: {
+        Args: { _approval_id: string; _decision: string; _notes: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "employee"
