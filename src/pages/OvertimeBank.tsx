@@ -940,6 +940,8 @@ export default function OvertimeBank() {
 
         <OvertimeApprovalsTab employeeId={selectedEmployee || undefined} />
 
+        <MonthlyClosureTab employeeId={selectedEmployee || undefined} />
+
         <UseBankHoursDialog
           open={useBankOpen}
           onOpenChange={setUseBankOpen}
