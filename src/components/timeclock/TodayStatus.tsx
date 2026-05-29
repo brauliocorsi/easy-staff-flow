@@ -2,10 +2,10 @@ import { Badge } from "@/components/ui/badge";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   clock_in: { label: "Ainda não entrou", variant: "outline" },
-  lunch_out: { label: "Em trabalho", variant: "default" },
-  lunch_in: { label: "Almoço", variant: "secondary" },
+  lunch_out: { label: "Entrada registada", variant: "default" },
+  lunch_in: { label: "Em pausa de almoço", variant: "secondary" },
   clock_out: { label: "Após almoço", variant: "default" },
-  complete: { label: "Completo", variant: "secondary" },
+  complete: { label: "Dia completo", variant: "secondary" },
 };
 
 export function TodayStatus({ status, late }: { status: string; late?: boolean }) {

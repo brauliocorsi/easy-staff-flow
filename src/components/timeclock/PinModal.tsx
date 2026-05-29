@@ -10,17 +10,24 @@ import { toast } from "sonner";
 import type { EmployeeData } from "./EmployeeCard";
 
 const nextActionLabels: Record<string, string> = {
-  clock_in: "Registrar Entrada",
-  lunch_out: "Saída Almoço",
-  lunch_in: "Retorno Almoço",
-  clock_out: "Registrar Saída",
-  complete: "Ponto Completo",
+  clock_in: "Registar Entrada",
+  lunch_out: "Saída para Almoço",
+  lunch_in: "Regresso do Almoço",
+  clock_out: "Registar Saída",
+  complete: "Dia Completo",
 };
 
 const nextActionLabelsPartTime: Record<string, string> = {
-  clock_in: "Registrar Entrada",
-  clock_out: "Registrar Saída",
-  complete: "Ponto Completo",
+  clock_in: "Registar Entrada",
+  clock_out: "Registar Saída",
+  complete: "Dia Completo",
+};
+
+const successMessages: Record<string, (time: string) => string> = {
+  clock_in: (t) => `Entrada registada com sucesso às ${t}.`,
+  lunch_out: (t) => `Saída para almoço registada às ${t}.`,
+  lunch_in: (t) => `Regresso do almoço registado às ${t}.`,
+  clock_out: (t) => `Saída registada às ${t}.`,
 };
 
 interface Props {
@@ -96,13 +103,14 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
         return;
       }
 
-      toast.success(`${data.action_label} registrada às ${data.time}`);
+      const msg = successMessages[data.action]?.(data.time) ?? `${data.action_label} às ${data.time}.`;
+      toast.success(msg);
       setPin("");
       setSavedPin("");
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.message || "Erro ao registrar ponto");
+      toast.error(err.message || "Erro ao registar ponto");
       setPin("");
     } finally {
       setLoading(false);
@@ -153,7 +161,7 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display text-center">Registro de Ponto</DialogTitle>
+            <DialogTitle className="font-display text-center">Registo de Ponto</DialogTitle>
             <DialogDescription className="text-center">
               Digite seu PIN de 4 dígitos para confirmar
             </DialogDescription>
@@ -197,14 +205,14 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
                   size="lg"
                 >
                   {loading && <Loader2 className="animate-spin" />}
-                  Registrar
+                  Registar
                 </Button>
               </>
             )}
 
             {isComplete && (
               <p className="text-sm text-muted-foreground text-center">
-                Todas as batidas do dia já foram registradas.
+                Todas as picagens do dia já foram registadas.
               </p>
             )}
           </div>
