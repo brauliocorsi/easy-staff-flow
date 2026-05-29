@@ -192,8 +192,8 @@ Deno.serve(async (req) => {
     if (isClockOut && schedule && !schedule.is_day_off && tolerances) {
       const scheduledOutTime = partTime ? schedule.lunch_out_time : schedule.clock_out_time;
       const [schH, schM] = scheduledOutTime.split(":").map(Number);
-      const earlyLeaveToleranceMin = tolerances.tolerance_early_leave_minutes || 0;
-      const scheduledOutMinutes = schH * 60 + schM - earlyLeaveToleranceMin;
+      // Early leave has no tolerance — any minute before the scheduled exit requires confirmation.
+      const scheduledOutMinutes = schH * 60 + schM;
       const currentMinutes = local.hours * 60 + local.minutes;
 
       if (currentMinutes < scheduledOutMinutes) {
