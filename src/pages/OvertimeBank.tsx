@@ -590,6 +590,23 @@ export default function OvertimeBank() {
 
   const years = Array.from({ length: 5 }, (_, i) => String(currentDate.getFullYear() - 2 + i));
 
+  // -------- Conta-Corrente (Fase 2): movimentos do banco --------
+  const { data: bankMovements } = useQuery({
+    queryKey: ["time-bank-movements", selectedEmployee || "all"],
+    queryFn: async () => {
+      let q = supabase.from("time_bank_movements").select("*").order("record_date", { ascending: false });
+      if (selectedEmployee) q = q.eq("employee_id", selectedEmployee);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const bankBalance = useMemo(
+    () => computeBalance((bankMovements ?? []) as MovementLike[]),
+    [bankMovements]
+  );
+
   return (
     <AppLayout>
       <div className="space-y-6">
