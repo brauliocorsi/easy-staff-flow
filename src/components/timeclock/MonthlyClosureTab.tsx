@@ -7,11 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -20,7 +24,11 @@ import {
   computeMonthlyClosure, closureDecisionLabel,
   type ClosureDecision, type MovementLike,
 } from "@/lib/timeBank";
-import { Lock, Unlock, AlertTriangle } from "lucide-react";
+import {
+  computeMonthlyNegativeDiff, computePendingAttendanceDebit,
+  type AttendanceDay,
+} from "@/lib/attendanceReconciliation";
+import { Lock, Unlock, AlertTriangle, FileWarning } from "lucide-react";
 
 const MONTHS = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
