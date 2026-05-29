@@ -12,6 +12,10 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
 import { calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM, scheduledWorkMinutes, resolveTolerances, type Tolerances } from "@/lib/timeClock";
 import { useHolidays } from "@/hooks/useHolidays";
+import { computeBalance, type MovementLike } from "@/lib/timeBank";
+import { OvertimeApprovalsTab } from "@/components/timeclock/OvertimeApprovalsTab";
+import { UseBankHoursDialog } from "@/components/timeclock/UseBankHoursDialog";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 type DayRow = {
   date: string;
@@ -43,6 +47,8 @@ export default function OvertimeBank() {
   const [month, setMonth] = useState(String(currentDate.getMonth()));
   const [year, setYear] = useState(String(currentDate.getFullYear()));
   const { isHoliday, getHoliday } = useHolidays();
+  const { data: isAdmin } = useIsAdmin();
+  const [useBankOpen, setUseBankOpen] = useState(false);
 
   const { data: employees } = useQuery({
     queryKey: ["employees-active-overtime"],
