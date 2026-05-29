@@ -115,6 +115,27 @@ export default function OvertimeBank() {
     },
   });
 
+  // Per-employee schedule overrides (have priority over template)
+  const { data: employeeScheduleRows } = useQuery({
+    queryKey: ["employee-schedules-overtime", selectedEmployee],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_schedules")
+        .select("*")
+        .eq("employee_id", selectedEmployee);
+      if (error) throw error;
+      return data as Array<{
+        day_of_week: number;
+        clock_in_time: string;
+        lunch_out_time: string;
+        lunch_in_time: string;
+        clock_out_time: string;
+        is_day_off: boolean;
+      }>;
+    },
+  });
+
   // Fetch schedule template tolerances for selected employee
   const { data: selectedTemplate } = useQuery({
     queryKey: ["template-tolerance", emp?.schedule_template_id],
@@ -183,11 +204,22 @@ export default function OvertimeBank() {
   const defaultTolerances: Tolerances = resolveTolerances(null);
 
   const rows = useMemo(() => {
-    if (!records || !templateDays) return [];
+    if (!records) return [];
+    const hasIndividual = (employeeScheduleRows?.length || 0) > 0;
+    if (!hasIndividual && !templateDays) return [];
 
     const tolerances = resolveTolerances(selectedTemplate);
-    const scheduleMap = new Map<number, (typeof templateDays)[0]>();
-    templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
+    // Build schedule map: employee_schedules take priority over template
+    const scheduleMap = new Map<number, {
+      day_of_week: number;
+      clock_in_time: string;
+      lunch_out_time: string;
+      lunch_in_time: string;
+      clock_out_time: string;
+      is_day_off: boolean;
+    }>();
+    (templateDays || []).forEach((d) => scheduleMap.set(d.day_of_week, d as any));
+    (employeeScheduleRows || []).forEach((d) => scheduleMap.set(d.day_of_week, d));
 
     const recordMap = new Map<string, (typeof records)[0]>();
     records.forEach((r) => recordMap.set(r.record_date, r));
@@ -311,7 +343,7 @@ export default function OvertimeBank() {
     }
 
     return result;
-  }, [records, templateDays, bankAbsences, vacations, selectedTemplate, selectedMonth, selectedYear, getHoliday]);
+  }, [records, templateDays, employeeScheduleRows, bankAbsences, vacations, selectedTemplate, selectedMonth, selectedYear, getHoliday]);
 
   const totalBalance = rows.reduce((sum, r) => sum + r.diff, 0);
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
@@ -319,11 +351,14 @@ export default function OvertimeBank() {
 
   // Calculate previous month balance
   const prevMonthBalance = useMemo(() => {
-    if (!prevRecords || !templateDays) return 0;
+    if (!prevRecords) return 0;
+    const hasIndividual = (employeeScheduleRows?.length || 0) > 0;
+    if (!hasIndividual && !templateDays) return 0;
 
     const tolerances = resolveTolerances(selectedTemplate);
-    const scheduleMap = new Map<number, (typeof templateDays)[0]>();
-    templateDays.forEach((d) => scheduleMap.set(d.day_of_week, d));
+    const scheduleMap = new Map<number, any>();
+    (templateDays || []).forEach((d) => scheduleMap.set(d.day_of_week, d));
+    (employeeScheduleRows || []).forEach((d) => scheduleMap.set(d.day_of_week, d));
 
     const recordMap = new Map<string, (typeof prevRecords)[0]>();
     prevRecords.forEach((r) => recordMap.set(r.record_date, r));
@@ -363,7 +398,7 @@ export default function OvertimeBank() {
     }
 
     return balance;
-  }, [prevRecords, templateDays, prevBankAbsences, selectedTemplate, prevMonthDate, isHoliday]);
+  }, [prevRecords, templateDays, employeeScheduleRows, prevBankAbsences, selectedTemplate, prevMonthDate, isHoliday]);
 
   // Only sum prev + current when the month is closed (past month)
   const isCurrentMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
@@ -444,6 +479,18 @@ export default function OvertimeBank() {
     },
   });
 
+  // All per-employee schedule overrides (priority over templates) — for summary view
+  const { data: allEmployeeSchedules } = useQuery({
+    queryKey: ["overtime-all-employee-schedules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_schedules")
+        .select("employee_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const summaryPerEmployee = useMemo(() => {
     if (!employees || !allRecords || !allTemplateDays || !allTemplates) return [];
 
@@ -456,6 +503,13 @@ export default function OvertimeBank() {
     const toleranceMap = new Map<string, Tolerances>();
     allTemplates.forEach((t) => toleranceMap.set(t.id, t));
 
+    // Per-employee schedule overrides
+    const empScheduleMap = new Map<string, Map<number, any>>();
+    (allEmployeeSchedules || []).forEach((es: any) => {
+      if (!empScheduleMap.has(es.employee_id)) empScheduleMap.set(es.employee_id, new Map());
+      empScheduleMap.get(es.employee_id)!.set(es.day_of_week, es);
+    });
+
     function calcEmpBalance(
       empId: string,
       templateId: string | null,
@@ -464,8 +518,13 @@ export default function OvertimeBank() {
       monthStart: Date,
       monthEnd: Date
     ): number {
-      const schedMap = templateId ? templateDayMap.get(templateId) : null;
-      if (!schedMap) return 0;
+      const empOverride = empScheduleMap.get(empId);
+      const templateMap = templateId ? templateDayMap.get(templateId) : null;
+      if (!templateMap && !empOverride) return 0;
+      // Merge: template as base, employee overrides on top
+      const schedMap = new Map<number, any>();
+      if (templateMap) templateMap.forEach((v, k) => schedMap.set(k, v));
+      if (empOverride) empOverride.forEach((v, k) => schedMap.set(k, v));
       const tolerances = resolveTolerances(templateId ? toleranceMap.get(templateId) : null);
 
       const recordMap = new Map<string, (typeof recs)[0]>();
@@ -516,7 +575,7 @@ export default function OvertimeBank() {
       const isCurMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
       return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: isCurMonth ? pBalance : pBalance + curBalance };
     });
-  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate, isHoliday]);
+  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allEmployeeSchedules, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate, isHoliday]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
@@ -696,6 +755,13 @@ export default function OvertimeBank() {
                       </p>
                       <p className={`text-xl font-bold font-mono ${accumulatedBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {minutesToHHMM(accumulatedBalance)}
+                      </p>
+                      <p className={`text-[11px] font-medium mt-0.5 ${accumulatedBalance > 0 ? "text-primary" : accumulatedBalance < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {accumulatedBalance > 0
+                          ? "A favor do funcionário"
+                          : accumulatedBalance < 0
+                          ? "A dever à empresa"
+                          : "Banco equilibrado"}
                       </p>
                     </div>
                   </div>
