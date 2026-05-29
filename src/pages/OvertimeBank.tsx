@@ -479,6 +479,18 @@ export default function OvertimeBank() {
     },
   });
 
+  // All per-employee schedule overrides (priority over templates) — for summary view
+  const { data: allEmployeeSchedules } = useQuery({
+    queryKey: ["overtime-all-employee-schedules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_schedules")
+        .select("employee_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const summaryPerEmployee = useMemo(() => {
     if (!employees || !allRecords || !allTemplateDays || !allTemplates) return [];
 
@@ -491,6 +503,13 @@ export default function OvertimeBank() {
     const toleranceMap = new Map<string, Tolerances>();
     allTemplates.forEach((t) => toleranceMap.set(t.id, t));
 
+    // Per-employee schedule overrides
+    const empScheduleMap = new Map<string, Map<number, any>>();
+    (allEmployeeSchedules || []).forEach((es: any) => {
+      if (!empScheduleMap.has(es.employee_id)) empScheduleMap.set(es.employee_id, new Map());
+      empScheduleMap.get(es.employee_id)!.set(es.day_of_week, es);
+    });
+
     function calcEmpBalance(
       empId: string,
       templateId: string | null,
@@ -499,8 +518,13 @@ export default function OvertimeBank() {
       monthStart: Date,
       monthEnd: Date
     ): number {
-      const schedMap = templateId ? templateDayMap.get(templateId) : null;
-      if (!schedMap) return 0;
+      const empOverride = empScheduleMap.get(empId);
+      const templateMap = templateId ? templateDayMap.get(templateId) : null;
+      if (!templateMap && !empOverride) return 0;
+      // Merge: template as base, employee overrides on top
+      const schedMap = new Map<number, any>();
+      if (templateMap) templateMap.forEach((v, k) => schedMap.set(k, v));
+      if (empOverride) empOverride.forEach((v, k) => schedMap.set(k, v));
       const tolerances = resolveTolerances(templateId ? toleranceMap.get(templateId) : null);
 
       const recordMap = new Map<string, (typeof recs)[0]>();
@@ -551,7 +575,7 @@ export default function OvertimeBank() {
       const isCurMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
       return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: isCurMonth ? pBalance : pBalance + curBalance };
     });
-  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate, isHoliday]);
+  }, [employees, allRecords, allPrevRecords, allTemplateDays, allTemplates, allEmployeeSchedules, allBankAbsences, allPrevBankAbsences, selectedMonth, selectedYear, prevMonthDate, isHoliday]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
