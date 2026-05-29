@@ -699,7 +699,7 @@ export default function OvertimeBank() {
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                 <span>Tolerância atraso: <strong>{selectedTemplate.tolerance_late_minutes}min</strong></span>
                 <span>Tolerância extra: <strong>{selectedTemplate.tolerance_overtime_minutes}min</strong></span>
-                <span>Tolerância saída antecipada: <strong>{selectedTemplate.tolerance_early_leave_minutes}min</strong></span>
+                <span>Saída antecipada: <strong>sem tolerância</strong></span>
               </div>
             )}
 
