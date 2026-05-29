@@ -1181,6 +1181,63 @@ export type Database = {
           },
         ]
       }
+      overtime_approvals: {
+        Row: {
+          actual_clock_in: string | null
+          actual_clock_out: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          kind: string
+          minutes: number
+          record_date: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduled_clock_out: string | null
+          status: string
+          time_clock_record_id: string | null
+          tolerance_applied_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          actual_clock_in?: string | null
+          actual_clock_out?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          kind: string
+          minutes: number
+          record_date: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_clock_out?: string | null
+          status?: string
+          time_clock_record_id?: string | null
+          tolerance_applied_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_clock_in?: string | null
+          actual_clock_out?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          kind?: string
+          minutes?: number
+          record_date?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_clock_out?: string | null
+          status?: string
+          time_clock_record_id?: string | null
+          tolerance_applied_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1284,6 +1341,54 @@ export type Database = {
           tolerance_late_minutes?: number
           tolerance_overtime_minutes?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      time_adjustment_logs: {
+        Row: {
+          adjustment_type: string
+          approved_by: string | null
+          created_at: string
+          employee_id: string
+          field: string
+          id: string
+          new_value: string | null
+          previous_value: string | null
+          reason: string
+          record_date: string
+          requested_by: string | null
+          status: string
+          time_clock_record_id: string
+        }
+        Insert: {
+          adjustment_type: string
+          approved_by?: string | null
+          created_at?: string
+          employee_id: string
+          field: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+          reason: string
+          record_date: string
+          requested_by?: string | null
+          status?: string
+          time_clock_record_id: string
+        }
+        Update: {
+          adjustment_type?: string
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+          reason?: string
+          record_date?: string
+          requested_by?: string | null
+          status?: string
+          time_clock_record_id?: string
         }
         Relationships: []
       }
