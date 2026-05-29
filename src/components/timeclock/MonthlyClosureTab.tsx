@@ -47,6 +47,12 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   const [decision, setDecision] = useState<ClosureDecision>("carry_over_all");
   const [paidHours, setPaidHours] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [confirmReconciliation, setConfirmReconciliation] = useState(true);
+  // Regularização inicial
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [snapshotCutoff, setSnapshotCutoff] = useState<string>("");
+  const [snapshotHours, setSnapshotHours] = useState<string>("");
+  const [snapshotNotes, setSnapshotNotes] = useState<string>("");
 
   const effectiveEmp = employeeId ?? empId;
 
@@ -127,6 +133,132 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     },
   });
 
+  // --- Conciliação do ponto ---
+  // Carrega registos de ponto, horários (override + template) e tolerâncias do funcionário
+  // para calcular o diff negativo agregado do mês.
+  const { data: employeeMeta } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-employee-meta", effectiveEmp],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees").select("schedule_template_id").eq("id", effectiveEmp!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: templateDays } = useQuery({
+    enabled: !!employeeMeta?.schedule_template_id,
+    queryKey: ["closure-template-days", employeeMeta?.schedule_template_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_template_days").select("*").eq("template_id", employeeMeta!.schedule_template_id!);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: templateTol } = useQuery({
+    enabled: !!employeeMeta?.schedule_template_id,
+    queryKey: ["closure-template-tol", employeeMeta?.schedule_template_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_templates")
+        .select("tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes")
+        .eq("id", employeeMeta!.schedule_template_id!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: employeeScheduleRows } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-employee-schedules", effectiveEmp],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_schedules").select("*").eq("employee_id", effectiveEmp!);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: monthRecords } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-month-records", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("record_date, clock_in, lunch_out, lunch_in, clock_out")
+        .eq("employee_id", effectiveEmp!)
+        .gte("record_date", firstDay).lte("record_date", lastDay);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Pendentes positivos no mês (informativo)
+  const { data: pendingPositives } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-pending-pos", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("overtime_approvals")
+        .select("id", { count: "exact", head: true })
+        .eq("employee_id", effectiveEmp!)
+        .eq("status", "pending")
+        .gte("record_date", firstDay).lte("record_date", lastDay);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  // Débito de conciliação já lançado para este mês
+  const { data: existingAttendanceAdjustment } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-attendance-adj", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_bank_movements")
+        .select("minutes, status")
+        .eq("employee_id", effectiveEmp!)
+        .eq("source_type", "monthly_attendance_adjustment")
+        .neq("status", "cancelled")
+        .gte("record_date", firstDay).lte("record_date", lastDay);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const attendanceTotals = useMemo(() => {
+    if (!monthRecords) return { negative: 0, pendingDebit: 0, alreadyAdjusted: 0 };
+    // Build day-by-day matrix for the month
+    const recordByDate = new Map<string, any>();
+    for (const r of monthRecords) recordByDate.set(r.record_date as string, r);
+
+    // Schedule resolver: employee_schedules override > template
+    const indivMap = new Map<number, any>();
+    (employeeScheduleRows || []).forEach((s: any) => indivMap.set(s.day_of_week, s));
+    const templateMap = new Map<number, any>();
+    (templateDays || []).forEach((s: any) => templateMap.set(s.day_of_week, s));
+
+    const days: AttendanceDay[] = [];
+    const lastDayNum = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= lastDayNum; d++) {
+      const date = new Date(year, month - 1, d);
+      const iso = format(date, "yyyy-MM-dd");
+      const dow = date.getDay();
+      const sched = indivMap.get(dow) || templateMap.get(dow) || null;
+      const rec = recordByDate.get(iso) || null;
+      days.push({ schedule: sched, record: rec, tolerances: templateTol ?? null });
+    }
+    const negative = computeMonthlyNegativeDiff(days);
+    const alreadyAdjusted = (existingAttendanceAdjustment || []).reduce(
+      (a: number, m: any) => a + (m.minutes || 0), 0,
+    );
+    const pendingDebit = computePendingAttendanceDebit(negative, alreadyAdjusted);
+    return { negative, pendingDebit, alreadyAdjusted };
+  }, [monthRecords, employeeScheduleRows, templateDays, templateTol, existingAttendanceAdjustment, year, month]);
+
   const opening = prevClosure?.carried_over_minutes ?? 0;
   const previousMonthClosed = !!prevClosure;
   const hasPriorMovements = (priorMovementsCount ?? 0) > 0;
@@ -134,17 +266,20 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   const paidMinutes = decision === "pay_partial" || decision === "manual_adjustment"
     ? Math.round((parseFloat(paidHours || "0") || 0) * 60) : undefined;
 
+  const attendanceDebitToApply = confirmReconciliation ? attendanceTotals.pendingDebit : 0;
+
   const preview = useMemo(() => {
     if (!movements) return null;
     try {
       return computeMonthlyClosure({
         opening, movementsInMonth: movements, decision, paidMinutes, notes,
         previousMonthClosed, hasPriorMovements,
+        attendanceDebitMinutes: attendanceDebitToApply,
       });
     } catch (e: any) {
       return { error: e.message as string };
     }
-  }, [movements, opening, decision, paidMinutes, notes, previousMonthClosed, hasPriorMovements]);
+  }, [movements, opening, decision, paidMinutes, notes, previousMonthClosed, hasPriorMovements, attendanceDebitToApply]);
 
   const closeMut = useMutation({
     mutationFn: async () => {
@@ -154,6 +289,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _decision: decision,
         _paid_minutes: paidMinutes ?? 0,
         _notes: notes || null,
+        _attendance_debit_minutes: attendanceDebitToApply,
       });
       if (error) throw error;
       return data;
@@ -162,6 +298,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
       toast({ title: "Mês fechado", description: "Fecho registado com sucesso." });
       qc.invalidateQueries({ queryKey: ["closure-existing"] });
       qc.invalidateQueries({ queryKey: ["closure-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
       setNotes(""); setPaidHours("");
     },
@@ -176,9 +313,33 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     onSuccess: () => {
       toast({ title: "Mês reaberto" });
       refetchExisting();
+      qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
     },
     onError: (e: any) => toast({ title: "Erro ao reabrir", description: e.message, variant: "destructive" }),
+  });
+
+  const snapshotMut = useMutation({
+    mutationFn: async () => {
+      const minutes = Math.round((parseFloat(snapshotHours || "0") || 0) * 60);
+      const { data, error } = await supabase.rpc("create_opening_balance_snapshot", {
+        _employee_id: effectiveEmp!,
+        _cutoff_date: snapshotCutoff,
+        _minutes: minutes,
+        _notes: snapshotNotes,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Regularização criada", description: "Movimento inicial registado no banco." });
+      qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-prior-mov"] });
+      setSnapshotOpen(false);
+      setSnapshotCutoff(""); setSnapshotHours(""); setSnapshotNotes("");
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   const closed = !!existing?.is_locked;
