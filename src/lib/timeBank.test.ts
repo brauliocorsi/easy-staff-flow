@@ -335,3 +335,40 @@ describe("computeMonthlyClosure — transição mensal (bug Helder)", () => {
     expect(r.carriedOver).toBe(360);
   });
 });
+
+describe("computeMonthlyClosure — conciliação do ponto", () => {
+  it("R1 — diff negativo do ponto: opening 0 + attendanceDebit 535 = -535", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [],
+      decision: "carry_over_all",
+      attendanceDebitMinutes: 535,
+    });
+    expect(r.attendanceDebitApplied).toBe(535);
+    expect(r.approvedDebits).toBe(535);
+    expect(r.balanceBeforeClosure).toBe(-535);
+    expect(r.carriedOver).toBe(-535);
+  });
+
+  it("R2 — Helder maio: opening -180 + attendanceDebit 535 = -715", () => {
+    const r = computeMonthlyClosure({
+      opening: -180,
+      movementsInMonth: [],
+      decision: "carry_over_all",
+      attendanceDebitMinutes: 535,
+    });
+    expect(r.balanceBeforeClosure).toBe(-715);
+    expect(r.carriedOver).toBe(-715);
+  });
+
+  it("R3 — attendanceDebit zero (não duplica)", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [],
+      decision: "carry_over_all",
+      attendanceDebitMinutes: 0,
+    });
+    expect(r.attendanceDebitApplied).toBe(0);
+    expect(r.balanceBeforeClosure).toBe(0);
+  });
+});
