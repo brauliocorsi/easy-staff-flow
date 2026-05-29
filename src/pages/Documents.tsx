@@ -10,6 +10,7 @@ import { useEmployees } from "@/hooks/useEmployees";
 import { DocumentFormDialog } from "@/components/documents/DocumentFormDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const TYPE_LABELS: Record<string, string> = {
   contract: "Contrato",

@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import TrainingFormDialog from "@/components/trainings/TrainingFormDialog";
 import { generateTrainingPdf } from "@/lib/generateTrainingPdf";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const ANNUAL_REQUIRED_HOURS = 40;
 

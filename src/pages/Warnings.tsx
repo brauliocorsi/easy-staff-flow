@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const typeConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof AlertTriangle }> = {
   verbal: { label: "Verbal", variant: "outline", icon: MessageSquareWarning },

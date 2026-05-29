@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { isVacationEnjoyed } from "@/lib/vacationStatus";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Ativo", variant: "default" },

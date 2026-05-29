@@ -14,6 +14,7 @@ import { Stethoscope, Plus, Search, CheckCircle, XCircle, AlertTriangle, Upload,
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const examTypeMap: Record<string, string> = {
   admission: "Admissão",

@@ -26,6 +26,7 @@ import { MaintenanceTaskFormDialog } from "@/components/equipment/MaintenanceTas
 import { MaintenanceLogDialog } from "@/components/equipment/MaintenanceLogDialog";
 import { RepairFormDialog } from "@/components/equipment/RepairFormDialog";
 import { MachineHealthDialog } from "@/components/equipment/MachineHealthDialog";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   delivered: { label: "Entregue", variant: "default" },
