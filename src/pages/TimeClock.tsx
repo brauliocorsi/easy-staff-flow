@@ -37,6 +37,10 @@ export default function TimeClock() {
   useEffect(() => {
     if (pinFromUrl) {
       localStorage.setItem("timeclock-pin", pinFromUrl);
+      // Strip ?pin= from the URL so it isn't exposed in browser history.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("pin");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
     }
   }, [pinFromUrl]);
 
