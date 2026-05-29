@@ -20,7 +20,7 @@ import {
   computeMonthlyClosure, closureDecisionLabel,
   type ClosureDecision, type MovementLike,
 } from "@/lib/timeBank";
-import { Lock, Unlock } from "lucide-react";
+import { Lock, Unlock, AlertTriangle } from "lucide-react";
 
 const MONTHS = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -88,6 +88,22 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     },
   });
 
+  // Detecta se existem movimentos anteriores ao 1º dia deste mês.
+  // Se houver e o mês anterior não estiver fechado, o fecho deve ser bloqueado.
+  const { data: priorMovementsCount } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-prior-mov", effectiveEmp, firstDay],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("time_bank_movements")
+        .select("id", { count: "exact", head: true })
+        .eq("employee_id", effectiveEmp!)
+        .lt("record_date", firstDay);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   const { data: existing, refetch: refetchExisting } = useQuery({
     enabled: !!effectiveEmp,
     queryKey: ["closure-existing", effectiveEmp, year, month],
@@ -104,17 +120,23 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   });
 
   const opening = prevClosure?.carried_over_minutes ?? 0;
+  const previousMonthClosed = !!prevClosure;
+  const hasPriorMovements = (priorMovementsCount ?? 0) > 0;
+  const blockedByMissingPrev = hasPriorMovements && !previousMonthClosed;
   const paidMinutes = decision === "pay_partial" || decision === "manual_adjustment"
     ? Math.round((parseFloat(paidHours || "0") || 0) * 60) : undefined;
 
   const preview = useMemo(() => {
     if (!movements) return null;
     try {
-      return computeMonthlyClosure({ opening, movementsInMonth: movements, decision, paidMinutes, notes });
+      return computeMonthlyClosure({
+        opening, movementsInMonth: movements, decision, paidMinutes, notes,
+        previousMonthClosed, hasPriorMovements,
+      });
     } catch (e: any) {
       return { error: e.message as string };
     }
-  }, [movements, opening, decision, paidMinutes, notes]);
+  }, [movements, opening, decision, paidMinutes, notes, previousMonthClosed, hasPriorMovements]);
 
   const closeMut = useMutation({
     mutationFn: async () => {
@@ -195,6 +217,21 @@ export function MonthlyClosureTab({ employeeId }: Props) {
           <p className="text-sm text-muted-foreground">Seleciona um funcionário para começar.</p>
         ) : (
           <>
+            {blockedByMissingPrev && !closed && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm flex gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
+                <div>
+                  <p className="font-medium text-destructive">
+                    Mês anterior ({MONTHS[prevMonth - 1]}/{prevYear}) ainda não está fechado.
+                  </p>
+                  <p className="text-muted-foreground text-xs mt-1">
+                    Existem movimentos do banco de horas anteriores a este mês. Feche o mês anterior
+                    antes de fechar este — caso contrário o saldo transitado seria assumido como 0
+                    e o histórico ficaria incorreto.
+                  </p>
+                </div>
+              </div>
+            )}
             {existing && (
               <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
                 <div className="flex items-center gap-2">

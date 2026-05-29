@@ -154,6 +154,18 @@ export type MonthlyClosureInput = {
   paidMinutes?: number;
   /** Motivo (obrigatório para pay_partial e manual_adjustment). */
   notes?: string | null;
+  /**
+   * Indica se o mês anterior já foi fechado. Default = true.
+   * Quando false E `hasPriorMovements` for true, o fecho é bloqueado para evitar
+   * que o saldo transitado seja silenciosamente assumido como 0.
+   */
+  previousMonthClosed?: boolean;
+  /**
+   * Indica se existem movimentos anteriores ao início deste mês.
+   * Usado em conjunto com `previousMonthClosed` para decidir se o fecho do
+   * mês anterior é obrigatório.
+   */
+  hasPriorMovements?: boolean;
 };
 
 export type MonthlyClosureResult = {
@@ -176,6 +188,14 @@ export type MonthlyClosureResult = {
  * Lança Error PT-PT quando as regras são violadas.
  */
 export function computeMonthlyClosure(opts: MonthlyClosureInput): MonthlyClosureResult {
+  // Regra de transição: se houver movimentos anteriores ao início deste mês
+  // e o mês anterior NÃO estiver fechado, não é seguro assumir opening = 0.
+  if (opts.hasPriorMovements && opts.previousMonthClosed === false) {
+    throw new Error(
+      "O mês anterior ainda não está fechado. Feche o mês anterior antes de fechar este mês.",
+    );
+  }
+
   // Exclui qualquer movimento de payout para evitar dupla contagem (são pagamentos
   // do próprio fecho e devem ser registados separadamente).
   const movs = opts.movementsInMonth.filter((m) => m.source_type !== "payout");
