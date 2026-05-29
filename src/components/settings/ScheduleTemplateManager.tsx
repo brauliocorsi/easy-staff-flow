@@ -141,7 +141,7 @@ function TemplateEditor({
           <ShieldAlert className="h-4 w-4" />
           Tolerâncias (minutos)
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
             <Label className="text-xs">Atraso</Label>
             <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_late_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_late_minutes: parseInt(e.target.value) || 0 }))} />
@@ -150,12 +150,8 @@ function TemplateEditor({
             <Label className="text-xs">Hora Extra</Label>
             <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_overtime_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_overtime_minutes: parseInt(e.target.value) || 0 }))} />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Saída Antecipada</Label>
-            <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_early_leave_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_early_leave_minutes: parseInt(e.target.value) || 0 }))} />
-          </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">Atraso: minutos tolerados antes de marcar atraso · Hora Extra: minutos após saída antes de contar hora extra · Saída Antecipada: minutos tolerados para sair mais cedo</p>
+        <p className="text-[11px] text-muted-foreground">Atraso: minutos tolerados antes de debitar atraso · Hora Extra: minutos após saída antes de contar hora extra · Saída antecipada: sem tolerância, debitada desde o 1º minuto.</p>
       </div>
     </div>
   );
