@@ -668,6 +668,7 @@ export default function OvertimeBank() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Funcionário</TableHead>
+                    <TableHead className="text-right">Saldo Mensal</TableHead>
                     <TableHead className="text-right">Saldo Acumulado</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -675,6 +676,11 @@ export default function OvertimeBank() {
                   {summaryPerEmployee?.map((e) => (
                     <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedEmployee(e.id)}>
                       <TableCell className="font-medium">{e.first_name} {e.last_name}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={e.balance > 0 ? "default" : e.balance < 0 ? "destructive" : "secondary"} className="font-mono font-bold">
+                          {minutesToHHMM(e.balance)}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
                         <Badge variant={e.accumulated > 0 ? "default" : e.accumulated < 0 ? "destructive" : "secondary"} className="font-mono font-bold">
                           {minutesToHHMM(e.accumulated)}
@@ -684,7 +690,7 @@ export default function OvertimeBank() {
                   ))}
                   {(!summaryPerEmployee || summaryPerEmployee.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-8">Sem dados disponíveis</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
