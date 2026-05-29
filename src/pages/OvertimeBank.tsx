@@ -756,6 +756,13 @@ export default function OvertimeBank() {
                       <p className={`text-xl font-bold font-mono ${accumulatedBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {minutesToHHMM(accumulatedBalance)}
                       </p>
+                      <p className={`text-[11px] font-medium mt-0.5 ${accumulatedBalance > 0 ? "text-primary" : accumulatedBalance < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {accumulatedBalance > 0
+                          ? "A favor do funcionário"
+                          : accumulatedBalance < 0
+                          ? "A dever à empresa"
+                          : "Banco equilibrado"}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
