@@ -15,6 +15,7 @@ import { useHolidays } from "@/hooks/useHolidays";
 import { computeBalance, type MovementLike } from "@/lib/timeBank";
 import { OvertimeApprovalsTab } from "@/components/timeclock/OvertimeApprovalsTab";
 import { UseBankHoursDialog } from "@/components/timeclock/UseBankHoursDialog";
+import { MonthlyClosureTab } from "@/components/timeclock/MonthlyClosureTab";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 type DayRow = {
