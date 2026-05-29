@@ -1395,6 +1395,81 @@ export type Database = {
         }
         Relationships: []
       }
+      time_bank_monthly_closures: {
+        Row: {
+          approved_credits_minutes: number
+          approved_debits_minutes: number
+          balance_before_closure_minutes: number
+          carried_over_minutes: number
+          closed_at: string
+          closed_by: string | null
+          closing_balance_minutes: number
+          closure_decision: string
+          closure_notes: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          is_locked: boolean
+          opening_balance_minutes: number
+          paid_minutes: number
+          paid_on_closure_minutes: number
+          payout_movement_id: string | null
+          pending_minutes_at_close: number
+          period_month: number
+          period_year: number
+          rejected_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          approved_credits_minutes?: number
+          approved_debits_minutes?: number
+          balance_before_closure_minutes?: number
+          carried_over_minutes?: number
+          closed_at?: string
+          closed_by?: string | null
+          closing_balance_minutes?: number
+          closure_decision: string
+          closure_notes?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          is_locked?: boolean
+          opening_balance_minutes?: number
+          paid_minutes?: number
+          paid_on_closure_minutes?: number
+          payout_movement_id?: string | null
+          pending_minutes_at_close?: number
+          period_month: number
+          period_year: number
+          rejected_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_credits_minutes?: number
+          approved_debits_minutes?: number
+          balance_before_closure_minutes?: number
+          carried_over_minutes?: number
+          closed_at?: string
+          closed_by?: string | null
+          closing_balance_minutes?: number
+          closure_decision?: string
+          closure_notes?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          is_locked?: boolean
+          opening_balance_minutes?: number
+          paid_minutes?: number
+          paid_on_closure_minutes?: number
+          payout_movement_id?: string | null
+          pending_minutes_at_close?: number
+          period_month?: number
+          period_year?: number
+          rejected_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       time_bank_movements: {
         Row: {
           approved_at: string | null
@@ -2052,6 +2127,17 @@ export type Database = {
         Args: { _employee_id: string; _viewer_id: string }
         Returns: boolean
       }
+      close_time_bank_month: {
+        Args: {
+          _decision: string
+          _employee_id: string
+          _month: number
+          _notes?: string
+          _paid_minutes?: number
+          _year: number
+        }
+        Returns: Json
+      }
       get_employee_id_for_user: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -2062,6 +2148,7 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_manager_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      reopen_time_bank_month: { Args: { _closure_id: string }; Returns: Json }
       review_overtime_approval: {
         Args: { _approval_id: string; _decision: string; _notes: string }
         Returns: Json

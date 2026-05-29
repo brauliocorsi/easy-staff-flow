@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeBalance, type MovementLike } from "./timeBank";
+import { computeBalance, computeMonthlyClosure, type MovementLike } from "./timeBank";
 
 const mk = (m: Partial<MovementLike>): MovementLike => ({
   source_type: "overtime",
@@ -114,5 +114,147 @@ describe("computeBalance — conta-corrente do banco de horas", () => {
     expect(computeBalance([])).toEqual({
       approved: 0, pending: 0, paid: 0, rejected: 0, used: 0, available: 0, potential: 0,
     });
+  });
+});
+
+describe("computeMonthlyClosure — fecho mensal", () => {
+  const credit = (mins: number, status: "approved" | "pending" = "approved"): MovementLike => ({
+    source_type: "overtime",
+    movement_type: "credit",
+    minutes: mins,
+    effective_minutes: status === "approved" ? mins : 0,
+    status,
+    decision: "credit_to_bank",
+  });
+  const debit = (mins: number): MovementLike => ({
+    source_type: "compensation_used",
+    movement_type: "debit",
+    minutes: mins,
+    effective_minutes: -mins,
+    status: "approved",
+    decision: "use_bank_hours",
+  });
+
+  it("C1 — transitar +5h", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [credit(300)],
+      decision: "carry_over_all",
+    });
+    expect(r.balanceBeforeClosure).toBe(300);
+    expect(r.paidOnClosure).toBe(0);
+    expect(r.carriedOver).toBe(300);
+    expect(r.closingBalance).toBe(300);
+  });
+
+  it("C2 — transitar -4h", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [debit(240)],
+      decision: "carry_over_all",
+    });
+    expect(r.balanceBeforeClosure).toBe(-240);
+    expect(r.carriedOver).toBe(-240);
+  });
+
+  it("C3 — negativo absorvido por créditos do mês seguinte", () => {
+    const r = computeMonthlyClosure({
+      opening: -240,
+      movementsInMonth: [credit(120)],
+      decision: "carry_over_all",
+    });
+    expect(r.balanceBeforeClosure).toBe(-120);
+    expect(r.carriedOver).toBe(-120);
+  });
+
+  it("C4 — pagar tudo +3h", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [credit(180)],
+      decision: "pay_all_and_zero",
+    });
+    expect(r.paidOnClosure).toBe(180);
+    expect(r.carriedOver).toBe(0);
+  });
+
+  it("C5 — pagar parcial 5h de 10h", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [credit(600)],
+      decision: "pay_partial",
+      paidMinutes: 300,
+      notes: "Pagamento parcial Fevereiro",
+    });
+    expect(r.paidOnClosure).toBe(300);
+    expect(r.carriedOver).toBe(300);
+  });
+
+  it("C6 — tentar pagar 6h de 4h → erro", () => {
+    expect(() =>
+      computeMonthlyClosure({
+        opening: 0,
+        movementsInMonth: [credit(240)],
+        decision: "pay_partial",
+        paidMinutes: 360,
+        notes: "ok",
+      }),
+    ).toThrow(/saldo disponível/);
+  });
+
+  it("C7 — pay_all_and_zero com saldo 0/negativo → erro", () => {
+    expect(() =>
+      computeMonthlyClosure({
+        opening: 0,
+        movementsInMonth: [debit(60)],
+        decision: "pay_all_and_zero",
+      }),
+    ).toThrow(/saldo positivo/);
+  });
+
+  it("C8 — opening do mês seguinte = carried do anterior (chaining)", () => {
+    const jan = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [credit(300)],
+      decision: "carry_over_all",
+    });
+    const fev = computeMonthlyClosure({
+      opening: jan.carriedOver,
+      movementsInMonth: [credit(120)],
+      decision: "carry_over_all",
+    });
+    expect(fev.balanceBeforeClosure).toBe(420);
+    expect(fev.carriedOver).toBe(420);
+  });
+
+  it("pay_partial sem motivo → erro", () => {
+    expect(() =>
+      computeMonthlyClosure({
+        opening: 0,
+        movementsInMonth: [credit(600)],
+        decision: "pay_partial",
+        paidMinutes: 300,
+      }),
+    ).toThrow(/Motivo/);
+  });
+
+  it("ignora movimentos payout no agregado (anti-duplicação)", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [
+        credit(300),
+        {
+          source_type: "payout",
+          movement_type: "debit",
+          minutes: 300,
+          effective_minutes: -300,
+          status: "paid",
+          decision: "pay_as_overtime",
+        },
+      ],
+      decision: "carry_over_all",
+    });
+    expect(r.approvedCredits).toBe(300);
+    expect(r.paid).toBe(0);
+    expect(r.balanceBeforeClosure).toBe(300);
   });
 });
