@@ -1,0 +1,162 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { minutesToHHMM } from "@/lib/timeClock";
+
+type Decision =
+  | "credit_to_bank"
+  | "pay_as_overtime"
+  | "compensatory_rest"
+  | "offset_negative_balance"
+  | "reject";
+
+type Approval = {
+  id: string;
+  employee_id: string;
+  record_date: string;
+  kind: "overtime" | "day_off_work" | "holiday_work";
+  minutes: number;
+  time_clock_record_id: string | null;
+};
+
+const KIND_LABEL: Record<Approval["kind"], string> = {
+  overtime: "Hora Extra",
+  day_off_work: "Trabalho em Dia de Folga",
+  holiday_work: "Trabalho em Feriado",
+};
+
+export function ApproveOvertimeDialog({
+  approval,
+  open,
+  onOpenChange,
+}: {
+  approval: Approval | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [decision, setDecision] = useState<Decision | "">("");
+  const [notes, setNotes] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!approval) throw new Error("Sem aprovação selecionada");
+      if (!decision) throw new Error("Escolha o destino das horas");
+      const isReject = decision === "reject";
+      const status = isReject ? "rejected" : "approved";
+
+      // 1) Update overtime_approvals
+      const { error: upErr } = await supabase
+        .from("overtime_approvals")
+        .update({
+          status,
+          decision,
+          review_notes: notes || null,
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", approval.id);
+      if (upErr) throw upErr;
+
+      // 2) Create time_bank_movement (audit row) — always, even on reject
+      let movement_type: "credit" | "debit" | "neutral" = "credit";
+      let effective_minutes = approval.minutes;
+      let mov_status: "approved" | "rejected" | "paid" = "approved";
+      let source_type: string = approval.kind;
+
+      if (decision === "pay_as_overtime") {
+        movement_type = "neutral";
+        effective_minutes = 0;
+        mov_status = "paid";
+      } else if (decision === "reject") {
+        movement_type = "neutral";
+        effective_minutes = 0;
+        mov_status = "rejected";
+      } else if (decision === "compensatory_rest") {
+        source_type = "compensatory_rest";
+      }
+
+      const { error: movErr } = await supabase.from("time_bank_movements").insert({
+        employee_id: approval.employee_id,
+        record_date: approval.record_date,
+        source_type,
+        source_id: approval.id,
+        movement_type,
+        minutes: approval.minutes,
+        effective_minutes,
+        decision,
+        status: mov_status,
+        description: notes || `${KIND_LABEL[approval.kind]} — ${approval.record_date}`,
+        created_by: user?.id ?? null,
+        approved_by: user?.id ?? null,
+        approved_at: new Date().toISOString(),
+      });
+      if (movErr) throw movErr;
+    },
+    onSuccess: () => {
+      toast.success("Decisão registada");
+      qc.invalidateQueries({ queryKey: ["overtime-approvals"] });
+      qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
+      onOpenChange(false);
+      setDecision("");
+      setNotes("");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao registar decisão"),
+  });
+
+  if (!approval) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Decidir destino das horas</DialogTitle>
+          <DialogDescription>
+            {KIND_LABEL[approval.kind]} — {approval.record_date} —{" "}
+            <span className="font-mono font-bold">{minutesToHHMM(approval.minutes)}</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label>Destino das horas *</Label>
+            <Select value={decision} onValueChange={(v) => setDecision(v as Decision)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Escolha o destino..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="credit_to_bank">Creditar no Banco de Horas</SelectItem>
+                <SelectItem value="pay_as_overtime">Pagar como Hora Extra</SelectItem>
+                <SelectItem value="compensatory_rest">Converter em Descanso Compensatório</SelectItem>
+                <SelectItem value="offset_negative_balance">Usar para Abater Saldo Negativo</SelectItem>
+                <SelectItem value="reject">Rejeitar</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Nota / motivo (opcional)</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={() => mutation.mutate()} disabled={!decision || mutation.isPending}>
+            {mutation.isPending ? "A registar..." : "Registar decisão"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
