@@ -7,11 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -20,7 +24,11 @@ import {
   computeMonthlyClosure, closureDecisionLabel,
   type ClosureDecision, type MovementLike,
 } from "@/lib/timeBank";
-import { Lock, Unlock, AlertTriangle } from "lucide-react";
+import {
+  computeMonthlyNegativeDiff, computePendingAttendanceDebit,
+  type AttendanceDay,
+} from "@/lib/attendanceReconciliation";
+import { Lock, Unlock, AlertTriangle, FileWarning } from "lucide-react";
 
 const MONTHS = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -39,6 +47,12 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   const [decision, setDecision] = useState<ClosureDecision>("carry_over_all");
   const [paidHours, setPaidHours] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [confirmReconciliation, setConfirmReconciliation] = useState(true);
+  // Regularização inicial
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [snapshotCutoff, setSnapshotCutoff] = useState<string>("");
+  const [snapshotHours, setSnapshotHours] = useState<string>("");
+  const [snapshotNotes, setSnapshotNotes] = useState<string>("");
 
   const effectiveEmp = employeeId ?? empId;
 
@@ -119,6 +133,132 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     },
   });
 
+  // --- Conciliação do ponto ---
+  // Carrega registos de ponto, horários (override + template) e tolerâncias do funcionário
+  // para calcular o diff negativo agregado do mês.
+  const { data: employeeMeta } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-employee-meta", effectiveEmp],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees").select("schedule_template_id").eq("id", effectiveEmp!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: templateDays } = useQuery({
+    enabled: !!employeeMeta?.schedule_template_id,
+    queryKey: ["closure-template-days", employeeMeta?.schedule_template_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_template_days").select("*").eq("template_id", employeeMeta!.schedule_template_id!);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: templateTol } = useQuery({
+    enabled: !!employeeMeta?.schedule_template_id,
+    queryKey: ["closure-template-tol", employeeMeta?.schedule_template_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_templates")
+        .select("tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes")
+        .eq("id", employeeMeta!.schedule_template_id!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: employeeScheduleRows } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-employee-schedules", effectiveEmp],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_schedules").select("*").eq("employee_id", effectiveEmp!);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: monthRecords } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-month-records", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("record_date, clock_in, lunch_out, lunch_in, clock_out")
+        .eq("employee_id", effectiveEmp!)
+        .gte("record_date", firstDay).lte("record_date", lastDay);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Pendentes positivos no mês (informativo)
+  const { data: pendingPositives } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-pending-pos", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("overtime_approvals")
+        .select("id", { count: "exact", head: true })
+        .eq("employee_id", effectiveEmp!)
+        .eq("status", "pending")
+        .gte("record_date", firstDay).lte("record_date", lastDay);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  // Débito de conciliação já lançado para este mês
+  const { data: existingAttendanceAdjustment } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-attendance-adj", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_bank_movements")
+        .select("minutes, status")
+        .eq("employee_id", effectiveEmp!)
+        .eq("source_type", "monthly_attendance_adjustment")
+        .neq("status", "cancelled")
+        .gte("record_date", firstDay).lte("record_date", lastDay);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const attendanceTotals = useMemo(() => {
+    if (!monthRecords) return { negative: 0, pendingDebit: 0, alreadyAdjusted: 0 };
+    // Build day-by-day matrix for the month
+    const recordByDate = new Map<string, any>();
+    for (const r of monthRecords) recordByDate.set(r.record_date as string, r);
+
+    // Schedule resolver: employee_schedules override > template
+    const indivMap = new Map<number, any>();
+    (employeeScheduleRows || []).forEach((s: any) => indivMap.set(s.day_of_week, s));
+    const templateMap = new Map<number, any>();
+    (templateDays || []).forEach((s: any) => templateMap.set(s.day_of_week, s));
+
+    const days: AttendanceDay[] = [];
+    const lastDayNum = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= lastDayNum; d++) {
+      const date = new Date(year, month - 1, d);
+      const iso = format(date, "yyyy-MM-dd");
+      const dow = date.getDay();
+      const sched = indivMap.get(dow) || templateMap.get(dow) || null;
+      const rec = recordByDate.get(iso) || null;
+      days.push({ schedule: sched, record: rec, tolerances: templateTol ?? null });
+    }
+    const negative = computeMonthlyNegativeDiff(days);
+    const alreadyAdjusted = (existingAttendanceAdjustment || []).reduce(
+      (a: number, m: any) => a + (m.minutes || 0), 0,
+    );
+    const pendingDebit = computePendingAttendanceDebit(negative, alreadyAdjusted);
+    return { negative, pendingDebit, alreadyAdjusted };
+  }, [monthRecords, employeeScheduleRows, templateDays, templateTol, existingAttendanceAdjustment, year, month]);
+
   const opening = prevClosure?.carried_over_minutes ?? 0;
   const previousMonthClosed = !!prevClosure;
   const hasPriorMovements = (priorMovementsCount ?? 0) > 0;
@@ -126,17 +266,20 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   const paidMinutes = decision === "pay_partial" || decision === "manual_adjustment"
     ? Math.round((parseFloat(paidHours || "0") || 0) * 60) : undefined;
 
+  const attendanceDebitToApply = confirmReconciliation ? attendanceTotals.pendingDebit : 0;
+
   const preview = useMemo(() => {
     if (!movements) return null;
     try {
       return computeMonthlyClosure({
         opening, movementsInMonth: movements, decision, paidMinutes, notes,
         previousMonthClosed, hasPriorMovements,
+        attendanceDebitMinutes: attendanceDebitToApply,
       });
     } catch (e: any) {
       return { error: e.message as string };
     }
-  }, [movements, opening, decision, paidMinutes, notes, previousMonthClosed, hasPriorMovements]);
+  }, [movements, opening, decision, paidMinutes, notes, previousMonthClosed, hasPriorMovements, attendanceDebitToApply]);
 
   const closeMut = useMutation({
     mutationFn: async () => {
@@ -146,6 +289,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _decision: decision,
         _paid_minutes: paidMinutes ?? 0,
         _notes: notes || null,
+        _attendance_debit_minutes: attendanceDebitToApply,
       });
       if (error) throw error;
       return data;
@@ -154,6 +298,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
       toast({ title: "Mês fechado", description: "Fecho registado com sucesso." });
       qc.invalidateQueries({ queryKey: ["closure-existing"] });
       qc.invalidateQueries({ queryKey: ["closure-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
       setNotes(""); setPaidHours("");
     },
@@ -168,9 +313,33 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     onSuccess: () => {
       toast({ title: "Mês reaberto" });
       refetchExisting();
+      qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
     },
     onError: (e: any) => toast({ title: "Erro ao reabrir", description: e.message, variant: "destructive" }),
+  });
+
+  const snapshotMut = useMutation({
+    mutationFn: async () => {
+      const minutes = Math.round((parseFloat(snapshotHours || "0") || 0) * 60);
+      const { data, error } = await supabase.rpc("create_opening_balance_snapshot", {
+        _employee_id: effectiveEmp!,
+        _cutoff_date: snapshotCutoff,
+        _minutes: minutes,
+        _notes: snapshotNotes,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Regularização criada", description: "Movimento inicial registado no banco." });
+      qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-prior-mov"] });
+      setSnapshotOpen(false);
+      setSnapshotCutoff(""); setSnapshotHours(""); setSnapshotNotes("");
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   const closed = !!existing?.is_locked;
@@ -244,6 +413,50 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                   </span>
                 </div>
                 {existing.closure_notes && <p>Motivo: {existing.closure_notes}</p>}
+              </div>
+            )}
+
+            {!closed && isAdmin && (
+              <div className="rounded-md border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FileWarning className="h-4 w-4 text-amber-600" />
+                  <p className="text-sm font-medium">Conciliação do ponto</p>
+                </div>
+                <div className="grid gap-2 md:grid-cols-4 text-xs">
+                  <Stat label="Diferença negativa do ponto" v={-attendanceTotals.negative} muted />
+                  <Stat label="Débitos já lançados" v={-attendanceTotals.alreadyAdjusted} muted />
+                  <Stat label="A conciliar (proposta)" v={-attendanceTotals.pendingDebit} highlight />
+                  <div className="rounded-md border p-2">
+                    <p className="text-[11px] text-muted-foreground">Pendentes positivos a aprovar</p>
+                    <p className="font-mono font-bold">{pendingPositives ?? 0}</p>
+                  </div>
+                </div>
+                {attendanceTotals.pendingDebit > 0 ? (
+                  <label className="flex items-start gap-2 text-xs cursor-pointer">
+                    <Checkbox
+                      checked={confirmReconciliation}
+                      onCheckedChange={(v) => setConfirmReconciliation(!!v)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Lançar débito de <strong>{minutesToHHMM(-attendanceTotals.pendingDebit)}</strong> no fecho.
+                      Apenas débitos confirmados são lançados — horas positivas exigem aprovação manual.
+                    </span>
+                  </label>
+                ) : attendanceTotals.alreadyAdjusted > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Já existe um débito de conciliação ativo para este mês ({minutesToHHMM(-attendanceTotals.alreadyAdjusted)}).
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Sem diferença negativa do ponto para conciliar neste mês.
+                  </p>
+                )}
+                {attendanceTotals.pendingDebit > 0 && !confirmReconciliation && (
+                  <p className="text-xs text-amber-600">
+                    ⚠ Existem {minutesToHHMM(-attendanceTotals.pendingDebit)} do ponto ainda não lançadas no banco.
+                  </p>
+                )}
               </div>
             )}
 
@@ -338,6 +551,49 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            )}
+
+            {isAdmin && (
+              <div className="pt-2 border-t">
+                <Dialog open={snapshotOpen} onOpenChange={setSnapshotOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm">Criar regularização inicial</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Regularização inicial do banco de horas</DialogTitle>
+                      <DialogDescription>
+                        Cria um movimento de débito auditável até uma data de corte. Útil para arrancar
+                        com um saldo histórico (diferenças do ponto antes deste sistema). Não duplica:
+                        já existe ativo para a mesma data → será bloqueado.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Data de corte</Label>
+                        <Input type="date" value={snapshotCutoff} onChange={(e) => setSnapshotCutoff(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Horas a debitar (decimal, ex.: 3 = 3h, 1.5 = 1h30)</Label>
+                        <Input type="number" min="0" step="0.25" value={snapshotHours} onChange={(e) => setSnapshotHours(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Motivo (obrigatório)</Label>
+                        <Textarea rows={2} value={snapshotNotes} onChange={(e) => setSnapshotNotes(e.target.value)} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="ghost" onClick={() => setSnapshotOpen(false)}>Cancelar</Button>
+                      <Button
+                        disabled={!snapshotCutoff || !snapshotHours || !snapshotNotes.trim() || snapshotMut.isPending}
+                        onClick={() => snapshotMut.mutate()}
+                      >
+                        Criar regularização
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             )}
           </>
         )}
