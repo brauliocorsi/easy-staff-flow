@@ -107,6 +107,13 @@ export default function TimeClock() {
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
+        ) : pinError ? (
+          <div className="text-center py-12 space-y-2">
+            <p className="text-destructive font-medium">PIN do terminal inválido.</p>
+            <p className="text-muted-foreground text-sm">
+              Abra o terminal a partir do link configurado em Definições → Links Públicos.
+            </p>
+          </div>
         ) : (
           <EmployeeCardGrid employees={filteredEmployees} onSelect={setSelected} />
         )}
