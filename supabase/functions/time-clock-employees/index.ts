@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     const currentMinutes = local.hours * 60 + local.minutes;
 
     for (const emp of autoClockEmps) {
-      const tDay = templateDayMap.get(emp.schedule_template_id);
+      const tDay = resolveSchedule(emp);
       if (!tDay || tDay.is_day_off) continue;
 
       const rec = recordMap.get(emp.id);
