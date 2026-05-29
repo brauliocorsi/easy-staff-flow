@@ -10,6 +10,7 @@ import { useEmployees } from "@/hooks/useEmployees";
 import { DocumentFormDialog } from "@/components/documents/DocumentFormDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const TYPE_LABELS: Record<string, string> = {
   contract: "Contrato",
@@ -93,7 +94,7 @@ export default function Documents() {
                     <div className="flex gap-1">
                       {doc.file_url && (
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">Ver</a>
+                          <SignedFileLink bucket="documents" urlOrPath={doc.file_url}>Ver</SignedFileLink>
                         </Button>
                       )}
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>

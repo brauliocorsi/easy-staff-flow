@@ -12,11 +12,13 @@ import { Button } from "@/components/ui/button";
 export default function TimeClock() {
   const [searchParams] = useSearchParams();
   const deptId = searchParams.get("dept");
+  const pinFromUrl = searchParams.get("pin");
 
   const [employees, setEmployees] = useState<EmployeeData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EmployeeData | null>(null);
   const [deptName, setDeptName] = useState<string | null>(null);
+  const [pinError, setPinError] = useState(false);
   const [dark, setDark] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("timeclock-theme") === "dark";
@@ -31,10 +33,28 @@ export default function TimeClock() {
 
   useTimeClockAlarms();
 
+  // Persist kiosk PIN from URL on first visit; reuse on later loads.
+  useEffect(() => {
+    if (pinFromUrl) {
+      localStorage.setItem("timeclock-pin", pinFromUrl);
+    }
+  }, [pinFromUrl]);
+
   const fetchEmployees = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("time-clock-employees");
+      const pin =
+        pinFromUrl ||
+        (typeof window !== "undefined" ? localStorage.getItem("timeclock-pin") : null) ||
+        "";
+      const { data, error } = await supabase.functions.invoke("time-clock-employees", {
+        headers: { "x-terminal-pin": pin },
+      });
       if (error) throw error;
+      if (data?.error === "PIN inválido") {
+        setPinError(true);
+        return;
+      }
+      setPinError(false);
       setEmployees(data || []);
 
       // Resolve department name from first matching employee
@@ -47,7 +67,7 @@ export default function TimeClock() {
     } finally {
       setLoading(false);
     }
-  }, [deptId]);
+  }, [deptId, pinFromUrl]);
 
   useEffect(() => {
     fetchEmployees();
@@ -86,6 +106,13 @@ export default function TimeClock() {
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : pinError ? (
+          <div className="text-center py-12 space-y-2">
+            <p className="text-destructive font-medium">PIN do terminal inválido.</p>
+            <p className="text-muted-foreground text-sm">
+              Abra o terminal a partir do link configurado em Definições → Links Públicos.
+            </p>
           </div>
         ) : (
           <EmployeeCardGrid employees={filteredEmployees} onSelect={setSelected} />

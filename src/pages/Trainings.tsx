@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import TrainingFormDialog from "@/components/trainings/TrainingFormDialog";
 import { generateTrainingPdf } from "@/lib/generateTrainingPdf";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const ANNUAL_REQUIRED_HOURS = 40;
 
@@ -319,9 +320,9 @@ export default function Trainings() {
                                   </label>
                                 </Button>
                                 {t.signed_file_url && (
-                                  <a href={t.signed_file_url} target="_blank" rel="noopener noreferrer">
+                                  <SignedFileLink bucket="trainings" urlOrPath={t.signed_file_url}>
                                     <Badge variant="default" className="text-xs cursor-pointer">Ver</Badge>
-                                  </a>
+                                  </SignedFileLink>
                                 )}
                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(t.id)}>
                                   <Trash2 className="h-3.5 w-3.5" />

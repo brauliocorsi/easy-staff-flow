@@ -14,6 +14,7 @@ import { Stethoscope, Plus, Search, CheckCircle, XCircle, AlertTriangle, Upload,
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { SignedFileLink } from "@/components/storage/SignedFileLink";
 
 const examTypeMap: Record<string, string> = {
   admission: "Admissão",
@@ -285,9 +286,9 @@ export default function MedicalExams() {
                           </TableCell>
                           <TableCell>
                             {ex.file_url ? (
-                              <a href={ex.file_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">
+                              <SignedFileLink bucket="documents" urlOrPath={ex.file_url} className="text-primary hover:underline text-sm">
                                 Ver ficheiro
-                              </a>
+                              </SignedFileLink>
                             ) : isAdmin ? (
                               <Button variant="ghost" size="sm" onClick={() => handleUploadFile(ex.id)}>
                                 <Upload className="h-3.5 w-3.5 mr-1" /> Anexar
