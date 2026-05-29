@@ -416,6 +416,50 @@ export function MonthlyClosureTab({ employeeId }: Props) {
               </div>
             )}
 
+            {!closed && isAdmin && (
+              <div className="rounded-md border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FileWarning className="h-4 w-4 text-amber-600" />
+                  <p className="text-sm font-medium">Conciliação do ponto</p>
+                </div>
+                <div className="grid gap-2 md:grid-cols-4 text-xs">
+                  <Stat label="Diferença negativa do ponto" v={-attendanceTotals.negative} muted />
+                  <Stat label="Débitos já lançados" v={-attendanceTotals.alreadyAdjusted} muted />
+                  <Stat label="A conciliar (proposta)" v={-attendanceTotals.pendingDebit} highlight />
+                  <div className="rounded-md border p-2">
+                    <p className="text-[11px] text-muted-foreground">Pendentes positivos a aprovar</p>
+                    <p className="font-mono font-bold">{pendingPositives ?? 0}</p>
+                  </div>
+                </div>
+                {attendanceTotals.pendingDebit > 0 ? (
+                  <label className="flex items-start gap-2 text-xs cursor-pointer">
+                    <Checkbox
+                      checked={confirmReconciliation}
+                      onCheckedChange={(v) => setConfirmReconciliation(!!v)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Lançar débito de <strong>{minutesToHHMM(-attendanceTotals.pendingDebit)}</strong> no fecho.
+                      Apenas débitos confirmados são lançados — horas positivas exigem aprovação manual.
+                    </span>
+                  </label>
+                ) : attendanceTotals.alreadyAdjusted > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Já existe um débito de conciliação ativo para este mês ({minutesToHHMM(-attendanceTotals.alreadyAdjusted)}).
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Sem diferença negativa do ponto para conciliar neste mês.
+                  </p>
+                )}
+                {attendanceTotals.pendingDebit > 0 && !confirmReconciliation && (
+                  <p className="text-xs text-amber-600">
+                    ⚠ Existem {minutesToHHMM(-attendanceTotals.pendingDebit)} do ponto ainda não lançadas no banco.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid gap-2 md:grid-cols-4 text-sm">
               <Stat label="Saldo inicial (transitado)" v={opening} />
               <Stat label="Créditos aprovados" v={preview && !("error" in preview) ? preview.approvedCredits : 0} />
