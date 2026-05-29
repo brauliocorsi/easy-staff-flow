@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 import { minutesToHHMM } from "@/lib/timeClock";
 
 type Decision =
@@ -34,6 +33,14 @@ const KIND_LABEL: Record<Approval["kind"], string> = {
   holiday_work: "Trabalho em Feriado",
 };
 
+/** Decisões que exigem motivo obrigatório (não-creditações simples). */
+const DECISIONS_REQUIRING_REASON = new Set<Decision>([
+  "reject",
+  "pay_as_overtime",
+  "compensatory_rest",
+  "offset_negative_balance",
+]);
+
 export function ApproveOvertimeDialog({
   approval,
   open,
@@ -43,7 +50,6 @@ export function ApproveOvertimeDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { user } = useAuth();
   const qc = useQueryClient();
   const [decision, setDecision] = useState<Decision | "">("");
   const [notes, setNotes] = useState("");
@@ -52,56 +58,18 @@ export function ApproveOvertimeDialog({
     mutationFn: async () => {
       if (!approval) throw new Error("Sem aprovação selecionada");
       if (!decision) throw new Error("Escolha o destino das horas");
-      const isReject = decision === "reject";
-      const status = isReject ? "rejected" : "approved";
-
-      // 1) Update overtime_approvals
-      const { error: upErr } = await supabase
-        .from("overtime_approvals")
-        .update({
-          status,
-          decision,
-          review_notes: notes || null,
-          reviewed_by: user?.id ?? null,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", approval.id);
-      if (upErr) throw upErr;
-
-      // 2) Create time_bank_movement (audit row) — always, even on reject
-      let movement_type: "credit" | "debit" | "neutral" = "credit";
-      let effective_minutes = approval.minutes;
-      let mov_status: "approved" | "rejected" | "paid" = "approved";
-      let source_type: string = approval.kind;
-
-      if (decision === "pay_as_overtime") {
-        movement_type = "neutral";
-        effective_minutes = 0;
-        mov_status = "paid";
-      } else if (decision === "reject") {
-        movement_type = "neutral";
-        effective_minutes = 0;
-        mov_status = "rejected";
-      } else if (decision === "compensatory_rest") {
-        source_type = "compensatory_rest";
+      if (DECISIONS_REQUIRING_REASON.has(decision) && !notes.trim()) {
+        throw new Error("Motivo obrigatório para esta decisão");
       }
 
-      const { error: movErr } = await supabase.from("time_bank_movements").insert({
-        employee_id: approval.employee_id,
-        record_date: approval.record_date,
-        source_type,
-        source_id: approval.id,
-        movement_type,
-        minutes: approval.minutes,
-        effective_minutes,
-        decision,
-        status: mov_status,
-        description: notes || `${KIND_LABEL[approval.kind]} — ${approval.record_date}`,
-        created_by: user?.id ?? null,
-        approved_by: user?.id ?? null,
-        approved_at: new Date().toISOString(),
+      // Atomic server-side review: validates admin, updates approval AND
+      // creates the time_bank_movements row in a single transaction.
+      const { error } = await supabase.rpc("review_overtime_approval" as any, {
+        _approval_id: approval.id,
+        _decision: decision,
+        _notes: notes.trim() || null,
       });
-      if (movErr) throw movErr;
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Decisão registada");
@@ -115,6 +83,8 @@ export function ApproveOvertimeDialog({
   });
 
   if (!approval) return null;
+
+  const reasonRequired = decision && DECISIONS_REQUIRING_REASON.has(decision as Decision);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -145,14 +115,22 @@ export function ApproveOvertimeDialog({
           </div>
 
           <div>
-            <Label>Nota / motivo (opcional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+            <Label>Nota / motivo {reasonRequired ? "*" : "(opcional)"}</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder={reasonRequired ? "Obrigatório para esta decisão" : ""}
+            />
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!decision || mutation.isPending}>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={!decision || mutation.isPending || (!!reasonRequired && !notes.trim())}
+          >
             {mutation.isPending ? "A registar..." : "Registar decisão"}
           </Button>
         </DialogFooter>
