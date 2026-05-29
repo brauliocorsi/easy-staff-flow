@@ -168,6 +168,13 @@ export type MonthlyClosureInput = {
    * mês anterior é obrigatório.
    */
   hasPriorMovements?: boolean;
+  /**
+   * Conciliação do ponto: minutos (magnitude positiva) a debitar do banco
+   * por diferença negativa confirmada do diagnóstico diário. Apenas usado
+   * para PRÉ-VISUALIZAR o saldo no UI — a criação do movimento é feita
+   * pela RPC `close_time_bank_month` (passando `_attendance_debit_minutes`).
+   */
+  attendanceDebitMinutes?: number;
 };
 
 export type MonthlyClosureResult = {
@@ -180,6 +187,8 @@ export type MonthlyClosureResult = {
   paidOnClosure: number;
   carriedOver: number;
   closingBalance: number;
+  /** Minutos de débito de conciliação somados (informativo, já incluído nos débitos). */
+  attendanceDebitApplied: number;
 };
 
 /**
@@ -227,6 +236,9 @@ export function computeMonthlyClosure(opts: MonthlyClosureInput): MonthlyClosure
         break;
     }
   }
+
+  const attendanceDebitApplied = Math.max(0, Math.round(opts.attendanceDebitMinutes ?? 0));
+  approvedDebits += attendanceDebitApplied;
 
   const balanceBeforeClosure = opts.opening + approvedCredits - approvedDebits;
 
@@ -278,6 +290,7 @@ export function computeMonthlyClosure(opts: MonthlyClosureInput): MonthlyClosure
     paidOnClosure,
     carriedOver: closingBalance,
     closingBalance,
+    attendanceDebitApplied,
   };
 }
 
