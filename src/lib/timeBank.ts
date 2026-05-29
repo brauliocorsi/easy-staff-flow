@@ -32,8 +32,8 @@ export type MovementSourceType =
   | "compensation_used"
   | "absence_compensation"
   | "payout"
-  | "correction"
-  | "compensatory_rest";
+  | "correction";
+// Note: `compensatory_rest` is a DECISION (destination), never a source_type.
 
 export type MovementLike = {
   source_type: MovementSourceType;
