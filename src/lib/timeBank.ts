@@ -32,6 +32,8 @@ export type MovementSourceType =
   | "compensation_used"
   | "absence_compensation"
   | "payout"
+  | "monthly_attendance_adjustment"
+  | "opening_balance_snapshot"
   | "correction";
 // Note: `compensatory_rest` is a DECISION (destination), never a source_type.
 
