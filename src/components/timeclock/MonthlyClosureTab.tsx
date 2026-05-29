@@ -552,6 +552,49 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                 </AlertDialogContent>
               </AlertDialog>
             )}
+
+            {isAdmin && (
+              <div className="pt-2 border-t">
+                <Dialog open={snapshotOpen} onOpenChange={setSnapshotOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm">Criar regularização inicial</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Regularização inicial do banco de horas</DialogTitle>
+                      <DialogDescription>
+                        Cria um movimento de débito auditável até uma data de corte. Útil para arrancar
+                        com um saldo histórico (diferenças do ponto antes deste sistema). Não duplica:
+                        já existe ativo para a mesma data → será bloqueado.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Data de corte</Label>
+                        <Input type="date" value={snapshotCutoff} onChange={(e) => setSnapshotCutoff(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Horas a debitar (decimal, ex.: 3 = 3h, 1.5 = 1h30)</Label>
+                        <Input type="number" min="0" step="0.25" value={snapshotHours} onChange={(e) => setSnapshotHours(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Motivo (obrigatório)</Label>
+                        <Textarea rows={2} value={snapshotNotes} onChange={(e) => setSnapshotNotes(e.target.value)} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="ghost" onClick={() => setSnapshotOpen(false)}>Cancelar</Button>
+                      <Button
+                        disabled={!snapshotCutoff || !snapshotHours || !snapshotNotes.trim() || snapshotMut.isPending}
+                        onClick={() => snapshotMut.mutate()}
+                      >
+                        Criar regularização
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
           </>
         )}
       </CardContent>
