@@ -258,3 +258,80 @@ describe("computeMonthlyClosure — fecho mensal", () => {
     expect(r.balanceBeforeClosure).toBe(300);
   });
 });
+
+describe("computeMonthlyClosure — transição mensal (bug Helder)", () => {
+  const credit = (mins: number): MovementLike => ({
+    source_type: "overtime", movement_type: "credit",
+    minutes: mins, effective_minutes: mins, status: "approved", decision: "credit_to_bank",
+  });
+  const debit = (mins: number): MovementLike => ({
+    source_type: "compensation_used", movement_type: "debit",
+    minutes: mins, effective_minutes: -mins, status: "approved", decision: "use_bank_hours",
+  });
+
+  it("T1 — saldo negativo transitado (-180) + débitos do mês (-535) = -715", () => {
+    const r = computeMonthlyClosure({
+      opening: -180,
+      movementsInMonth: [debit(535)],
+      decision: "carry_over_all",
+    });
+    expect(r.balanceBeforeClosure).toBe(-715);
+    expect(r.carriedOver).toBe(-715);
+  });
+
+  it("T2 — saldo positivo transitado (300) + débito do mês (-120) = +180", () => {
+    const r = computeMonthlyClosure({
+      opening: 300,
+      movementsInMonth: [debit(120)],
+      decision: "carry_over_all",
+    });
+    expect(r.balanceBeforeClosure).toBe(180);
+    expect(r.carriedOver).toBe(180);
+  });
+
+  it("T3 — saldo negativo (-180) abatido por crédito (+120) = -60", () => {
+    const r = computeMonthlyClosure({
+      opening: -180,
+      movementsInMonth: [credit(120)],
+      decision: "carry_over_all",
+    });
+    expect(r.balanceBeforeClosure).toBe(-60);
+    expect(r.carriedOver).toBe(-60);
+  });
+
+  it("T4 — mês anterior não fechado COM movimentos prévios → bloqueia", () => {
+    expect(() =>
+      computeMonthlyClosure({
+        opening: 0,
+        movementsInMonth: [credit(120)],
+        decision: "carry_over_all",
+        previousMonthClosed: false,
+        hasPriorMovements: true,
+      }),
+    ).toThrow(/mês anterior ainda não está fechado/i);
+  });
+
+  it("T4b — mês anterior não fechado SEM movimentos prévios → permite (bootstrap)", () => {
+    const r = computeMonthlyClosure({
+      opening: 0,
+      movementsInMonth: [credit(120)],
+      decision: "carry_over_all",
+      previousMonthClosed: false,
+      hasPriorMovements: false,
+    });
+    expect(r.carriedOver).toBe(120);
+  });
+
+  it("T5 — pagamento parcial com saldo transitado: 300 + 300 - 240 pagos = 360", () => {
+    const r = computeMonthlyClosure({
+      opening: 300,
+      movementsInMonth: [credit(300)],
+      decision: "pay_partial",
+      paidMinutes: 240,
+      notes: "Pagamento parcial maio",
+    });
+    expect(r.balanceBeforeClosure).toBe(600);
+    expect(r.paidOnClosure).toBe(240);
+    expect(r.carriedOver).toBe(360);
+  });
+});
