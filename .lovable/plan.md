@@ -16,6 +16,7 @@ employee_id uuid
 record_date date
 source_type text   -- overtime | day_off_work | holiday_work | manual_adjustment
                    -- compensation_used | absence_compensation | payout | correction
+                   -- (NUNCA 'compensatory_rest' — isso é destino/decision)
 source_id uuid     -- id da aprovação/registo relacionado (opcional)
 movement_type text -- credit | debit | neutral
 minutes int        -- sempre positivo
@@ -33,9 +34,32 @@ CHECK: `source_type`, `movement_type`, `decision`, `status` restritos por listas
 GRANTs + RLS: Admin ALL; SELECT via `can_access_employee`.
 Índices: `(employee_id, record_date)`, `(status)`, `(source_type, source_id)`.
 
+**Regra de ouro:** `source_type` = ORIGEM da hora; `decision` = DESTINO da hora.
+Hora extra convertida em descanso → `source_type='overtime'`, `decision='compensatory_rest'`.
+Trabalho em feriado convertido em descanso → `source_type='holiday_work'`, `decision='compensatory_rest'`.
+
 ### Ajuste à `overtime_approvals`
 
 Adicionar coluna `decision text` (nullable) — guarda a decisão da gerência ao aprovar (`credit_to_bank | pay_as_overtime | compensatory_rest | offset_negative_balance | reject`). O `status` continua `pending/approved/rejected`; `decision` é exigida quando `status='approved'`.
+
+### RPC transacional `review_overtime_approval(_approval_id, _decision, _notes)`
+
+Função `SECURITY DEFINER` em Postgres que substitui a antiga "transação client-side".
+Executa numa única transação:
+1. valida `auth.uid()` é admin;
+2. faz `SELECT … FOR UPDATE` da `overtime_approvals` e exige `status='pending'`;
+3. exige motivo (`_notes`) para `reject | pay_as_overtime | compensatory_rest | offset_negative_balance`;
+4. atualiza a aprovação (`status`, `decision`, `review_notes`, `reviewed_by`, `reviewed_at`);
+5. insere o movimento correspondente em `time_bank_movements` (ver tabela abaixo);
+6. devolve `{approval_id, movement_id, approval_status, movement_status, decision}`.
+
+| Decisão | approval.status | movement_type | effective_minutes | movement.status |
+|---|---|---|---:|---|
+| `credit_to_bank` | approved | credit | +minutes | approved |
+| `offset_negative_balance` | approved | credit | +minutes | approved |
+| `compensatory_rest` | approved | credit | +minutes | approved |
+| `pay_as_overtime` | approved | neutral | 0 | paid |
+| `reject` | rejected | neutral | 0 | rejected |
 
 Sem alterar `time_adjustment_logs` nem `time_clock_records`.
 
@@ -74,23 +98,19 @@ Função pura `computeBalance(movements)` que devolve:
 `OvertimeApprovalsTab.tsx` (criar) — tabela de `overtime_approvals` com filtros.
 
 Ao aprovar/rejeitar abre dialog com:
-- **Destino das horas** (Select obrigatório):
-  - Creditar no Banco de Horas → `decision=credit_to_bank` + insere movimento `credit` aprovado
-  - Pagar como Hora Extra → `decision=pay_as_overtime` + movimento `neutral`, `status=paid`
-  - Converter em Descanso Compensatório → `decision=compensatory_rest` + movimento `credit` aprovado com `source_type=compensatory_rest` (identificável)
-  - Usar para Abater Saldo Negativo → `decision=offset_negative_balance` + movimento `credit` aprovado (matematicamente igual a credit_to_bank, mas rotulado)
-  - Rejeitar → `status=rejected`, sem movimento (ou movimento `neutral` rejeitado para rasto)
-- **Nota/motivo** (`review_notes`).
+- **Destino das horas** (Select obrigatório) — Creditar no Banco / Pagar como Hora Extra / Converter em Descanso / Abater Saldo Negativo / Rejeitar.
+- **Nota/motivo** (`review_notes`) — **obrigatório** quando a decisão for `reject`, `pay_as_overtime`, `compensatory_rest` ou `offset_negative_balance`. Validado tanto no UI como na RPC.
 
-Tudo numa transação client-side (insert movement → update approval) com rollback em erro.
+A submissão chama a RPC `review_overtime_approval` — nada de inserts separados no frontend.
 
 ---
 
 ## 4. Uso de banco pelo funcionário (débito)
 
 Novo dialog "Usar banco de horas" em `OvertimeBank.tsx` (admin):
-- Funcionário, data, minutos, motivo obrigatório, source_type (`compensation_used` / `absence_compensation`).
+- Funcionário, data, minutos, **motivo obrigatório**, `source_type` (`compensation_used` / `absence_compensation`).
 - Cria movimento `debit`, `effective_minutes = -X`, `status='approved'` (admin) ou `pending` (futuro auto-serviço).
+- `decision='use_bank_hours'`.
 
 ---
 
