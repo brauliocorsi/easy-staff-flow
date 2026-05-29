@@ -46,7 +46,7 @@ export type BalanceSplit = {
  *  - overtime + rejected      → subtract from approved, add to rejected
  *  - day_off_work/holiday_work + approved → add to approved (Fase 1 does NOT credit these)
  *  - day_off_work/holiday_work + pending/not_submitted → add to pending only
- *  - day_off_work/holiday_work + rejected → ignore (does not enter any bucket)
+ *  - day_off_work/holiday_work + rejected → add to rejected only (informative)
  *
  *  potential = approved + pending  (never includes rejected)
  */
@@ -74,8 +74,9 @@ export function splitBalance(dailyDiffSum: number, approvals: ApprovalLike[]): B
         approved += a.minutes;
       } else if (isPending) {
         pending += a.minutes;
+      } else if (a.status === "rejected") {
+        rejected += a.minutes;
       }
-      // rejected: ignored
     }
   }
 

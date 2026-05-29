@@ -40,14 +40,19 @@ describe("splitBalance — Fase 2 regra corrigida", () => {
     expect(r).toEqual({ approved: 480, pending: 0, rejected: 0, potential: 480 });
   });
 
-  it("Caso F — trabalho em folga rejeitado: ignorado em todos os baldes", () => {
+  it("Caso F — trabalho em folga rejeitado: aparece só como rejeitado", () => {
     const r = splitBalance(0, [{ kind: "day_off_work", minutes: 480, status: "rejected" }]);
-    expect(r).toEqual({ approved: 0, pending: 0, rejected: 0, potential: 0 });
+    expect(r).toEqual({ approved: 0, pending: 0, rejected: 480, potential: 0 });
   });
 
   it("Caso G — trabalho em feriado pendente: só em pendente e potencial", () => {
     const r = splitBalance(0, [{ kind: "holiday_work", minutes: 480, status: "pending" }]);
     expect(r).toEqual({ approved: 0, pending: 480, rejected: 0, potential: 480 });
+  });
+
+  it("Caso H — trabalho em feriado rejeitado: aparece só como rejeitado", () => {
+    const r = splitBalance(0, [{ kind: "holiday_work", minutes: 240, status: "rejected" }]);
+    expect(r).toEqual({ approved: 0, pending: 0, rejected: 240, potential: 0 });
   });
 
   it("Sem candidatos: mantém a soma diária", () => {
