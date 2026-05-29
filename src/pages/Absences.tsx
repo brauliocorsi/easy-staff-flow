@@ -276,7 +276,7 @@ export default function Absences() {
           let exitDiff = tsToMin(rec.clock_out) - timeToMin(sched.clock_out_time);
           if (exitDiff > 0 && exitDiff <= tolerances.tolerance_overtime_minutes) exitDiff = 0;
           else if (exitDiff > tolerances.tolerance_overtime_minutes) exitDiff -= tolerances.tolerance_overtime_minutes;
-          if (exitDiff < 0 && Math.abs(exitDiff) <= tolerances.tolerance_early_leave_minutes) exitDiff = 0;
+          // Early leave has no tolerance — counts from the 1st minute.
 
           balance += entryDiff - lunchDiff + exitDiff;
         }

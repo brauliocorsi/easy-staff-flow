@@ -43,22 +43,31 @@ describe("calculateWorkday — Fase 1 cenários", () => {
     expect(r.diff).toBe(25);
   });
 
-  it("Cenário 4: entrada 08:00 / saída 16:50 → saldo -5m (saída 10m antes − tolerância 5m)", () => {
+  it("Cenário 4: entrada 08:00 / saída 16:50 → saldo -10m (sem tolerância de saída antecipada)", () => {
     const r = calculateWorkday(
       { clock_in: ts("08:00"), lunch_out: ts("12:00"), lunch_in: ts("13:00"), clock_out: ts("16:50") },
       schedule,
       DEFAULT_TOLERANCES
     );
-    expect(r.diff).toBe(-5);
+    expect(r.diff).toBe(-10);
   });
 
-  it("Saída 16:55 (4m antes) → saldo 0 (dentro da tolerância de saída antecipada)", () => {
+  it("Saída 16:59 → -1m (saída antecipada debita do 1º minuto)", () => {
+    const r = calculateWorkday(
+      { clock_in: ts("08:00"), lunch_out: ts("12:00"), lunch_in: ts("13:00"), clock_out: ts("16:59") },
+      schedule,
+      DEFAULT_TOLERANCES
+    );
+    expect(r.diff).toBe(-1);
+  });
+
+  it("Saída 16:55 → -5m (sem tolerância de saída antecipada)", () => {
     const r = calculateWorkday(
       { clock_in: ts("08:00"), lunch_out: ts("12:00"), lunch_in: ts("13:00"), clock_out: ts("16:55") },
       schedule,
       DEFAULT_TOLERANCES
     );
-    expect(r.diff).toBe(0);
+    expect(r.diff).toBe(-5);
   });
 
   it("Saída 17:14 (extra 14m) → saldo 0 (dentro da tolerância de extras)", () => {

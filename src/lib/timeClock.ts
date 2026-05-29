@@ -6,11 +6,19 @@ export type Tolerances = {
   tolerance_early_leave_minutes: number;
 };
 
-/** Default tolerances per business rule (req #5): 10 min late entry, 15 min overtime, 5 min early leave. */
+/**
+ * Default tolerances per business rule:
+ * - 10 min late entry (in favour of employee)
+ * - 15 min overtime (in favour of employer — extra only counts after 15 min)
+ * - 0 min early leave (always against the employee; debited from the 1st minute)
+ *
+ * The `tolerance_early_leave_minutes` field is kept for backwards compatibility
+ * with stored templates, but it is IGNORED by the calculation engine.
+ */
 export const DEFAULT_TOLERANCES: Tolerances = {
   tolerance_late_minutes: 10,
   tolerance_overtime_minutes: 15,
-  tolerance_early_leave_minutes: 5,
+  tolerance_early_leave_minutes: 0,
 };
 
 /** Returns tolerances ensuring sensible defaults whenever the template values are missing/zero. */
@@ -18,7 +26,8 @@ export function resolveTolerances(t?: Partial<Tolerances> | null): Tolerances {
   return {
     tolerance_late_minutes: t?.tolerance_late_minutes ?? DEFAULT_TOLERANCES.tolerance_late_minutes,
     tolerance_overtime_minutes: t?.tolerance_overtime_minutes ?? DEFAULT_TOLERANCES.tolerance_overtime_minutes,
-    tolerance_early_leave_minutes: t?.tolerance_early_leave_minutes ?? DEFAULT_TOLERANCES.tolerance_early_leave_minutes,
+    // Early-leave tolerance is permanently 0 by business rule. Stored values are ignored.
+    tolerance_early_leave_minutes: 0,
   };
 }
 
@@ -228,9 +237,8 @@ function calcPeriodDiff(
   const lateDeficit = lateMinutes > tolerances.tolerance_late_minutes
     ? lateMinutes - tolerances.tolerance_late_minutes
     : 0;
-  const earlyDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes
-    ? earlyLeaveMinutes - tolerances.tolerance_early_leave_minutes
-    : 0;
+  // Early leave: no tolerance — debit from the 1st minute (always against the employee).
+  const earlyDeficit = earlyLeaveMinutes;
   const overtimeCredit = creditOvertimeAtEnd && overtimeMinutes > tolerances.tolerance_overtime_minutes
     ? overtimeMinutes - tolerances.tolerance_overtime_minutes
     : 0;
@@ -254,16 +262,14 @@ function calcDiffWithTolerances(record: Required<TimeClockRecordLike>, schedule:
   const exitExtra = Math.max(0, actualOut - schedOut);
   const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
   const exitCredit = exitExtra > tolerances.tolerance_overtime_minutes ? exitExtra - tolerances.tolerance_overtime_minutes : 0;
-  const exitDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes
-    ? earlyLeaveMinutes - tolerances.tolerance_early_leave_minutes
-    : 0;
+  // Early leave: no tolerance — debit from the 1st minute.
+  const exitDeficit = earlyLeaveMinutes;
 
   let lunchPenalty = 0;
   if (record.lunch_out) {
     const lunchLeaveEarly = Math.max(0, schedLunchOut - timestampToLisbonMinutes(record.lunch_out));
-    if (lunchLeaveEarly > tolerances.tolerance_early_leave_minutes) {
-      lunchPenalty += lunchLeaveEarly - tolerances.tolerance_early_leave_minutes;
-    }
+    // Leaving for lunch earlier than scheduled: no tolerance — counts from the 1st minute.
+    lunchPenalty += lunchLeaveEarly;
   }
   if (record.lunch_in) {
     const lunchReturnLate = Math.max(0, timestampToLisbonMinutes(record.lunch_in) - schedLunchIn);
@@ -357,7 +363,8 @@ export function calculateWorkday(
     const earlyMinutes = Math.max(0, timeToMinutes(schedule.clock_out_time) - timestampToLisbonMinutes(normalized.clock_out));
     const extraMinutes = Math.max(0, timestampToLisbonMinutes(normalized.clock_out) - timeToMinutes(schedule.clock_out_time));
     diff += extraMinutes > tolerances.tolerance_overtime_minutes ? extraMinutes - tolerances.tolerance_overtime_minutes : 0;
-    diff -= earlyMinutes > tolerances.tolerance_early_leave_minutes ? earlyMinutes - tolerances.tolerance_early_leave_minutes : 0;
+    // Early leave: no tolerance — debit from the 1st minute.
+    diff -= earlyMinutes;
   } else {
     diff -= afternoonScheduled;
   }
