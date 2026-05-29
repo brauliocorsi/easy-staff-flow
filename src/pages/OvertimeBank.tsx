@@ -899,7 +899,68 @@ export default function OvertimeBank() {
             </Card>
           </>
         )}
+
+        {/* ---- Conta-Corrente do Banco de Horas (Fase 2) ---- */}
+        <Card className="border-2 border-primary/30">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">
+                Banco de Horas — Conta Corrente {selectedEmployee && emp ? `(${emp.first_name} ${emp.last_name})` : "(todos)"}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Saldo oficial calculado a partir de movimentos aprovados (independente da diff diária acima).
+              </p>
+            </div>
+            {isAdmin && selectedEmployee && (
+              <Button size="sm" variant="outline" onClick={() => setUseBankOpen(true)}>
+                Usar horas do banco
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 md:grid-cols-7 text-sm">
+              <BalanceLine label="Saldo aprovado" minutes={bankBalance.approved} highlight />
+              <BalanceLine label="Horas pendentes" minutes={bankBalance.pending} />
+              <BalanceLine label="Horas pagas" minutes={bankBalance.paid} muted />
+              <BalanceLine label="Horas rejeitadas" minutes={bankBalance.rejected} muted />
+              <BalanceLine label="Horas usadas" minutes={-bankBalance.used} />
+              <BalanceLine label="Saldo disponível" minutes={bankBalance.available} highlight />
+              <BalanceLine label="Saldo potencial" minutes={bankBalance.potential} />
+            </div>
+            <p className={`mt-3 text-sm font-semibold ${bankBalance.available > 0 ? "text-primary" : bankBalance.available < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+              {bankBalance.available > 0
+                ? "A favor do funcionário"
+                : bankBalance.available < 0
+                ? "A dever à empresa"
+                : "Banco equilibrado"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <OvertimeApprovalsTab employeeId={selectedEmployee || undefined} />
+
+        <UseBankHoursDialog
+          open={useBankOpen}
+          onOpenChange={setUseBankOpen}
+          defaultEmployeeId={selectedEmployee || undefined}
+        />
       </div>
     </AppLayout>
+  );
+}
+
+function BalanceLine({ label, minutes, highlight, muted }: { label: string; minutes: number; highlight?: boolean; muted?: boolean }) {
+  const color = muted
+    ? "text-muted-foreground"
+    : minutes > 0
+    ? "text-primary"
+    : minutes < 0
+    ? "text-destructive"
+    : "text-foreground";
+  return (
+    <div className={`rounded-md border p-2 ${highlight ? "bg-primary/5 border-primary/30" : ""}`}>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={`font-mono font-bold ${color}`}>{minutesToHHMM(minutes)}</p>
+    </div>
   );
 }
