@@ -1186,6 +1186,7 @@ export type Database = {
           actual_clock_in: string | null
           actual_clock_out: string | null
           created_at: string
+          decision: string | null
           employee_id: string
           id: string
           kind: string
@@ -1204,6 +1205,7 @@ export type Database = {
           actual_clock_in?: string | null
           actual_clock_out?: string | null
           created_at?: string
+          decision?: string | null
           employee_id: string
           id?: string
           kind: string
@@ -1222,6 +1224,7 @@ export type Database = {
           actual_clock_in?: string | null
           actual_clock_out?: string | null
           created_at?: string
+          decision?: string | null
           employee_id?: string
           id?: string
           kind?: string
@@ -1389,6 +1392,60 @@ export type Database = {
           requested_by?: string | null
           status?: string
           time_clock_record_id?: string
+        }
+        Relationships: []
+      }
+      time_bank_movements: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          decision: string | null
+          description: string | null
+          effective_minutes: number
+          employee_id: string
+          id: string
+          minutes: number
+          movement_type: string
+          record_date: string
+          source_id: string | null
+          source_type: string
+          status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision?: string | null
+          description?: string | null
+          effective_minutes: number
+          employee_id: string
+          id?: string
+          minutes: number
+          movement_type: string
+          record_date: string
+          source_id?: string | null
+          source_type: string
+          status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision?: string | null
+          description?: string | null
+          effective_minutes?: number
+          employee_id?: string
+          id?: string
+          minutes?: number
+          movement_type?: string
+          record_date?: string
+          source_id?: string | null
+          source_type?: string
+          status?: string
         }
         Relationships: []
       }
