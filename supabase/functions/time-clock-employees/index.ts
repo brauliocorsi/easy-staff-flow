@@ -100,6 +100,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Individual schedules take precedence over the department template.
+    const { data: indivSchedules } = await supabase
+      .from("employee_schedules")
+      .select("employee_id, clock_in_time, clock_out_time, lunch_out_time, lunch_in_time, is_day_off")
+      .eq("day_of_week", dayOfWeek)
+      .in("employee_id", employeeIds);
+    const individualScheduleMap = new Map<string, any>();
+    for (const s of indivSchedules || []) {
+      individualScheduleMap.set(s.employee_id, s);
+    }
+
+    const resolveSchedule = (emp: any) => {
+      const indiv = individualScheduleMap.get(emp.id);
+      if (indiv) return indiv;
+      return emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
+    };
+
     const recordMap = new Map();
     for (const r of records || []) {
       recordMap.set(r.employee_id, r);
@@ -113,7 +130,7 @@ Deno.serve(async (req) => {
     const currentMinutes = local.hours * 60 + local.minutes;
 
     for (const emp of autoClockEmps) {
-      const tDay = templateDayMap.get(emp.schedule_template_id);
+      const tDay = resolveSchedule(emp);
       if (!tDay || tDay.is_day_off) continue;
 
       const rec = recordMap.get(emp.id);
@@ -160,7 +177,7 @@ Deno.serve(async (req) => {
     // Build result only for manual employees (auto_clock don't appear on terminal)
     const result = manualEmps.map((emp: any) => {
       const rec = recordMap.get(emp.id);
-      const tDay = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
+      const tDay = resolveSchedule(emp);
       const partTime = isPartTime(tDay);
 
       // Determine next action

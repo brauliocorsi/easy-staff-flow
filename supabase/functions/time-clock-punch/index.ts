@@ -74,33 +74,36 @@ Deno.serve(async (req) => {
     const today = local.dateStr;
     const dayOfWeek = local.dayOfWeek;
 
-    // Get schedule
-    let schedule = null;
-    let tolerances = null;
+    // Schedule priority: individual employee schedule first, then department template.
+    let schedule: any = null;
+    let tolerances: any = null;
+    const { data: indivSchedule } = await supabase
+      .from("employee_schedules")
+      .select("*")
+      .eq("employee_id", employee_id)
+      .eq("day_of_week", dayOfWeek)
+      .maybeSingle();
+    if (indivSchedule) {
+      schedule = indivSchedule;
+    }
     if (employee.schedule_template_id) {
       const [{ data: schedData }, { data: templateData }] = await Promise.all([
-        supabase
-          .from("schedule_template_days")
-          .select("*")
-          .eq("template_id", employee.schedule_template_id)
-          .eq("day_of_week", dayOfWeek)
-          .maybeSingle(),
+        schedule
+          ? Promise.resolve({ data: null })
+          : supabase
+              .from("schedule_template_days")
+              .select("*")
+              .eq("template_id", employee.schedule_template_id)
+              .eq("day_of_week", dayOfWeek)
+              .maybeSingle(),
         supabase
           .from("schedule_templates")
           .select("tolerance_early_leave_minutes, tolerance_overtime_minutes")
           .eq("id", employee.schedule_template_id)
           .single(),
       ]);
-      schedule = schedData;
+      if (!schedule) schedule = schedData;
       tolerances = templateData;
-    } else {
-      const { data } = await supabase
-        .from("employee_schedules")
-        .select("*")
-        .eq("employee_id", employee_id)
-        .eq("day_of_week", dayOfWeek)
-        .maybeSingle();
-      schedule = data;
     }
 
     const partTime = isPartTimeSchedule(schedule);
