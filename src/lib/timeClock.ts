@@ -224,8 +224,13 @@ function calcPeriodDiff(
   const earlyLeaveMinutes = Math.max(0, schedEnd - actualEnd);
   const overtimeMinutes = Math.max(0, actualEnd - schedEnd);
 
-  const lateDeficit = lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
-  const earlyDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes ? earlyLeaveMinutes : 0;
+  // Debit ONLY the minutes beyond the tolerance window.
+  const lateDeficit = lateMinutes > tolerances.tolerance_late_minutes
+    ? lateMinutes - tolerances.tolerance_late_minutes
+    : 0;
+  const earlyDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes
+    ? earlyLeaveMinutes - tolerances.tolerance_early_leave_minutes
+    : 0;
   const overtimeCredit = creditOvertimeAtEnd && overtimeMinutes > tolerances.tolerance_overtime_minutes
     ? overtimeMinutes - tolerances.tolerance_overtime_minutes
     : 0;
@@ -242,21 +247,29 @@ function calcDiffWithTolerances(record: Required<TimeClockRecordLike>, schedule:
   const schedLunchIn = timeToMinutes(schedule.lunch_in_time);
 
   const lateMinutes = Math.max(0, actualIn - schedIn);
-  const entryDeficit = lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
+  const entryDeficit = lateMinutes > tolerances.tolerance_late_minutes
+    ? lateMinutes - tolerances.tolerance_late_minutes
+    : 0;
 
   const exitExtra = Math.max(0, actualOut - schedOut);
   const earlyLeaveMinutes = Math.max(0, schedOut - actualOut);
   const exitCredit = exitExtra > tolerances.tolerance_overtime_minutes ? exitExtra - tolerances.tolerance_overtime_minutes : 0;
-  const exitDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes ? earlyLeaveMinutes : 0;
+  const exitDeficit = earlyLeaveMinutes > tolerances.tolerance_early_leave_minutes
+    ? earlyLeaveMinutes - tolerances.tolerance_early_leave_minutes
+    : 0;
 
   let lunchPenalty = 0;
   if (record.lunch_out) {
     const lunchLeaveEarly = Math.max(0, schedLunchOut - timestampToLisbonMinutes(record.lunch_out));
-    if (lunchLeaveEarly > tolerances.tolerance_early_leave_minutes) lunchPenalty += lunchLeaveEarly;
+    if (lunchLeaveEarly > tolerances.tolerance_early_leave_minutes) {
+      lunchPenalty += lunchLeaveEarly - tolerances.tolerance_early_leave_minutes;
+    }
   }
   if (record.lunch_in) {
     const lunchReturnLate = Math.max(0, timestampToLisbonMinutes(record.lunch_in) - schedLunchIn);
-    if (lunchReturnLate > tolerances.tolerance_late_minutes) lunchPenalty += lunchReturnLate;
+    if (lunchReturnLate > tolerances.tolerance_late_minutes) {
+      lunchPenalty += lunchReturnLate - tolerances.tolerance_late_minutes;
+    }
   }
 
   return exitCredit - entryDeficit - exitDeficit - lunchPenalty;
@@ -333,7 +346,7 @@ export function calculateWorkday(
     diff += calcPeriodDiff(normalized.clock_in, normalized.lunch_out, schedule.clock_in_time, schedule.lunch_out_time, tolerances, false);
   } else if (normalized.clock_in && (normalized.lunch_in || normalized.clock_out)) {
     const lateMinutes = Math.max(0, timestampToLisbonMinutes(normalized.clock_in) - timeToMinutes(schedule.clock_in_time));
-    diff -= lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes : 0;
+    diff -= lateMinutes > tolerances.tolerance_late_minutes ? lateMinutes - tolerances.tolerance_late_minutes : 0;
   } else {
     diff -= morningScheduled;
   }
@@ -344,7 +357,7 @@ export function calculateWorkday(
     const earlyMinutes = Math.max(0, timeToMinutes(schedule.clock_out_time) - timestampToLisbonMinutes(normalized.clock_out));
     const extraMinutes = Math.max(0, timestampToLisbonMinutes(normalized.clock_out) - timeToMinutes(schedule.clock_out_time));
     diff += extraMinutes > tolerances.tolerance_overtime_minutes ? extraMinutes - tolerances.tolerance_overtime_minutes : 0;
-    diff -= earlyMinutes > tolerances.tolerance_early_leave_minutes ? earlyMinutes : 0;
+    diff -= earlyMinutes > tolerances.tolerance_early_leave_minutes ? earlyMinutes - tolerances.tolerance_early_leave_minutes : 0;
   } else {
     diff -= afternoonScheduled;
   }
