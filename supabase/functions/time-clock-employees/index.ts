@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
     // Build result only for manual employees (auto_clock don't appear on terminal)
     const result = manualEmps.map((emp: any) => {
       const rec = recordMap.get(emp.id);
-      const tDay = emp.schedule_template_id ? templateDayMap.get(emp.schedule_template_id) : null;
+      const tDay = resolveSchedule(emp);
       const partTime = isPartTime(tDay);
 
       // Determine next action
