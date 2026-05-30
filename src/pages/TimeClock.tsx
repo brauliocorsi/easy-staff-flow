@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTimeClockAlarms } from "@/hooks/useTimeClockAlarms";
 import { Loader2, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Lock } from "lucide-react";
 
 export default function TimeClock() {
   const [searchParams] = useSearchParams();
@@ -19,6 +22,8 @@ export default function TimeClock() {
   const [selected, setSelected] = useState<EmployeeData | null>(null);
   const [deptName, setDeptName] = useState<string | null>(null);
   const [pinError, setPinError] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const [dark, setDark] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("timeclock-theme") === "dark";
@@ -53,7 +58,14 @@ export default function TimeClock() {
       const { data, error } = await supabase.functions.invoke("time-clock-employees", {
         headers: { "x-terminal-pin": pin },
       });
-      if (error) throw error;
+      if (error) {
+        // Supabase wraps non-2xx as FunctionsHttpError; treat as PIN error when no PIN stored
+        if (!pin) {
+          setPinError(true);
+          return;
+        }
+        throw error;
+      }
       if (data?.error === "PIN inválido") {
         setPinError(true);
         return;
@@ -72,6 +84,16 @@ export default function TimeClock() {
       setLoading(false);
     }
   }, [deptId, pinFromUrl]);
+
+  const handleSubmitPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pinInput) return;
+    setVerifying(true);
+    localStorage.setItem("timeclock-pin", pinInput);
+    setLoading(true);
+    await fetchEmployees();
+    setVerifying(false);
+  };
 
   useEffect(() => {
     fetchEmployees();
@@ -112,11 +134,34 @@ export default function TimeClock() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : pinError ? (
-          <div className="text-center py-12 space-y-2">
-            <p className="text-destructive font-medium">PIN do terminal inválido.</p>
-            <p className="text-muted-foreground text-sm">
-              Abra o terminal a partir do link configurado em Definições → Links Públicos.
-            </p>
+          <div className="flex justify-center py-8">
+            <Card className="w-full max-w-sm">
+              <CardHeader className="text-center">
+                <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                  <Lock className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">PIN do Terminal</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Insira o PIN configurado em Definições → Links Públicos
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmitPin} className="space-y-4">
+                  <Input
+                    type="password"
+                    placeholder="PIN de acesso"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    maxLength={20}
+                    className="text-center text-lg tracking-widest"
+                    autoFocus
+                  />
+                  <Button type="submit" className="w-full" disabled={verifying || !pinInput}>
+                    {verifying ? "A verificar..." : "Entrar"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <EmployeeCardGrid employees={filteredEmployees} onSelect={setSelected} />
