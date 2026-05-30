@@ -8,9 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTimeClockAlarms } from "@/hooks/useTimeClockAlarms";
 import { Loader2, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lock } from "lucide-react";
 
 export default function TimeClock() {
   const [searchParams] = useSearchParams();
@@ -21,9 +18,6 @@ export default function TimeClock() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EmployeeData | null>(null);
   const [deptName, setDeptName] = useState<string | null>(null);
-  const [pinError, setPinError] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-  const [verifying, setVerifying] = useState(false);
   const [dark, setDark] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("timeclock-theme") === "dark";
@@ -38,39 +32,12 @@ export default function TimeClock() {
 
   useTimeClockAlarms();
 
-  // Persist kiosk PIN from URL on first visit; reuse on later loads.
-  useEffect(() => {
-    if (pinFromUrl) {
-      localStorage.setItem("timeclock-pin", pinFromUrl);
-      // Strip ?pin= from the URL so it isn't exposed in browser history.
-      const url = new URL(window.location.href);
-      url.searchParams.delete("pin");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
-    }
-  }, [pinFromUrl]);
-
   const fetchEmployees = useCallback(async () => {
     try {
-      const pin =
-        pinFromUrl ||
-        (typeof window !== "undefined" ? localStorage.getItem("timeclock-pin") : null) ||
-        "";
-      const { data, error } = await supabase.functions.invoke("time-clock-employees", {
-        headers: { "x-terminal-pin": pin },
-      });
+      const { data, error } = await supabase.functions.invoke("time-clock-employees");
       if (error) {
-        // Supabase wraps non-2xx as FunctionsHttpError; treat as PIN error when no PIN stored
-        if (!pin) {
-          setPinError(true);
-          return;
-        }
         throw error;
       }
-      if (data?.error === "PIN inválido") {
-        setPinError(true);
-        return;
-      }
-      setPinError(false);
       setEmployees(data || []);
 
       // Resolve department name from first matching employee
@@ -83,17 +50,7 @@ export default function TimeClock() {
     } finally {
       setLoading(false);
     }
-  }, [deptId, pinFromUrl]);
-
-  const handleSubmitPin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pinInput) return;
-    setVerifying(true);
-    localStorage.setItem("timeclock-pin", pinInput);
-    setLoading(true);
-    await fetchEmployees();
-    setVerifying(false);
-  };
+  }, [deptId]);
 
   useEffect(() => {
     fetchEmployees();
@@ -132,36 +89,6 @@ export default function TimeClock() {
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : pinError ? (
-          <div className="flex justify-center py-8">
-            <Card className="w-full max-w-sm">
-              <CardHeader className="text-center">
-                <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                  <Lock className="h-7 w-7 text-primary" />
-                </div>
-                <CardTitle className="text-xl">PIN do Terminal</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Insira o PIN configurado em Definições → Links Públicos
-                </p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmitPin} className="space-y-4">
-                  <Input
-                    type="password"
-                    placeholder="PIN de acesso"
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
-                    maxLength={20}
-                    className="text-center text-lg tracking-widest"
-                    autoFocus
-                  />
-                  <Button type="submit" className="w-full" disabled={verifying || !pinInput}>
-                    {verifying ? "A verificar..." : "Entrar"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
           </div>
         ) : (
           <EmployeeCardGrid employees={filteredEmployees} onSelect={setSelected} />
