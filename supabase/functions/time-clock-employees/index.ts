@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-terminal-pin, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const TIMEZONE = "Europe/Lisbon";
@@ -30,24 +30,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Shared kiosk PIN protection (same secret as the attendance dashboard).
-    const expectedPin = Deno.env.get("ATTENDANCE_DASHBOARD_PIN");
-    let providedPin = req.headers.get("x-terminal-pin") || "";
-    if (!providedPin && (req.method === "POST" || req.method === "PUT")) {
-      try {
-        const body = await req.clone().json();
-        if (body && typeof body.pin === "string") providedPin = body.pin;
-      } catch (_) {
-        // body may be empty
-      }
-    }
-    if (!expectedPin || providedPin !== expectedPin) {
-      return new Response(JSON.stringify({ error: "PIN inválido" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
