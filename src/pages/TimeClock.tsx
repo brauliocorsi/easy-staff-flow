@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 export default function TimeClock() {
   const [searchParams] = useSearchParams();
   const deptId = searchParams.get("dept");
-  const pinFromUrl = searchParams.get("pin");
 
   const [employees, setEmployees] = useState<EmployeeData[]>([]);
   const [loading, setLoading] = useState(true);
