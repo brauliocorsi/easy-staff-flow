@@ -1,29 +1,77 @@
-## Plano
+## Objetivo
 
-A Edge Function `detect-absences` **já faz** o que pediu: para uma data, ignora feriados, ignora dias de folga (via template de horário do funcionário), ignora férias aprovadas, e cria uma `absence` (`auto_detected=true`, `justified=false`) para quem não bateu ponto. Hoje corre só via cron (ontem). O que falta é dar-lhe interface, permitir confirmação posterior e mostrar férias gozadas no portal.
+Tornar o Portal do Funcionário mais limpo, dinâmico e focado. Mostrar apenas o essencial ao colaborador, destacar o banco de horas, e simplificar a área de avaliação para que sirva exclusivamente para avaliar líderes (com opção anónima).
 
-### 1. Detectar faltas — backfill manual (página Faltas)
-- Adicionar botão **"Detectar Faltas"** no topo de `src/pages/Absences.tsx` (apenas admin).
-- Abre dialog com seletor de intervalo de datas (default: últimos 7 dias).
-- Ao confirmar, invoca `detect-absences` em loop dia-a-dia (a função já é idempotente — verifica `existingAbsences` antes de inserir).
-- No fim mostra toast com total criado por dia e faz `invalidateQueries` das faltas.
+## 1. Novo design do dashboard (`src/pages/EmployeePortal.tsx`)
 
-### 2. Confirmação posterior pelo gestor
-- Migration: adicionar coluna `admin_confirmed boolean default false` e `confirmed_at timestamptz` à tabela `absences`.
-- Em `src/pages/Absences.tsx`, na linha de cada falta `auto_detected=true` e `justified=false`:
-  - Mostrar badge "Pendente de confirmação" quando `admin_confirmed=false`.
-  - Adicionar botão **"Confirmar falta"** (admin) que faz update `admin_confirmed=true, confirmed_at=now()`.
-  - As ações existentes (Justificar, Converter para férias, Descontar do banco, Eliminar) continuam disponíveis.
-- Novo cartão de estatística no topo: "A confirmar" = `auto_detected && !justified && !admin_confirmed`.
+**Header redesenhado**
+- Hero compacto com gradiente suave (tokens `primary` / `accent`), avatar grande, nome, cargo e departamento.
+- Saudação dinâmica ("Bom dia/tarde/noite, {nome}") e data atual em português.
+- Botões: "Avaliar Líder" (destaque) e "Sair".
 
-### 3. Férias gozadas no Portal do Funcionário
-- Em `src/pages/EmployeePortal.tsx`, no cartão "Férias":
-  - Adicionar resumo no topo da secção: **"X de Y dias gozados em {ano}"** (usando o `vacEnjoyed` e `vacEntitled` já calculados).
-  - Listar separadamente as **gozadas** (com badge "Gozado" já existente) e as **futuras/pendentes**, ordenadas por data.
-  - Mostrar contador total gozado no cabeçalho da secção (substituir `count={data.vacations.length}` por algo como `"3 gozadas · 5 marcadas"`).
-- A flag `isVacationEnjoyed()` já trata isto (passado + collective vacations). Nada a alterar no `employee-portal` edge function — os dados já são enviados.
+**Hero de Banco de Horas (novo bloco principal)**
+- Card grande no topo com saldo em horas (formato `+12h30` / `-2h15`), cor verde/vermelha conforme sinal.
+- Mini barra/indicador visual e label "Saldo atual do banco de horas".
+- Subtexto com últimos movimentos do mês (créditos vs débitos), se disponíveis.
 
-### Notas técnicas
-- Não há necessidade de mexer em `detect-absences/index.ts` — a lógica de dias de trabalho/feriados/folgas já está completa e correta.
-- A migration às `absences` é aditiva (default `false`); não quebra nada.
-- Botão de detecção limita-se a no máximo 31 dias por chamada para evitar timeouts.
+**Grid de KPIs simplificado (4 cartões, não 6)**
+1. Faltas injustificadas (mês atual)
+2. Férias gozadas / direito (ano)
+3. Formação `Xh / 40h` (barra de progresso)
+4. Próxima reunião / advertências ativas (o que for relevante)
+
+Cartões com hover sutil, ícone em círculo colorido, número grande em fonte display.
+
+## 2. Simplificação de conteúdo
+
+Manter apenas seções essenciais ao colaborador:
+- **Dados pessoais** (compacto: email, telefone, admissão, departamento)
+- **Banco de Horas** (saldo + últimos 5 movimentos, se houver)
+- **Registos de Ponto recentes** (últimos 7 dias, em vez dos 60 atuais)
+- **Faltas** (resumo + lista do ano)
+- **Férias** (gozadas + marcadas, do ano atual)
+- **Formação** (do ano atual, barra de 40h)
+- **Advertências** (apenas se existirem)
+- **Reuniões** (apenas próximas + últimas 3 concluídas)
+
+Remover/esconder do portal (continuam no admin):
+- Listas longas de EPIs, ferramentas, contratos, exames médicos completos — substituir por um único cartão "Documentos e Equipamentos" com contagens e link para falar com RH.
+- Tarefas de manutenção — manter só se o colaborador tiver tarefas ativas; caso contrário esconder a seção inteira.
+
+Tudo apresentado em layout responsivo com cards arredondados, espaçamento generoso, separadores subtis.
+
+## 3. Avaliação refocada apenas em líderes
+
+**Comportamento**
+- Botão único no header: **"Avaliar o meu Líder"**.
+- Remover do dialog as opções "Sugestão" e "Reclamação" — passam a viver no menu secundário "Enviar sugestão" (link discreto no rodapé do portal).
+- O dialog de avaliação de líder mostra:
+  - Selector de líder (lista vinda de `data.leaders`; pré-seleciona o `manager_id` do colaborador, se existir).
+  - 5 estrelas para nota geral + campos opcionais: pontos fortes, a melhorar, comentário.
+  - Switch **"Enviar anonimamente"** (default: ligado, para dar confiança).
+  - Botão "Enviar avaliação".
+- Quando anónimo, mantém o comportamento atual (`employee_id = null`, trigger `enforce_anonymous_suggestion`).
+
+**Remover do portal**
+- Bloco de "Avaliações pendentes" (evaluator) — esse fluxo passa a estar apenas no app interno; o portal é só para o colaborador avaliar o seu líder.
+- Bloco de submissão de avaliação formal (`employee_evaluations`) deixa de aparecer no portal.
+
+**Backend (`supabase/functions/employee-portal/index.ts`)**
+- Manter ação `submit_suggestion` (já suporta `evaluated_leader_id` e `is_anonymous`).
+- Remover/parar de chamar `get_pending_evaluations` e `submit_evaluation` a partir do portal (manter no edge function por compatibilidade, mas não invocar).
+
+## 4. Detalhes técnicos
+
+- Ficheiros tocados:
+  - `src/pages/EmployeePortal.tsx` — refator completo do layout, KPIs, seções, dialog de avaliação.
+  - Pequenos componentes auxiliares (KPI card, balance hero) internos ao próprio ficheiro para não inflar a árvore.
+- Usar tokens semânticos (`bg-primary/10`, `text-primary`, `bg-card`, `text-muted-foreground`, gradientes com `from-primary/10 via-background to-accent/10`).
+- Animações suaves (`transition-all`, `hover:shadow-md`) sem novas dependências.
+- Sem alterações de schema; sem migrations.
+- Sem alterações no admin (página `Evaluations`, `Suggestions`, etc.).
+
+## 5. Fora do âmbito
+
+- Não alterar a lógica do banco de horas, faltas, férias ou avaliações no lado admin.
+- Não criar novas tabelas nem novos endpoints.
+- Não alterar o login por PIN.
