@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
         .from("employees")
         .select("id, first_name, last_name, email, phone, position, status, hire_date, birth_date, avatar_url, nif, niss, morada, cidade, distrito, codigo_postal, manager_id, departments(name)")
         .eq("pin_code", pin)
-        .eq("status", "active")
+        .in("status", ["active", "on_leave"])
         .maybeSingle();
 
       if (error || !emp) {
