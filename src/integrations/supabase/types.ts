@@ -17,7 +17,10 @@ export type Database = {
       absences: {
         Row: {
           absence_date: string
+          admin_confirmed: boolean
           auto_detected: boolean
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
           days_count: number
           deducted_from_bank: boolean
@@ -32,7 +35,10 @@ export type Database = {
         }
         Insert: {
           absence_date: string
+          admin_confirmed?: boolean
           auto_detected?: boolean
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           days_count?: number
           deducted_from_bank?: boolean
@@ -47,7 +53,10 @@ export type Database = {
         }
         Update: {
           absence_date?: string
+          admin_confirmed?: boolean
           auto_detected?: boolean
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           days_count?: number
           deducted_from_bank?: boolean
