@@ -17,7 +17,7 @@ export default function Suggestions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employee_suggestions")
-        .select("*, employees(first_name, last_name, position)")
+        .select("*, employees(first_name, last_name, position), evaluated_leader:evaluated_leader_id(first_name, last_name, position)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -147,6 +147,17 @@ export default function Suggestions() {
                                   <Star key={n} className={`h-4 w-4 ${n <= s.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
                                 ))}
                               </div>
+                            )}
+                            {s.type === "leadership_evaluation" && s.evaluated_leader && (
+                              <p className="text-xs mt-1.5">
+                                <span className="text-muted-foreground">Líder avaliado: </span>
+                                <span className="font-medium">
+                                  {s.evaluated_leader.first_name} {s.evaluated_leader.last_name}
+                                </span>
+                                {s.evaluated_leader.position && (
+                                  <span className="text-muted-foreground"> · {s.evaluated_leader.position}</span>
+                                )}
+                              </p>
                             )}
                             <p className="text-sm mt-2 whitespace-pre-wrap">{s.message}</p>
                             <p className="text-xs text-muted-foreground mt-2">

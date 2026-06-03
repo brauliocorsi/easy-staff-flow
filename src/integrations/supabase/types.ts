@@ -421,6 +421,7 @@ export type Database = {
         Row: {
           created_at: string
           employee_id: string | null
+          evaluated_leader_id: string | null
           id: string
           is_anonymous: boolean
           message: string
@@ -430,6 +431,7 @@ export type Database = {
         Insert: {
           created_at?: string
           employee_id?: string | null
+          evaluated_leader_id?: string | null
           id?: string
           is_anonymous?: boolean
           message: string
@@ -439,6 +441,7 @@ export type Database = {
         Update: {
           created_at?: string
           employee_id?: string | null
+          evaluated_leader_id?: string | null
           id?: string
           is_anonymous?: boolean
           message?: string
@@ -449,6 +452,13 @@ export type Database = {
           {
             foreignKeyName: "employee_suggestions_employee_id_fkey"
             columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_suggestions_evaluated_leader_id_fkey"
+            columns: ["evaluated_leader_id"]
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]

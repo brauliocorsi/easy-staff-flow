@@ -66,6 +66,7 @@ export default function EmployeePortal() {
     message: "",
     rating: 0,
     is_anonymous: false,
+    evaluated_leader_id: "",
   });
   // Evaluations
   const [pendingEvals, setPendingEvals] = useState<any[]>([]);
@@ -112,6 +113,10 @@ export default function EmployeePortal() {
       toast.error("Escreva uma mensagem");
       return;
     }
+    if (suggestion.type === "leadership_evaluation" && !suggestion.evaluated_leader_id) {
+      toast.error("Selecione o líder a avaliar");
+      return;
+    }
     setSubmitting(true);
     try {
       const { data: res, error } = await supabase.functions.invoke("employee-portal", {
@@ -125,7 +130,7 @@ export default function EmployeePortal() {
       if (res?.error) throw new Error(res.error);
       toast.success("Enviado com sucesso!");
       setDialogOpen(false);
-      setSuggestion({ type: "suggestion", message: "", rating: 0, is_anonymous: false });
+      setSuggestion({ type: "suggestion", message: "", rating: 0, is_anonymous: false, evaluated_leader_id: "" });
     } catch (err: any) {
       toast.error(err.message || "Erro ao enviar");
     } finally {
@@ -635,6 +640,23 @@ export default function EmployeePortal() {
               </Select>
             </div>
             {suggestion.type === "leadership_evaluation" && (
+              <>
+              <div className="space-y-2">
+                <Label>Líder a avaliar *</Label>
+                <Select
+                  value={suggestion.evaluated_leader_id || undefined}
+                  onValueChange={(v) => setSuggestion((s) => ({ ...s, evaluated_leader_id: v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o líder" /></SelectTrigger>
+                  <SelectContent>
+                    {(data?.leaders || []).map((l: any) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.first_name} {l.last_name}{l.position ? ` — ${l.position}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>Classificação</Label>
                 <div className="flex gap-1">
@@ -646,6 +668,7 @@ export default function EmployeePortal() {
                   ))}
                 </div>
               </div>
+              </>
             )}
             <div className="space-y-2">
               <Label>Mensagem *</Label>

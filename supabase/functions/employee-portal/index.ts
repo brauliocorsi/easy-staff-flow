@@ -54,6 +54,27 @@ Deno.serve(async (req) => {
         supabase.from("time_clock_records").select("*").eq("employee_id", emp.id).order("record_date", { ascending: false }).limit(60),
       ]);
 
+      // Fetch leaders (employees that are referenced as manager_id by any other employee)
+      let leaders: any[] = [];
+      try {
+        const { data: managerLinks } = await supabase
+          .from("employees")
+          .select("manager_id")
+          .not("manager_id", "is", null);
+        const managerIds = Array.from(new Set((managerLinks || []).map((r: any) => r.manager_id).filter(Boolean)));
+        if (managerIds.length > 0) {
+          const { data: leaderRows } = await supabase
+            .from("employees")
+            .select("id, first_name, last_name, position")
+            .in("id", managerIds)
+            .eq("status", "active")
+            .order("first_name");
+          leaders = leaderRows || [];
+        }
+      } catch (_) {
+        leaders = [];
+      }
+
       const meetingsList = (meetings.data || [])
         .filter((p: any) => p.meetings)
         .map((p: any) => ({
@@ -117,6 +138,7 @@ Deno.serve(async (req) => {
         maintenance_logs: maintenanceLogs.data || [],
         maintenance_tasks: maintenanceTasks.data || [],
         time_clock_records: timeClockRecords.data || [],
+        leaders,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -136,6 +158,7 @@ Deno.serve(async (req) => {
         type: suggestion.type || "suggestion",
         message: suggestion.message,
         rating: suggestion.rating || null,
+        evaluated_leader_id: suggestion.evaluated_leader_id || null,
       });
 
       if (error) throw error;
