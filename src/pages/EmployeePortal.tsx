@@ -388,7 +388,13 @@ export default function EmployeePortal() {
         </SectionCard>
 
         {/* Vacations */}
-        <SectionCard title="Férias" icon={Palmtree} iconClass="text-primary" count={data.vacations.length}>
+        <SectionCard
+          title="Férias"
+          icon={Palmtree}
+          iconClass="text-primary"
+          count={data.vacations.length}
+          extra={`${vacEnjoyed} de ${vacEntitled} dias gozados em ${currentYear}`}
+        >
           {(() => {
             const deptName: string | undefined = emp.departments?.name;
             const sectorScope = deptName === "Fábrica" ? "factory" : deptName === "Armazém" ? "warehouse" : null;
@@ -410,14 +416,17 @@ export default function EmployeePortal() {
             );
           })()}
           {data.vacations.length === 0 ? <EmptyText /> : (
-            <div className="space-y-2 max-h-52 overflow-y-auto">
-              {data.vacations.map((v: any) => {
-                const vsMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-                  approved: { label: "Aprovado", variant: "default" },
-                  pending: { label: "Pendente", variant: "outline" },
-                  employee_suggested: { label: "Sugerido", variant: "secondary" },
-                  rejected: { label: "Recusado", variant: "destructive" },
-                };
+            (() => {
+              const vsMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+                approved: { label: "Aprovado", variant: "default" },
+                pending: { label: "Pendente", variant: "outline" },
+                employee_suggested: { label: "Sugerido", variant: "secondary" },
+                rejected: { label: "Recusado", variant: "destructive" },
+              };
+              const sorted = [...data.vacations].sort((a: any, b: any) => a.start_date.localeCompare(b.start_date));
+              const enjoyed = sorted.filter((v: any) => isVacationEnjoyed(v));
+              const upcoming = sorted.filter((v: any) => !isVacationEnjoyed(v));
+              const renderItem = (v: any) => {
                 const vs = vsMap[v.status] || { label: v.status, variant: "outline" as const };
                 return (
                   <div key={v.id} className="flex items-center justify-between p-2 rounded-md border">
@@ -433,8 +442,24 @@ export default function EmployeePortal() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              };
+              return (
+                <div className="space-y-3 max-h-72 overflow-y-auto">
+                  {enjoyed.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Gozadas ({enjoyed.length})</p>
+                      {enjoyed.map(renderItem)}
+                    </div>
+                  )}
+                  {upcoming.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marcadas / Pendentes ({upcoming.length})</p>
+                      {upcoming.map(renderItem)}
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </SectionCard>
 
