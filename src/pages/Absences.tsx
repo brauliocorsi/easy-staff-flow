@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, CalendarIcon, Upload, Trash2, FileText, AlertTriangle, CheckCircle, ArrowRightLeft, Timer } from "lucide-react";
+import { Plus, Search, Loader2, CalendarIcon, Upload, Trash2, FileText, AlertTriangle, CheckCircle, ArrowRightLeft, Timer, ShieldCheck, Radar } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,6 +31,13 @@ export default function Absences() {
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedType, setSelectedType] = useState("unjustified");
+  const [detectOpen, setDetectOpen] = useState(false);
+  const [detectFrom, setDetectFrom] = useState<Date | undefined>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 7); return d;
+  });
+  const [detectTo, setDetectTo] = useState<Date | undefined>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 1); return d;
+  });
   const queryClient = useQueryClient();
   const { data: isAdmin } = useIsAdmin();
 
@@ -124,6 +131,53 @@ export default function Absences() {
       toast.success("Falta removida");
       queryClient.invalidateQueries({ queryKey: ["absences"] });
       setDeleteId(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("absences")
+        .update({
+          admin_confirmed: true,
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: u.user?.id ?? null,
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Falta confirmada");
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const detectMutation = useMutation({
+    mutationFn: async () => {
+      if (!detectFrom || !detectTo) throw new Error("Selecione o intervalo");
+      if (detectTo < detectFrom) throw new Error("Data final inválida");
+      const days: string[] = [];
+      const d = new Date(detectFrom);
+      while (d <= detectTo) {
+        days.push(format(d, "yyyy-MM-dd"));
+        d.setDate(d.getDate() + 1);
+      }
+      if (days.length > 31) throw new Error("Máximo 31 dias por execução");
+      let created = 0;
+      for (const date of days) {
+        const { data, error } = await supabase.functions.invoke("detect-absences", { body: { date } });
+        if (error) throw error;
+        created += Number(data?.absences_created ?? 0);
+      }
+      return { created, days: days.length };
+    },
+    onSuccess: (r) => {
+      toast.success(`${r.created} falta(s) detetada(s) em ${r.days} dia(s)`);
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      setDetectOpen(false);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -332,6 +386,9 @@ export default function Absences() {
     if (absence.justified) {
       return <Badge variant="outline" className="text-xs text-green-600 border-green-500"><CheckCircle className="h-3 w-3 mr-1" />Justificada</Badge>;
     }
+    if (absence.auto_detected && !absence.admin_confirmed) {
+      return <Badge variant="outline" className="text-xs border-amber-500 text-amber-600"><AlertTriangle className="h-3 w-3 mr-1" />A confirmar</Badge>;
+    }
     if (absence.justification_deadline) {
       const daysLeft = differenceInCalendarDays(new Date(absence.justification_deadline), new Date());
       if (daysLeft < 0) {
@@ -362,10 +419,16 @@ export default function Absences() {
             <p className="text-muted-foreground mt-1">Faltas automáticas e manuais com justificação</p>
           </div>
           {isAdmin && (
-            <Button onClick={() => setRegisterOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Registrar Falta
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setDetectOpen(true)}>
+                <Radar className="h-4 w-4 mr-2" />
+                Detectar Faltas
+              </Button>
+              <Button onClick={() => setRegisterOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Registrar Falta
+              </Button>
+            </div>
           )}
         </div>
 
@@ -385,8 +448,8 @@ export default function Absences() {
               <CardContent><p className="text-2xl font-bold text-destructive">{absences.filter((a: any) => !a.justified && (!a.justification_deadline || differenceInCalendarDays(new Date(a.justification_deadline), new Date()) < 0)).length}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pendentes</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-amber-600">{absences.filter((a: any) => canJustify(a)).length}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">A confirmar</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold text-amber-600">{absences.filter((a: any) => a.auto_detected && !a.justified && !a.admin_confirmed).length}</p></CardContent>
             </Card>
           </div>
         )}
@@ -447,6 +510,11 @@ export default function Absences() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          {isAdmin && absence.auto_detected && !absence.justified && !absence.admin_confirmed && (
+                            <Button variant="ghost" size="icon" title="Confirmar falta" onClick={() => confirmMutation.mutate(absence.id)}>
+                              <ShieldCheck className="h-4 w-4 text-amber-600" />
+                            </Button>
+                          )}
                           {canJustify(absence) && (
                             <Button variant="ghost" size="icon" title="Justificar" onClick={() => { setJustifyOpen(absence.id); setReason(""); }}>
                               <FileText className="h-4 w-4 text-amber-600" />
