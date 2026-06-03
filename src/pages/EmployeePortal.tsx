@@ -66,6 +66,7 @@ export default function EmployeePortal() {
     message: "",
     rating: 0,
     is_anonymous: false,
+    evaluated_leader_id: "",
   });
   // Evaluations
   const [pendingEvals, setPendingEvals] = useState<any[]>([]);
@@ -125,7 +126,7 @@ export default function EmployeePortal() {
       if (res?.error) throw new Error(res.error);
       toast.success("Enviado com sucesso!");
       setDialogOpen(false);
-      setSuggestion({ type: "suggestion", message: "", rating: 0, is_anonymous: false });
+      setSuggestion({ type: "suggestion", message: "", rating: 0, is_anonymous: false, evaluated_leader_id: "" });
     } catch (err: any) {
       toast.error(err.message || "Erro ao enviar");
     } finally {
