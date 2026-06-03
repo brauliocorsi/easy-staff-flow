@@ -1,82 +1,114 @@
-# Conciliação Mensal do Ponto — Banco de Horas
+## Parte 1 — Refatorar Notificações
 
-Adicionar uma camada de **conciliação** entre o diagnóstico do ponto (`timeClock.ts` diff diário) e o banco oficial (`time_bank_movements`), preservando a regra de ouro: **o saldo oficial continua a vir exclusivamente de `time_bank_movements`**.
+### UI/UX no popover do sino (`AppLayout.tsx`)
+- Reorganizar em **tabs**: Não lidas · Todas
+- **Agrupar por tipo** (Faltas, Saídas antecipadas, Férias, Exames médicos, Reuniões, Sistema), cada grupo com ícone, cor e contagem
+- **Filtro** por tipo (chips clicáveis no topo)
+- Cada notificação: ícone com cor consistente, título, mensagem (2 linhas), tempo relativo PT, e — quando aplicável — botão "Abrir" que navega ao recurso (ex: ficha do colaborador, reunião)
+- Ações: marcar individual como lida, marcar todas, **arquivar** (soft delete via novo campo `archived`), apagar (admin)
+- Mostrar últimas 50 (em vez de 15), com botão "Ver mais" → nova página `/notificacoes`
+- Toast em tempo real (subscrição Realtime) quando chega notificação nova enquanto o utilizador está logado
 
-## Modelo
+### Nova página `/notificacoes`
+- Histórico completo paginado, filtros (tipo, lida/não lida, intervalo de datas, arquivada)
+- Acessível a Admins e Gerentes
 
-Dois novos `source_type` em `time_bank_movements`:
+### Destinatários: incluir Gerentes
+Hoje as notificações são uma fila global lida só por Admins. Vamos passar a fila a ser **direcionada**:
 
-- `monthly_attendance_adjustment` — débito automático criado no fecho mensal a partir do diff negativo do ponto.
-- `opening_balance_snapshot` — regularização inicial / histórica até uma data de corte.
+Migração:
+- `admin_notifications.recipient_user_id uuid NULL` (NULL = broadcast para todos os admins, como hoje)
+- `admin_notifications.archived boolean NOT NULL DEFAULT false`
+- Índice `(recipient_user_id, read, created_at DESC)`
+- Atualizar política RLS:
+  - Admins veem tudo
+  - Gerentes veem apenas as suas (`recipient_user_id = auth.uid()`) ou as do seu setor
+- Atualizar Edge Functions que inserem notificações (`detect-absences`, `time-clock-punch` early leave, `auto-punch-cron`, lembretes de exames/inspeções) para também criar uma notificação dirigida ao **manager_id** do colaborador (além da existente broadcast para admins)
 
-Ambos são sempre `movement_type = 'debit'`, `status = 'approved'`, `decision = 'use_bank_hours'`, criados pelo admin. Positivos do ponto **nunca** geram movimento automático — continuam a passar por `overtime_approvals`.
+### Hook partilhado `useNotifications`
+- Centraliza fetch, mark read, archive, contagem não-lidas, subscrição Realtime
+- Usado pelo popover e pela página dedicada
 
-## Idempotência
+---
 
-- Índice parcial único em `time_bank_movements`:
-  - `(employee_id, record_date, source_type) WHERE source_type IN ('monthly_attendance_adjustment','opening_balance_snapshot') AND status <> 'cancelled'`
-- Reabrir mês marca o movimento de conciliação como `cancelled` (igual padrão do payout), nunca apaga.
+## Parte 2 — Gravação e Transcrição IA de Reuniões
 
-## RPCs novas/alteradas
+### Fluxo (gravação no browser + transcrição em lote)
+1. Na página `/reunioes/:id` (apenas com reunião **em curso**), botão **"Iniciar Gravação"** usando `MediaRecorder` (webm/opus)
+2. Indicador visual: tempo decorrido, nível de áudio, botão **Pausar/Retomar/Parar**
+3. Ao parar: upload do blob para storage privado → chama Edge Function de transcrição
+4. Após transcrição: chama Edge Function de resumo (Lovable AI/Gemini) que extrai decisões por pauta, ações e responsáveis sugeridos
+5. Utilizador pode aceitar sugestões → preenchem automaticamente os campos `decision` das pautas existentes
+6. Transcrição e resumo ficam guardados e visíveis numa nova aba "Transcrição" na página da reunião
+7. Botão para **exportar PDF** (texto integral + resumo + decisões + oradores) e **TXT**
 
-1. **`compute_attendance_diff_minutes(_employee_id, _from, _to)`** (SQL helper)
-   - Agrega o diff diário negativo dos registos de ponto fechados no intervalo, excluindo dias já cobertos por movimentos `monthly_attendance_adjustment` ativos. Usa a mesma lógica de `src/lib/timeClock.ts` portada para SQL — ou expomos o cálculo no cliente e passamos o total à RPC. **Decisão: calcular no cliente** (reusar `timeClock.ts`) e passar `_attendance_debit_minutes` à RPC, que apenas valida e cria o movimento. Mantém uma única fonte de verdade para a fórmula do diff.
+### Tabelas novas (migração)
+- `meeting_recordings`
+  - `meeting_id` (FK reuniões, cascade)
+  - `storage_path` (audio no bucket)
+  - `duration_seconds`, `mime_type`, `size_bytes`
+  - `status` enum: `uploaded | transcribing | transcribed | failed`
+  - `error_message`
+  - `recorded_by` (uuid)
+- `meeting_transcripts`
+  - `meeting_id`, `recording_id` (FK)
+  - `language_code`, `full_text` (TEXT)
+  - `segments` (JSONB com `{ speaker, text, start, end }[]` — diarização)
+  - `summary` (TEXT, gerado por IA)
+  - `key_decisions` (JSONB `[{ agenda_id?, decision, responsible? }]`)
+  - `action_items` (JSONB)
+  - `model_used` (texto)
+- GRANT + RLS: Admins gerem tudo; participantes da reunião podem ler
 
-2. **`close_time_bank_month(...)`** — adicionar parâmetro `_attendance_debit_minutes int default 0`:
-   - Se `> 0` e ainda não existe `monthly_attendance_adjustment` ativo para `(employee, mês)`, cria movimento `debit` antes de agregar.
-   - Re-agrega depois (o débito entra naturalmente em `approved_debits`).
-   - Retorna `attendance_debit_created` no JSON.
+### Storage
+- Novo bucket privado **`meeting-recordings`**
+- Políticas em `storage.objects`: só admins fazem upload/leem; service_role total (Edge Functions)
 
-3. **`create_opening_balance_snapshot(_employee_id, _cutoff_date, _minutes, _notes)`** — nova RPC admin:
-   - Valida motivo obrigatório, `minutes > 0` (magnitude), bloqueia se já existir snapshot ativo para `(employee, cutoff_date)`.
-   - Cria movimento `opening_balance_snapshot` (debit) com `record_date = cutoff_date`.
+### Edge Functions novas
+- `meeting-transcribe` — recebe `recording_id`
+  1. Marca recording como `transcribing`
+  2. Cria signed URL do áudio, faz download
+  3. Envia para **ElevenLabs Scribe v2** (`scribe_v2`) com `diarize=true`, `tag_audio_events=true`, `language_code=por`
+  4. Persiste em `meeting_transcripts` (full_text + segments)
+  5. Marca recording como `transcribed`
+- `meeting-summarize` — recebe `transcript_id` + lista de pautas da reunião
+  1. Chama Lovable AI Gateway com `google/gemini-3-flash-preview` (sem API key extra)
+  2. Prompt estruturado: dado o transcript e as pautas, devolver `{ summary, decisions_per_agenda: [{agenda_id, decision, responsible_suggestion}], action_items }`
+  3. Usa `response_format: json_object`
+  4. Persiste no `meeting_transcripts`
 
-4. **`reopen_time_bank_month`** — estender para cancelar também o `monthly_attendance_adjustment` do mês.
+### Segredo necessário
+- `ELEVENLABS_API_KEY` — pedir ao utilizador via secrets tool antes de implementar a Edge Function de transcrição. `LOVABLE_API_KEY` já existe.
 
-## Frontend
+### UI nova
+- `src/components/meetings/MeetingRecorder.tsx` — controlador de gravação (MediaRecorder), uploader, polling do estado de transcrição
+- `src/components/meetings/MeetingTranscriptTab.tsx` — exibe segmentos com cores por orador, resumo, decisões sugeridas com botão "Aplicar à pauta X", botões de export PDF/TXT
+- Tabs na `MeetingDetail.tsx`: **Pautas · Participantes · Transcrição**
+- `src/lib/generateTranscriptPdf.ts` — PDF com jspdf usando a paleta do projeto
 
-### `src/lib/timeBank.ts`
-- `computeMonthlyClosure` aceita `attendanceDebitMinutes?: number` e cria entrada virtual de débito antes de calcular `balanceBeforeClosure` (apenas para preview). Adiciona campo `attendanceDebitProposed` no resultado.
+### Notificações ligadas
+- Quando transcrição completa: notificação dirigida ao criador da reunião + admins ("Transcrição pronta para *Título*", link para a aba)
+- Quando transcrição falha: notificação de erro
 
-### `src/lib/attendanceReconciliation.ts` (novo)
-- `computeAttendanceDebitForMonth(employeeId, year, month)`: usa `timeClock.ts` para somar diff negativo dos dias do mês, subtrai débitos já lançados.
-- Função pura, testável.
+---
 
-### `src/components/timeclock/MonthlyClosureTab.tsx`
-- Novo bloco **"Conciliação do ponto"** acima das decisões:
-  - Diferença do ponto no mês (em horas)
-  - Débitos já lançados
-  - Valor a conciliar (proposta)
-  - Pendências positivas a aguardar aprovação (contagem)
-  - Checkbox/aviso: "Lançar débito de Xh no fecho"
-- Se houver valor a conciliar e admin não confirmar, mostrar warning bloqueante.
-- Botão **"Criar regularização inicial"** num modal separado (data de corte + motivo + minutos).
+## Detalhes técnicos
 
-## Testes (`src/lib/timeBank.test.ts` + novo `attendanceReconciliation.test.ts`)
+- Reutiliza padrões existentes: `corsHeaders`, `createClient` com service role nas Edge Functions; `supabase.functions.invoke` no cliente
+- Realtime: subscrição em `admin_notifications` (já habilitado) e em `meeting_recordings` (para refletir progresso da transcrição sem polling pesado)
+- Sem alterações ao Banco de Horas, Fecho Mensal, férias coletivas, lógica de ponto
+- Sem alterações ao tema (Professional Blue, Inter + Plus Jakarta Sans)
+- Testes existentes (54) continuam a passar; sem reescrita de hooks de domínio
 
-1. `computeMonthlyClosure` com `attendanceDebitMinutes = 535` e opening 0 → balanceBefore = -535.
-2. Conciliação não duplica: já existe débito → proposta = 0.
-3. Diff positivo do ponto → proposta = 0 (não gera nada).
-4. Cenário Helder: abril -180, maio -535, junho abre com -715.
-5. Regularização inicial: -180, cria, segunda tentativa bloqueia.
+---
 
-## Migration
-
-```sql
--- novo índice parcial
-CREATE UNIQUE INDEX time_bank_movements_unique_reconciliation
-  ON public.time_bank_movements(employee_id, record_date, source_type)
-  WHERE source_type IN ('monthly_attendance_adjustment','opening_balance_snapshot')
-    AND status <> 'cancelled';
-
--- update close_time_bank_month (novo parâmetro)
--- update reopen_time_bank_month (cancelar adjustment)
--- nova create_opening_balance_snapshot
-```
-
-## Fora de scope
-- Não alterar `timeClock.ts` (apenas consumir).
-- Não tocar em férias coletivas.
-- Não alterar fluxo de positivos / `overtime_approvals`.
-
-Posso avançar?
+## Ordem de implementação
+1. Migração: campos `recipient_user_id`/`archived`, tabelas `meeting_recordings`/`meeting_transcripts`, bucket + policies
+2. Pedir `ELEVENLABS_API_KEY` ao utilizador
+3. Hook `useNotifications` + refactor do popover + nova página `/notificacoes`
+4. Atualizar Edge Functions que criam notificações para incluir gerente
+5. Edge Function `meeting-transcribe` (ElevenLabs)
+6. Edge Function `meeting-summarize` (Lovable AI)
+7. Componentes `MeetingRecorder` + `MeetingTranscriptTab` + integração em `MeetingDetail`
+8. PDF/TXT export
+9. Verificar build, lint e testes
