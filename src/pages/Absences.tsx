@@ -683,6 +683,54 @@ export default function Absences() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Detect absences dialog */}
+      <Dialog open={detectOpen} onOpenChange={setDetectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detectar Faltas</DialogTitle>
+            <DialogDescription>
+              Verifica dias úteis sem registo de ponto (ignora folgas, feriados e férias aprovadas) e cria faltas pendentes de confirmação. Máximo 31 dias.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">De</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {detectFrom ? format(detectFrom, "dd/MM/yyyy") : "Selecione"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={detectFrom} onSelect={setDetectFrom} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Até</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {detectTo ? format(detectTo, "dd/MM/yyyy") : "Selecione"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={detectTo} onSelect={setDetectTo} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <Button onClick={() => detectMutation.mutate()} disabled={detectMutation.isPending || !detectFrom || !detectTo} className="w-full">
+              {detectMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Detectar Faltas no Intervalo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
