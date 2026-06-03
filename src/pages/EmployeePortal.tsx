@@ -282,12 +282,30 @@ export default function EmployeePortal() {
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <SummaryCard icon={AlertTriangle} iconClass="text-destructive" bgClass="bg-destructive/10" value={unjustified} label="Faltas Injustif." />
           <SummaryCard icon={FileText} iconClass="text-destructive" bgClass="bg-destructive/10" value={data.warnings.length} label="Advertências" />
           <SummaryCard icon={Palmtree} iconClass="text-primary" bgClass="bg-primary/10" value={`${vacEnjoyed}/${vacEntitled}`} label="Férias Gozadas" />
           <SummaryCard icon={CalendarCheck2} iconClass="text-primary" bgClass="bg-primary/10" value={data.meetings.length} label="Reuniões" />
           <SummaryCard icon={GraduationCap} iconClass="text-primary" bgClass="bg-primary/10" value={`${trainingHours}h/40h`} label="Formação" />
+          {(() => {
+            const mins = Number(data.time_bank_balance_minutes ?? 0);
+            const sign = mins < 0 ? "-" : "";
+            const abs = Math.abs(mins);
+            const hh = Math.floor(abs / 60);
+            const mm = abs % 60;
+            const txt = `${sign}${hh}h${String(mm).padStart(2, "0")}`;
+            const positive = mins >= 0;
+            return (
+              <SummaryCard
+                icon={Clock}
+                iconClass={positive ? "text-primary" : "text-destructive"}
+                bgClass={positive ? "bg-primary/10" : "bg-destructive/10"}
+                value={txt}
+                label="Banco de Horas"
+              />
+            );
+          })()}
         </div>
 
         {/* Personal Info */}

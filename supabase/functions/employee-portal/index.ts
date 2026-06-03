@@ -54,6 +54,22 @@ Deno.serve(async (req) => {
         supabase.from("time_clock_records").select("*").eq("employee_id", emp.id).order("record_date", { ascending: false }).limit(60),
       ]);
 
+      // Time bank balance: sum effective_minutes of approved/paid movements
+      let timeBankBalanceMinutes = 0;
+      try {
+        const { data: movs } = await supabase
+          .from("time_bank_movements")
+          .select("effective_minutes, status")
+          .eq("employee_id", emp.id)
+          .in("status", ["approved", "paid"]);
+        timeBankBalanceMinutes = (movs || []).reduce(
+          (sum: number, m: any) => sum + (Number(m.effective_minutes) || 0),
+          0,
+        );
+      } catch (_) {
+        timeBankBalanceMinutes = 0;
+      }
+
       // Fetch leaders (employees that are referenced as manager_id by any other employee)
       let leaders: any[] = [];
       try {
@@ -139,6 +155,7 @@ Deno.serve(async (req) => {
         maintenance_tasks: maintenanceTasks.data || [],
         time_clock_records: timeClockRecords.data || [],
         leaders,
+        time_bank_balance_minutes: timeBankBalanceMinutes,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
