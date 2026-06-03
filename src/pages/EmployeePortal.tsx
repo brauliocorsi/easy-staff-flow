@@ -113,6 +113,10 @@ export default function EmployeePortal() {
       toast.error("Escreva uma mensagem");
       return;
     }
+    if (suggestion.type === "leadership_evaluation" && !suggestion.evaluated_leader_id) {
+      toast.error("Selecione o líder a avaliar");
+      return;
+    }
     setSubmitting(true);
     try {
       const { data: res, error } = await supabase.functions.invoke("employee-portal", {
