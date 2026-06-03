@@ -11,6 +11,7 @@ import { Plus, Palmtree, Factory, Warehouse, CheckCircle, Clock, Link2, ToggleRi
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useVacationRequests, useUpdateVacationRequest, useGetVacationPublicLink, useDeleteVacationRequest, VacationRequest } from "@/hooks/useVacations";
+import { useSyncEnjoyedVacations } from "@/hooks/useSyncEnjoyedVacations";
 import { VacationFormDialog } from "@/components/vacations/VacationFormDialog";
 import { CollectiveVacationForm } from "@/components/vacations/CollectiveVacationForm";
 import { VacationMap } from "@/components/vacations/VacationMap";
@@ -87,6 +88,7 @@ export default function Vacations() {
   const updateMutation = useUpdateVacationRequest();
   const deleteMutation = useDeleteVacationRequest();
   const getLinkMutation = useGetVacationPublicLink();
+  const syncMutation = useSyncEnjoyedVacations();
 
   const individualVacations = (vacations || []).filter((v) => v.category === "individual");
   const employeeGroups = groupByEmployee(individualVacations);
@@ -169,6 +171,24 @@ export default function Vacations() {
             </Select>
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" /> Novo Pedido
+            </Button>
+            <Button
+              variant="outline"
+              disabled={syncMutation.isPending}
+              onClick={async () => {
+                try {
+                  const r = await syncMutation.mutateAsync(year);
+                  toast.success(
+                    `Sincronização concluída — ${r.created} registo(s) criado(s), ${r.marked} marcado(s) como gozados`
+                  );
+                } catch (e: any) {
+                  toast.error(e.message || "Erro na sincronização");
+                }
+              }}
+              title="Cria registos coletivos em falta e marca períodos passados como gozados"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {syncMutation.isPending ? "A sincronizar..." : "Sincronizar Gozadas"}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
