@@ -255,12 +255,10 @@ export default function EmployeePortal() {
   const trainingPct = Math.min(100, Math.round((trainingHours / 40) * 100));
 
   const activeWarnings = (data.warnings || []).length;
-  const upcomingMeeting = useMemo(() => {
-    const now = new Date();
-    return (data.meetings || [])
-      .filter((m: any) => new Date(m.meeting_date) >= now && m.status !== "completed")
-      .sort((a: any, b: any) => new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime())[0];
-  }, [data.meetings]);
+  const _now = new Date();
+  const upcomingMeeting = (data.meetings || [])
+    .filter((m: any) => new Date(m.meeting_date) >= _now && m.status !== "completed")
+    .sort((a: any, b: any) => new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime())[0];
 
   const recentPunches = (data.time_clock_records || []).slice(0, 7);
 
