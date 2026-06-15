@@ -52,6 +52,26 @@ type DayRow = {
   schedLunchIn?: string;
 };
 
+type ScheduleRow = {
+  day_of_week: number;
+  clock_in_time: string;
+  lunch_out_time: string;
+  lunch_in_time: string;
+  clock_out_time: string;
+  is_day_off: boolean;
+};
+
+type EmployeeSummary = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  position?: string | null;
+  avatar_url?: string | null;
+  schedule_template_id?: string | null;
+  balance: number;
+  accumulated: number;
+};
+
 export default function OvertimeBank() {
   const currentDate = new Date();
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
@@ -221,6 +241,52 @@ export default function OvertimeBank() {
     },
   });
 
+  const { data: allMonthRecords } = useQuery({
+    queryKey: ["overtime-all-month-records", rangeStart, rangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_clock_records")
+        .select("employee_id, record_date, clock_in, lunch_out, lunch_in, clock_out")
+        .gte("record_date", rangeStart)
+        .lte("record_date", rangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: allEmployeeSchedules } = useQuery({
+    queryKey: ["overtime-all-employee-schedules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_schedules")
+        .select("employee_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off");
+      if (error) throw error;
+      return data as Array<ScheduleRow & { employee_id: string }>;
+    },
+  });
+
+  const { data: allTemplateDays } = useQuery({
+    queryKey: ["overtime-all-template-days"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_template_days")
+        .select("template_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off");
+      if (error) throw error;
+      return data as Array<ScheduleRow & { template_id: string }>;
+    },
+  });
+
+  const { data: allTemplateTolerances } = useQuery({
+    queryKey: ["overtime-all-template-tolerances"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("schedule_templates")
+        .select("id, tolerance_late_minutes, tolerance_overtime_minutes, tolerance_early_leave_minutes");
+      if (error) throw error;
+      return data as Array<Tolerances & { id: string }>;
+    },
+  });
+
   // Accumulated balance per employee as of the end of the viewed month, following the
   // official rule: last closure carried_over + approved/paid movements after that cutoff.
   const accumulatedByEmployee = useMemo(() => {
@@ -377,7 +443,7 @@ export default function OvertimeBank() {
   );
 
   // ---- Summary per employee (official rule for month + accumulated) ----
-  const summaryPerEmployee = useMemo(() => {
+  const summaryPerEmployee = useMemo<EmployeeSummary[]>(() => {
     if (!employees) return [];
     const monthByEmp = new Map<string, number>();
     for (const m of allApprovedMovements || []) {
@@ -388,12 +454,57 @@ export default function OvertimeBank() {
         (monthByEmp.get(m.employee_id) || 0) + (Number(m.effective_minutes) || 0)
       );
     }
+    const recordsByEmp = new Map<string, any[]>();
+    for (const record of allMonthRecords || []) {
+      const arr = recordsByEmp.get(record.employee_id) || [];
+      arr.push(record);
+      recordsByEmp.set(record.employee_id, arr);
+    }
+    const individualSchedulesByEmp = new Map<string, Map<number, ScheduleRow>>();
+    for (const schedule of allEmployeeSchedules || []) {
+      const map = individualSchedulesByEmp.get(schedule.employee_id) || new Map<number, ScheduleRow>();
+      map.set(schedule.day_of_week, schedule);
+      individualSchedulesByEmp.set(schedule.employee_id, map);
+    }
+    const templateDaysByTemplate = new Map<string, Map<number, ScheduleRow>>();
+    for (const schedule of allTemplateDays || []) {
+      const map = templateDaysByTemplate.get(schedule.template_id) || new Map<number, ScheduleRow>();
+      map.set(schedule.day_of_week, schedule);
+      templateDaysByTemplate.set(schedule.template_id, map);
+    }
+    const tolerancesByTemplate = new Map<string, Tolerances>();
+    for (const tolerance of allTemplateTolerances || []) {
+      tolerancesByTemplate.set(tolerance.id, tolerance);
+    }
+    const attendanceMonthByEmp = new Map<string, number>();
+    for (const emp of employees) {
+      const movementBalance = monthByEmp.get(emp.id) || 0;
+      if (movementBalance !== 0) continue;
+      const empRecords = recordsByEmp.get(emp.id) || [];
+      if (empRecords.length === 0) continue;
+      const recordMap = new Map<string, any>();
+      empRecords.forEach((record) => recordMap.set(record.record_date, record));
+      const individual = individualSchedulesByEmp.get(emp.id);
+      const template = emp.schedule_template_id ? templateDaysByTemplate.get(emp.schedule_template_id) : undefined;
+      if (!individual && !template) continue;
+      const tolerances = resolveTolerances(emp.schedule_template_id ? tolerancesByTemplate.get(emp.schedule_template_id) : null);
+      let total = 0;
+      eachDayOfInterval({ start: new Date(year, month, 1), end: endOfMonth(new Date(year, month, 1)) }).forEach((date) => {
+        const dateStr = format(date, "yyyy-MM-dd");
+        if (dateStr > format(new Date(), "yyyy-MM-dd")) return;
+        const schedule = individual?.get(date.getDay()) || template?.get(date.getDay());
+        if (!schedule || schedule.is_day_off) return;
+        const calculated = calculateWorkday(recordMap.get(dateStr), schedule, tolerances);
+        total += calculated.diff;
+      });
+      attendanceMonthByEmp.set(emp.id, total);
+    }
     return employees.map((emp) => ({
       ...emp,
-      balance: monthByEmp.get(emp.id) || 0,
+      balance: monthByEmp.get(emp.id) || attendanceMonthByEmp.get(emp.id) || 0,
       accumulated: accumulatedByEmployee.get(emp.id) || 0,
     }));
-  }, [employees, allApprovedMovements, accumulatedByEmployee, rangeStart, rangeEnd]);
+  }, [employees, allApprovedMovements, allMonthRecords, allEmployeeSchedules, allTemplateDays, allTemplateTolerances, accumulatedByEmployee, rangeStart, rangeEnd, year, month]);
 
   // -------- Conta-Corrente --------
   const { data: bankMovements } = useQuery({
