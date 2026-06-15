@@ -8,6 +8,25 @@ const corsHeaders = {
 
 const TIMEZONE = "Europe/Lisbon";
 
+function lisbonTimeToUTC(dateStr: string, h: number, m: number): Date {
+  // dateStr "YYYY-MM-DD" → UTC instant for that wall time in Lisbon (DST-safe)
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const naive = Date.UTC(y, mo - 1, d, h, m, 0);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE,
+    timeZoneName: "shortOffset",
+  }).formatToParts(new Date(naive));
+  const tzName = parts.find((p) => p.type === "timeZoneName")?.value || "GMT";
+  const match = tzName.match(/GMT([+-]\d+(?::\d+)?)?/);
+  let offsetMin = 0;
+  if (match && match[1]) {
+    const [oh, om] = match[1].split(":");
+    const sign = oh.startsWith("-") ? -1 : 1;
+    offsetMin = sign * (Math.abs(parseInt(oh)) * 60 + (om ? parseInt(om) : 0));
+  }
+  return new Date(naive - offsetMin * 60 * 1000);
+}
+
 function getLocalTime(date: Date): { hours: number; minutes: number; dayOfWeek: number; dateStr: string } {
   const localStr = date.toLocaleString("en-US", { timeZone: TIMEZONE });
   const local = new Date(localStr);
@@ -136,8 +155,7 @@ Deno.serve(async (req) => {
 
         if (!rec && field === "clock_in") {
           // Create record with clock_in
-          const ts = new Date(now);
-          ts.setHours(h, m, 0, 0);
+          const ts = lisbonTimeToUTC(today, h, m);
           const { data: newRec } = await supabase
             .from("time_clock_records")
             .insert({ employee_id: emp.id, record_date: today, clock_in: ts.toISOString() })
@@ -145,8 +163,7 @@ Deno.serve(async (req) => {
             .single();
           if (newRec) recordMap.set(emp.id, newRec);
         } else if (rec && !rec[field]) {
-          const ts = new Date(now);
-          ts.setHours(h, m, 0, 0);
+          const ts = lisbonTimeToUTC(today, h, m);
           await supabase
             .from("time_clock_records")
             .update({ [field]: ts.toISOString() })
