@@ -29,6 +29,7 @@ import {
   type AttendanceDay,
 } from "@/lib/attendanceReconciliation";
 import { Lock, Unlock, AlertTriangle, FileWarning } from "lucide-react";
+import { BatchClosureDialog } from "./BatchClosureDialog";
 
 const MONTHS = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -353,6 +354,11 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isAdmin && !employeeId && (
+          <div className="flex justify-end">
+            <BatchClosureDialog />
+          </div>
+        )}
         <div className="flex flex-wrap gap-3">
           {!employeeId && (
             <div className="min-w-[220px]">
