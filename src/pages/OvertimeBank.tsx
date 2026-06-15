@@ -196,21 +196,81 @@ export default function OvertimeBank() {
     },
   });
 
-  const { data: empPrevBankMovements } = useQuery({
-    queryKey: ["overtime-emp-bank-movements-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
-    enabled: !!selectedEmployee,
+  // All approved/paid movements globally — used to compute the official accumulated balance
+  const { data: allApprovedMovements } = useQuery({
+    queryKey: ["overtime-all-approved-movements"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("time_bank_movements")
-        .select("effective_minutes, status, record_date")
-        .eq("employee_id", selectedEmployee)
-        .eq("status", "approved")
-        .gte("record_date", prevRangeStart)
-        .lte("record_date", prevRangeEnd);
+        .select("employee_id, effective_minutes, status, record_date")
+        .in("status", ["approved", "paid"]);
       if (error) throw error;
       return data as any[];
     },
   });
+
+  // All monthly closures — used to anchor accumulated to last carried_over balance
+  const { data: allClosures } = useQuery({
+    queryKey: ["overtime-all-closures"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_bank_monthly_closures")
+        .select("employee_id, period_year, period_month, carried_over_minutes");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Accumulated balance per employee as of the end of the viewed month, following the
+  // official rule: last closure carried_over + approved/paid movements after that cutoff.
+  const accumulatedByEmployee = useMemo(() => {
+    const map = new Map<string, number>();
+    const closures = allClosures || [];
+    const movs = allApprovedMovements || [];
+    const movsByEmp = new Map<string, any[]>();
+    for (const m of movs) {
+      if (!m.record_date || m.record_date > rangeEnd) continue;
+      const arr = movsByEmp.get(m.employee_id) || [];
+      arr.push(m);
+      movsByEmp.set(m.employee_id, arr);
+    }
+    const closuresByEmp = new Map<string, any[]>();
+    for (const c of closures) {
+      // Only consider closures up to the viewed month (period_month is 1-12)
+      if (c.period_year > year) continue;
+      if (c.period_year === year && c.period_month - 1 > month) continue;
+      const arr = closuresByEmp.get(c.employee_id) || [];
+      arr.push(c);
+      closuresByEmp.set(c.employee_id, arr);
+    }
+    const empIds = new Set<string>([
+      ...Array.from(movsByEmp.keys()),
+      ...Array.from(closuresByEmp.keys()),
+    ]);
+    for (const empId of empIds) {
+      const empClosures = (closuresByEmp.get(empId) || []).sort(
+        (a, b) => (b.period_year - a.period_year) || (b.period_month - a.period_month)
+      );
+      const last = empClosures[0];
+      const empMovs = movsByEmp.get(empId) || [];
+      if (!last) {
+        map.set(
+          empId,
+          empMovs.reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0)
+        );
+        continue;
+      }
+      const cutoff = format(
+        endOfMonth(new Date(last.period_year, last.period_month - 1)),
+        "yyyy-MM-dd"
+      );
+      const after = empMovs
+        .filter((m) => m.record_date > cutoff)
+        .reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0);
+      map.set(empId, Number(last.carried_over_minutes || 0) + after);
+    }
+    return map;
+  }, [allApprovedMovements, allClosures, year, month, rangeEnd]);
 
   const rows = useMemo(() => {
     if (!records) return [];
@@ -310,63 +370,30 @@ export default function OvertimeBank() {
     () => (empBankMovements ?? []).reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0),
     [empBankMovements]
   );
-  const officialPrevBalance = useMemo(
-    () => (empPrevBankMovements ?? []).reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0),
-    [empPrevBankMovements]
+  const isCurrentMonth = month === currentDate.getMonth() && year === currentDate.getFullYear();
+  const accumulatedBalance = useMemo(
+    () => (selectedEmployee ? accumulatedByEmployee.get(selectedEmployee) ?? 0 : 0),
+    [selectedEmployee, accumulatedByEmployee]
   );
 
-  const isCurrentMonth = month === currentDate.getMonth() && year === currentDate.getFullYear();
-  const accumulatedBalance = isCurrentMonth ? officialPrevBalance : officialPrevBalance + officialMonthBalance;
-
-  // ---- Summary all employees (official balance = approved time_bank_movements) ----
-  const { data: allBankMovements } = useQuery({
-    queryKey: ["overtime-all-bank-movements", rangeStart, rangeEnd],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("time_bank_movements")
-        .select("employee_id, effective_minutes, movement_type, status, record_date")
-        .eq("status", "approved")
-        .gte("record_date", rangeStart)
-        .lte("record_date", rangeEnd);
-      if (error) throw error;
-      return data as any[];
-    },
-  });
-
-  const { data: allPrevBankMovements } = useQuery({
-    queryKey: ["overtime-all-bank-movements-prev", prevRangeStart, prevRangeEnd],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("time_bank_movements")
-        .select("employee_id, effective_minutes, movement_type, status, record_date")
-        .eq("status", "approved")
-        .gte("record_date", prevRangeStart)
-        .lte("record_date", prevRangeEnd);
-      if (error) throw error;
-      return data as any[];
-    },
-  });
-
+  // ---- Summary per employee (official rule for month + accumulated) ----
   const summaryPerEmployee = useMemo(() => {
     if (!employees) return [];
-
-    function calcEmpBalance(empId: string, movements: any[] | undefined): number {
-      if (!movements) return 0;
-      let total = 0;
-      for (const m of movements) {
-        if (m.employee_id !== empId) continue;
-        total += Number(m.effective_minutes) || 0;
-      }
-      return total;
+    const monthByEmp = new Map<string, number>();
+    for (const m of allApprovedMovements || []) {
+      if (!m.record_date) continue;
+      if (m.record_date < rangeStart || m.record_date > rangeEnd) continue;
+      monthByEmp.set(
+        m.employee_id,
+        (monthByEmp.get(m.employee_id) || 0) + (Number(m.effective_minutes) || 0)
+      );
     }
-
-    return employees.map((emp) => {
-      const curBalance = calcEmpBalance(emp.id, allBankMovements);
-      const pBalance = calcEmpBalance(emp.id, allPrevBankMovements);
-      const isCurMonth = month === currentDate.getMonth() && year === currentDate.getFullYear();
-      return { ...emp, balance: curBalance, prevBalance: pBalance, accumulated: isCurMonth ? pBalance : pBalance + curBalance };
-    });
-  }, [employees, allBankMovements, allPrevBankMovements, month, year, currentDate]);
+    return employees.map((emp) => ({
+      ...emp,
+      balance: monthByEmp.get(emp.id) || 0,
+      accumulated: accumulatedByEmployee.get(emp.id) || 0,
+    }));
+  }, [employees, allApprovedMovements, accumulatedByEmployee, rangeStart, rangeEnd]);
 
   // -------- Conta-Corrente --------
   const { data: bankMovements } = useQuery({
@@ -580,7 +607,7 @@ export default function OvertimeBank() {
                   <BalanceHeroCard
                     icon={Hourglass}
                     label="Mês Anterior"
-                    minutes={officialPrevBalance}
+                    minutes={accumulatedBalance - officialMonthBalance}
                     sub={<span className="text-[11px] text-muted-foreground">{format(prevMonthDate, "MMMM yyyy", { locale: pt })}</span>}
                   />
                   <BalanceHeroCard
