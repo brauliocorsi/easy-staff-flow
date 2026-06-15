@@ -717,7 +717,7 @@ export default function OvertimeBank() {
                   <BalanceHeroCard
                     icon={Clock}
                     label="Saldo do Mês"
-                    minutes={officialMonthBalance}
+                    minutes={displayedMonthBalance}
                     sub={
                       <div className="flex gap-3 text-[11px]">
                         <span className="flex items-center gap-1 text-primary"><TrendingUp className="h-3 w-3" />+{minutesToHHMM(totalOvertime).replace("-", "")}</span>
@@ -728,20 +728,20 @@ export default function OvertimeBank() {
                   <BalanceHeroCard
                     icon={Hourglass}
                     label="Mês Anterior"
-                    minutes={accumulatedBalance - officialMonthBalance}
+                    minutes={displayedAccumulatedBalance - displayedMonthBalance}
                     sub={<span className="text-[11px] text-muted-foreground">{format(prevMonthDate, "MMMM yyyy", { locale: pt })}</span>}
                   />
                   <BalanceHeroCard
                     icon={PiggyBank}
                     label={isCurrentMonth ? "Saldo Transitado" : "Saldo Acumulado"}
-                    minutes={accumulatedBalance}
+                    minutes={displayedAccumulatedBalance}
                     highlight
                     sub={
                       <span className={cn(
                         "text-[11px] font-semibold",
-                        accumulatedBalance > 0 ? "text-primary" : accumulatedBalance < 0 ? "text-destructive" : "text-muted-foreground"
+                        displayedAccumulatedBalance > 0 ? "text-primary" : displayedAccumulatedBalance < 0 ? "text-destructive" : "text-muted-foreground"
                       )}>
-                        {accumulatedBalance > 0 ? "A favor do colaborador" : accumulatedBalance < 0 ? "A dever à empresa" : "Banco equilibrado"}
+                        {displayedAccumulatedBalance > 0 ? "A favor do colaborador" : displayedAccumulatedBalance < 0 ? "A dever à empresa" : "Banco equilibrado"}
                       </span>
                     }
                   />
