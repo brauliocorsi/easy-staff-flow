@@ -607,7 +607,7 @@ export default function OvertimeBank() {
                   <BalanceHeroCard
                     icon={Hourglass}
                     label="Mês Anterior"
-                    minutes={officialPrevBalance}
+                    minutes={accumulatedBalance - officialMonthBalance}
                     sub={<span className="text-[11px] text-muted-foreground">{format(prevMonthDate, "MMMM yyyy", { locale: pt })}</span>}
                   />
                   <BalanceHeroCard
