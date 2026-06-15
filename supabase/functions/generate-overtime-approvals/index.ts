@@ -1,0 +1,311 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const TZ = "Europe/Lisbon";
+
+/** Returns minutes-of-day (0..1440) in Europe/Lisbon for a given UTC timestamp string. */
+function tsToLisbonMinutes(ts: string): number {
+  const d = new Date(ts);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const h = Number(parts.find((p) => p.type === "hour")?.value || "0");
+  const m = Number(parts.find((p) => p.type === "minute")?.value || "0");
+  return h * 60 + m;
+}
+
+/** "HH:MM(:SS)" → minutes-of-day. */
+function timeToMinutes(t: string | null | undefined): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":");
+  return Number(h) * 60 + Number(m);
+}
+
+function isPartTimeShape(s: { lunch_in_time?: string | null; clock_out_time?: string | null }): boolean {
+  return s.lunch_in_time === "00:00:00" && s.clock_out_time === "00:00:00";
+}
+
+/** Current Lisbon date (YYYY-MM-DD). */
+function todayLisbon(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  return `${y}-${m}-${d}`;
+}
+
+function yesterdayLisbon(): string {
+  const today = todayLisbon();
+  const d = new Date(today + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Resolve target date (body.date or yesterday in Lisbon)
+    let targetDate = "";
+    try {
+      const body = await req.json();
+      targetDate = body?.date || "";
+    } catch {
+      // no body
+    }
+    if (!targetDate) targetDate = yesterdayLisbon();
+
+    // Day-of-week (JS: Sunday=0). Same convention used elsewhere in this project.
+    const dayOfWeek = new Date(targetDate + "T12:00:00Z").getUTCDay();
+
+    // Holiday check
+    const mmdd = targetDate.slice(5);
+    const { data: holidays } = await supabase
+      .from("holidays")
+      .select("holiday_date, recurring_yearly");
+    const isHoliday = (holidays || []).some((h: any) => {
+      if (h.holiday_date === targetDate) return true;
+      if (h.recurring_yearly && String(h.holiday_date).slice(5) === mmdd) return true;
+      return false;
+    });
+
+    // Active employees
+    const { data: employees, error: empErr } = await supabase
+      .from("employees")
+      .select("id, first_name, last_name, schedule_template_id")
+      .eq("status", "active");
+    if (empErr) throw empErr;
+    if (!employees?.length) {
+      return new Response(
+        JSON.stringify({ date: targetDate, is_holiday: isHoliday, candidates_found: 0, created: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const employeeIds = employees.map((e: any) => e.id);
+
+    // Punches for the day
+    const { data: records } = await supabase
+      .from("time_clock_records")
+      .select("id, employee_id, record_date, clock_in, lunch_out, lunch_in, clock_out")
+      .eq("record_date", targetDate)
+      .in("employee_id", employeeIds);
+    if (!records?.length) {
+      return new Response(
+        JSON.stringify({ date: targetDate, is_holiday: isHoliday, candidates_found: 0, created: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Per-employee overrides
+    const { data: overrides } = await supabase
+      .from("employee_schedules")
+      .select(
+        "employee_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off",
+      )
+      .eq("day_of_week", dayOfWeek)
+      .in("employee_id", employeeIds);
+    const overrideMap = new Map<string, any>();
+    for (const o of overrides || []) overrideMap.set(o.employee_id, o);
+
+    // Templates
+    const templateIds = [
+      ...new Set(employees.map((e: any) => e.schedule_template_id).filter(Boolean)),
+    ] as string[];
+    const templateDayMap = new Map<string, any>();
+    const templateInfoMap = new Map<string, { tolerance_overtime_minutes: number }>();
+    if (templateIds.length) {
+      const [{ data: tDays }, { data: tInfo }] = await Promise.all([
+        supabase
+          .from("schedule_template_days")
+          .select(
+            "template_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off",
+          )
+          .eq("day_of_week", dayOfWeek)
+          .in("template_id", templateIds),
+        supabase
+          .from("schedule_templates")
+          .select("id, tolerance_overtime_minutes")
+          .in("id", templateIds),
+      ]);
+      for (const td of tDays || []) templateDayMap.set(td.template_id, td);
+      for (const t of tInfo || []) {
+        templateInfoMap.set(t.id, {
+          tolerance_overtime_minutes: t.tolerance_overtime_minutes ?? 15,
+        });
+      }
+    }
+
+    const empMap = new Map<string, any>();
+    for (const e of employees) empMap.set(e.id, e);
+
+    type Row = {
+      employee_id: string;
+      record_date: string;
+      kind: "overtime" | "day_off_work" | "holiday_work";
+      minutes: number;
+      status: "pending";
+      time_clock_record_id: string;
+      tolerance_applied_minutes: number;
+    };
+
+    const rows: Row[] = [];
+
+    for (const rec of records) {
+      const emp = empMap.get(rec.employee_id);
+      if (!emp) continue;
+
+      const hasPunch = !!(rec.clock_in || rec.clock_out || rec.lunch_in || rec.lunch_out);
+      if (!hasPunch) continue;
+
+      // Resolve schedule (override > template_day)
+      const override = overrideMap.get(rec.employee_id);
+      const tDay = emp.schedule_template_id
+        ? templateDayMap.get(emp.schedule_template_id)
+        : null;
+      const schedule = override || tDay || null;
+      const tolerance =
+        (emp.schedule_template_id &&
+          templateInfoMap.get(emp.schedule_template_id)?.tolerance_overtime_minutes) ??
+        15;
+
+      // Effective work minutes (entry → exit, minus lunch)
+      const inTs = rec.clock_in;
+      const outTs = rec.clock_out || rec.lunch_in || rec.lunch_out;
+      let worked = 0;
+      if (inTs && outTs) {
+        worked = Math.max(0, tsToLisbonMinutes(outTs) - tsToLisbonMinutes(inTs));
+        if (rec.lunch_out && rec.lunch_in) {
+          worked -= Math.max(
+            0,
+            tsToLisbonMinutes(rec.lunch_in) - tsToLisbonMinutes(rec.lunch_out),
+          );
+        }
+        worked = Math.max(0, worked);
+      }
+
+      // Holiday work → always wins
+      if (isHoliday) {
+        if (worked > 0) {
+          rows.push({
+            employee_id: rec.employee_id,
+            record_date: targetDate,
+            kind: "holiday_work",
+            minutes: worked,
+            status: "pending",
+            time_clock_record_id: rec.id,
+            tolerance_applied_minutes: 0,
+          });
+        }
+        continue;
+      }
+
+      // Day-off work (schedule explicitly says day off, or no schedule at all)
+      if (!schedule || schedule.is_day_off) {
+        if (worked > 0) {
+          rows.push({
+            employee_id: rec.employee_id,
+            record_date: targetDate,
+            kind: "day_off_work",
+            minutes: worked,
+            status: "pending",
+            time_clock_record_id: rec.id,
+            tolerance_applied_minutes: 0,
+          });
+        }
+        continue;
+      }
+
+      // Regular workday → overtime = actual_out - scheduled_out - tolerance
+      const partTime = isPartTimeShape(schedule);
+      const effectiveOut = partTime ? rec.lunch_out || rec.clock_out : rec.clock_out;
+      if (!effectiveOut) continue;
+
+      const scheduledOutMin = partTime
+        ? timeToMinutes(schedule.lunch_out_time)
+        : timeToMinutes(schedule.clock_out_time);
+      const actualOutMin = tsToLisbonMinutes(effectiveOut);
+      const extra = actualOutMin - scheduledOutMin;
+      if (extra <= tolerance) continue;
+
+      rows.push({
+        employee_id: rec.employee_id,
+        record_date: targetDate,
+        kind: "overtime",
+        minutes: extra - tolerance,
+        status: "pending",
+        time_clock_record_id: rec.id,
+        tolerance_applied_minutes: tolerance,
+      });
+    }
+
+    if (!rows.length) {
+      return new Response(
+        JSON.stringify({ date: targetDate, is_holiday: isHoliday, candidates_found: 0, created: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Idempotent upsert — never overwrite an already-decided row
+    const { data: inserted, error: upErr } = await supabase
+      .from("overtime_approvals")
+      .upsert(rows, {
+        onConflict: "employee_id,record_date,kind",
+        ignoreDuplicates: true,
+      })
+      .select("id, employee_id, kind");
+    if (upErr) throw upErr;
+
+    const createdCount = inserted?.length || 0;
+
+    if (createdCount > 0) {
+      const byKind = { overtime: 0, day_off_work: 0, holiday_work: 0 } as Record<string, number>;
+      for (const r of inserted!) byKind[(r as any).kind] = (byKind[(r as any).kind] || 0) + 1;
+      const parts: string[] = [];
+      if (byKind.overtime) parts.push(`${byKind.overtime} hora(s) extra`);
+      if (byKind.day_off_work) parts.push(`${byKind.day_off_work} trabalho(s) em folga`);
+      if (byKind.holiday_work) parts.push(`${byKind.holiday_work} trabalho(s) em feriado`);
+
+      await supabase.from("admin_notifications").insert({
+        title: "Aprovações de horas pendentes",
+        message: `${createdCount} candidato(s) detetado(s) em ${targetDate}: ${parts.join(", ")}. Reveja na aba de Aprovações.`,
+        type: "overtime_pending",
+      });
+    }
+
+    return new Response(
+      JSON.stringify({
+        date: targetDate,
+        is_holiday: isHoliday,
+        candidates_found: rows.length,
+        created: createdCount,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
