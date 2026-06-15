@@ -99,22 +99,6 @@ export default function OvertimeBank() {
     },
   });
 
-  const { data: prevRecords } = useQuery({
-    queryKey: ["overtime-records-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
-    enabled: !!selectedEmployee,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("time_clock_records")
-        .select("*")
-        .eq("employee_id", selectedEmployee)
-        .gte("record_date", prevRangeStart)
-        .lte("record_date", prevRangeEnd)
-        .order("record_date");
-      if (error) throw error;
-      return data;
-    },
-  });
-
   const emp = employees?.find((e) => e.id === selectedEmployee);
 
   const { data: templateDays } = useQuery({
@@ -196,17 +180,33 @@ export default function OvertimeBank() {
     },
   });
 
-  const { data: prevBankAbsences } = useQuery({
-    queryKey: ["bank-absences-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
+  const { data: empBankMovements } = useQuery({
+    queryKey: ["overtime-emp-bank-movements", selectedEmployee, rangeStart, rangeEnd],
     enabled: !!selectedEmployee,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("absences")
-        .select("*")
+        .from("time_bank_movements")
+        .select("effective_minutes, status, record_date")
         .eq("employee_id", selectedEmployee)
-        .eq("deducted_from_bank", true)
-        .gte("absence_date", prevRangeStart)
-        .lte("absence_date", prevRangeEnd);
+        .eq("status", "approved")
+        .gte("record_date", rangeStart)
+        .lte("record_date", rangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: empPrevBankMovements } = useQuery({
+    queryKey: ["overtime-emp-bank-movements-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
+    enabled: !!selectedEmployee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_bank_movements")
+        .select("effective_minutes, status, record_date")
+        .eq("employee_id", selectedEmployee)
+        .eq("status", "approved")
+        .gte("record_date", prevRangeStart)
+        .lte("record_date", prevRangeEnd);
       if (error) throw error;
       return data as any[];
     },
@@ -306,45 +306,17 @@ export default function OvertimeBank() {
   const totalOvertime = rows.reduce((sum, r) => sum + Math.max(0, r.diff), 0);
   const totalDeficit = rows.reduce((sum, r) => sum + Math.min(0, r.diff), 0);
 
-  const prevMonthBalance = useMemo(() => {
-    if (!prevRecords) return 0;
-    const hasIndividual = (employeeScheduleRows?.length || 0) > 0;
-    if (!hasIndividual && !templateDays) return 0;
-
-    const tolerances = resolveTolerances(selectedTemplate);
-    const scheduleMap = new Map<number, any>();
-    (templateDays || []).forEach((d) => scheduleMap.set(d.day_of_week, d));
-    (employeeScheduleRows || []).forEach((d) => scheduleMap.set(d.day_of_week, d));
-
-    const recordMap = new Map<string, (typeof prevRecords)[0]>();
-    prevRecords.forEach((r) => recordMap.set(r.record_date, r));
-    const prevBankSet = new Set<string>();
-    prevBankAbsences?.forEach((a) => prevBankSet.add(a.absence_date));
-
-    const days = eachDayOfInterval({
-      start: new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1),
-      end: endOfMonth(prevMonthDate),
-    });
-    let balance = 0;
-    for (const d of days) {
-      const dateStr = format(d, "yyyy-MM-dd");
-      const dow = d.getDay();
-      const schedule = scheduleMap.get(dow);
-      const record = recordMap.get(dateStr);
-      const isBankDeduction = prevBankSet.has(dateStr);
-      if (isHoliday(dateStr)) continue;
-      if (isBankDeduction && schedule && !schedule.is_day_off) {
-        balance -= scheduledWorkMinutes(schedule);
-        continue;
-      }
-      if (!schedule || schedule.is_day_off) continue;
-      balance += calculateWorkday(record, schedule, tolerances).diff;
-    }
-    return balance;
-  }, [prevRecords, templateDays, employeeScheduleRows, prevBankAbsences, selectedTemplate, prevMonthDate, isHoliday]);
+  const officialMonthBalance = useMemo(
+    () => (empBankMovements ?? []).reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0),
+    [empBankMovements]
+  );
+  const officialPrevBalance = useMemo(
+    () => (empPrevBankMovements ?? []).reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0),
+    [empPrevBankMovements]
+  );
 
   const isCurrentMonth = month === currentDate.getMonth() && year === currentDate.getFullYear();
-  const accumulatedBalance = isCurrentMonth ? prevMonthBalance : prevMonthBalance + totalBalance;
+  const accumulatedBalance = isCurrentMonth ? officialPrevBalance : officialPrevBalance + officialMonthBalance;
 
   // ---- Summary all employees (official balance = approved time_bank_movements) ----
   const { data: allBankMovements } = useQuery({
