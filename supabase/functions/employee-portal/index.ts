@@ -56,18 +56,72 @@ Deno.serve(async (req) => {
 
       // Time bank balance: sum effective_minutes of approved/paid movements
       let timeBankBalanceMinutes = 0;
+      let timeBankMonthMinutes = 0;
+      let timeBankAccumulatedMinutes = 0;
       try {
         const { data: movs } = await supabase
           .from("time_bank_movements")
-          .select("effective_minutes, status")
+          .select("effective_minutes, status, record_date")
           .eq("employee_id", emp.id)
           .in("status", ["approved", "paid"]);
-        timeBankBalanceMinutes = (movs || []).reduce(
+        const allMovs = movs || [];
+        timeBankBalanceMinutes = allMovs.reduce(
           (sum: number, m: any) => sum + (Number(m.effective_minutes) || 0),
           0,
         );
+
+        // Saldo do mês corrente (record_date no mês atual, hora Lisboa)
+        const nowParts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Lisbon",
+          year: "numeric",
+          month: "2-digit",
+        }).formatToParts(new Date());
+        const curYear = Number(nowParts.find((p) => p.type === "year")?.value);
+        const curMonth = Number(nowParts.find((p) => p.type === "month")?.value);
+        timeBankMonthMinutes = allMovs.reduce((sum: number, m: any) => {
+          if (!m.record_date) return sum;
+          const [y, mo] = String(m.record_date).split("-").map(Number);
+          if (y === curYear && mo === curMonth) {
+            return sum + (Number(m.effective_minutes) || 0);
+          }
+          return sum;
+        }, 0);
+
+        // Saldo acumulado: último fecho (period <= mês atual) + movimentos posteriores ao corte
+        const { data: lastClosure } = await supabase
+          .from("time_bank_monthly_closures")
+          .select("period_year, period_month, carried_over_minutes")
+          .eq("employee_id", emp.id)
+          .or(
+            `period_year.lt.${curYear},and(period_year.eq.${curYear},period_month.lte.${curMonth})`,
+          )
+          .order("period_year", { ascending: false })
+          .order("period_month", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastClosure) {
+          const cutoffYear = lastClosure.period_year as number;
+          const cutoffMonth = lastClosure.period_month as number;
+          // último dia desse mês (string YYYY-MM-DD)
+          const lastDayDate = new Date(Date.UTC(cutoffYear, cutoffMonth, 0));
+          const cutoffStr = lastDayDate.toISOString().slice(0, 10);
+          const afterCutoff = allMovs.reduce((sum: number, m: any) => {
+            if (!m.record_date) return sum;
+            if (String(m.record_date) > cutoffStr) {
+              return sum + (Number(m.effective_minutes) || 0);
+            }
+            return sum;
+          }, 0);
+          timeBankAccumulatedMinutes =
+            Number(lastClosure.carried_over_minutes || 0) + afterCutoff;
+        } else {
+          timeBankAccumulatedMinutes = timeBankBalanceMinutes;
+        }
       } catch (_) {
         timeBankBalanceMinutes = 0;
+        timeBankMonthMinutes = 0;
+        timeBankAccumulatedMinutes = 0;
       }
 
       // Fetch leaders (employees that are referenced as manager_id by any other employee)
@@ -156,6 +210,8 @@ Deno.serve(async (req) => {
         time_clock_records: timeClockRecords.data || [],
         leaders,
         time_bank_balance_minutes: timeBankBalanceMinutes,
+        time_bank_month_minutes: timeBankMonthMinutes,
+        time_bank_accumulated_minutes: timeBankAccumulatedMinutes,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
