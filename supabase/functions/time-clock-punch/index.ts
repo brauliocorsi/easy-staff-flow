@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
               .maybeSingle(),
         supabase
           .from("schedule_templates")
-          .select("tolerance_early_leave_minutes, tolerance_overtime_minutes")
+          .select("tolerance_late_minutes, tolerance_early_leave_minutes, tolerance_overtime_minutes")
           .eq("id", employee.schedule_template_id)
           .single(),
       ]);
