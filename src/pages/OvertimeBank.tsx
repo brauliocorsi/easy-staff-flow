@@ -446,9 +446,11 @@ export default function OvertimeBank() {
   const summaryPerEmployee = useMemo<EmployeeSummary[]>(() => {
     if (!employees) return [];
     const monthByEmp = new Map<string, number>();
+    const monthMovementEmpIds = new Set<string>();
     for (const m of allApprovedMovements || []) {
       if (!m.record_date) continue;
       if (m.record_date < rangeStart || m.record_date > rangeEnd) continue;
+      monthMovementEmpIds.add(m.employee_id);
       monthByEmp.set(
         m.employee_id,
         (monthByEmp.get(m.employee_id) || 0) + (Number(m.effective_minutes) || 0)
@@ -478,8 +480,7 @@ export default function OvertimeBank() {
     }
     const attendanceMonthByEmp = new Map<string, number>();
     for (const emp of employees) {
-      const movementBalance = monthByEmp.get(emp.id) || 0;
-      if (movementBalance !== 0) continue;
+      if (monthMovementEmpIds.has(emp.id)) continue;
       const empRecords = recordsByEmp.get(emp.id) || [];
       if (empRecords.length === 0) continue;
       const recordMap = new Map<string, any>();
@@ -502,9 +503,18 @@ export default function OvertimeBank() {
     return employees.map((emp) => ({
       ...emp,
       balance: monthByEmp.get(emp.id) || attendanceMonthByEmp.get(emp.id) || 0,
-      accumulated: accumulatedByEmployee.get(emp.id) || 0,
+      accumulated: (accumulatedByEmployee.get(emp.id) || 0) + (
+        isCurrentMonth && !monthMovementEmpIds.has(emp.id) ? (attendanceMonthByEmp.get(emp.id) || 0) : 0
+      ),
     }));
-  }, [employees, allApprovedMovements, allMonthRecords, allEmployeeSchedules, allTemplateDays, allTemplateTolerances, accumulatedByEmployee, rangeStart, rangeEnd, year, month]);
+  }, [employees, allApprovedMovements, allMonthRecords, allEmployeeSchedules, allTemplateDays, allTemplateTolerances, accumulatedByEmployee, rangeStart, rangeEnd, year, month, isCurrentMonth]);
+
+  const selectedSummary = useMemo(
+    () => summaryPerEmployee.find((employee) => employee.id === selectedEmployee),
+    [summaryPerEmployee, selectedEmployee]
+  );
+  const displayedMonthBalance = selectedSummary?.balance ?? officialMonthBalance;
+  const displayedAccumulatedBalance = selectedSummary?.accumulated ?? accumulatedBalance;
 
   // -------- Conta-Corrente --------
   const { data: bankMovements } = useQuery({
