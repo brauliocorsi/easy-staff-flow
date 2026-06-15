@@ -569,7 +569,7 @@ export default function OvertimeBank() {
                   <BalanceHeroCard
                     icon={Clock}
                     label="Saldo do Mês"
-                    minutes={totalBalance}
+                    minutes={officialMonthBalance}
                     sub={
                       <div className="flex gap-3 text-[11px]">
                         <span className="flex items-center gap-1 text-primary"><TrendingUp className="h-3 w-3" />+{minutesToHHMM(totalOvertime).replace("-", "")}</span>
@@ -580,7 +580,7 @@ export default function OvertimeBank() {
                   <BalanceHeroCard
                     icon={Hourglass}
                     label="Mês Anterior"
-                    minutes={prevMonthBalance}
+                    minutes={officialPrevBalance}
                     sub={<span className="text-[11px] text-muted-foreground">{format(prevMonthDate, "MMMM yyyy", { locale: pt })}</span>}
                   />
                   <BalanceHeroCard
