@@ -262,8 +262,11 @@ export default function EmployeePortal() {
 
   const recentPunches = (data.time_clock_records || []).slice(0, 7);
 
-  const bankMins = Number(data.time_bank_balance_minutes ?? 0);
-  const bankPositive = bankMins >= 0;
+  const bankAccumulated = Number(
+    data.time_bank_accumulated_minutes ?? data.time_bank_balance_minutes ?? 0,
+  );
+  const bankMonth = Number(data.time_bank_month_minutes ?? 0);
+  const bankPositive = bankAccumulated >= 0;
 
   const leaders = (data.leaders || []).filter((l: any) => l.id !== emp.id);
 
@@ -319,20 +322,29 @@ export default function EmployeePortal() {
                 <Clock className="h-7 w-7" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Banco de Horas</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Saldo Acumulado</p>
                 <p className={`font-display font-bold text-4xl leading-none mt-1 ${bankPositive ? "text-primary" : "text-destructive"}`}>
-                  {formatMinutes(bankMins)}
+                  {formatMinutes(bankAccumulated)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   {bankPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  Saldo atual aprovado
+                  {bankPositive ? "Banco equilibrado ou a favor" : "Saldo a recuperar"}
+                </p>
+                <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                  Inclui meses já fechados
                 </p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="flex flex-col items-end gap-2">
               <Badge variant={bankPositive ? "default" : "destructive"} className="text-xs">
                 {bankPositive ? "Saldo positivo" : "Saldo negativo"}
               </Badge>
+              <div className="text-right">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Este mês</p>
+                <p className={`font-display font-semibold text-lg leading-none mt-0.5 ${bankMonth >= 0 ? "text-primary" : "text-destructive"}`}>
+                  {formatMinutes(bankMonth)}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
