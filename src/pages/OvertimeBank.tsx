@@ -493,6 +493,8 @@ export default function OvertimeBank() {
       eachDayOfInterval({ start: new Date(year, month, 1), end: endOfMonth(new Date(year, month, 1)) }).forEach((date) => {
         const dateStr = format(date, "yyyy-MM-dd");
         if (dateStr > format(new Date(), "yyyy-MM-dd")) return;
+        // Skip the in-progress day so an unfinished punch doesn't inflate the live month deficit
+        if (isCurrentMonth && dateStr === format(new Date(), "yyyy-MM-dd")) return;
         const schedule = individual?.get(date.getDay()) || template?.get(date.getDay());
         if (!schedule || schedule.is_day_off) return;
         const calculated = calculateWorkday(recordMap.get(dateStr), schedule, tolerances);

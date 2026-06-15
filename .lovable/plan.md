@@ -1,65 +1,37 @@
-## Refatoração — Banco de Horas
+## Problema
 
-A página atual empilha tudo numa coluna só (filtros → resumo → 5 cards → tabela diária → conta corrente → aprovações → fecho mensal). Vamos reorganizar em **abas**, com cabeçalho hero, seletor de funcionário visual e cartões mais clean alinhados ao novo design system (Emerald + Sora/Manrope).
+Na página Banco de Horas (e no Portal do Colaborador), o "Saldo Acumulado" / "Saldo Transitado" do mês corrente está a somar, em cima do carry do último fecho, o cálculo ao vivo do mês atual. Esse cálculo trata o **dia de hoje ainda em curso** como déficit total (faltam picagens), inflando o valor.
 
-### 1. Estrutura nova da página
+Exemplo (Maria do Céu, 15/06/2026):
+- Fecho de 05/2026 → carried_over = -240 (-4h) ✅
+- Sem movimentos em 06/2026
+- Hoje (15/06) tem clock_in + lunch_out mas ainda sem clock_out → `calculateWorkday` devolve ~ -240 min
+- UI calcula: -240 (transitado) + -240 (live month) = **-480 (-8:00)** ❌
 
-```text
-┌──────────────────────────────────────────────────────────┐
-│ HERO — título + período + ação "Usar horas"              │
-├──────────────────────────────────────────────────────────┤
-│ SELETOR DE FUNCIONÁRIO (busca + lista lateral OU pills) │
-├──────────────────────────────────────────────────────────┤
-│ Tabs:                                                    │
-│  [ Visão Geral ] [ Conta Corrente ] [ Aprovações ] [ Fecho Mensal ] │
-└──────────────────────────────────────────────────────────┘
-```
+A regra de saldo continua correta; só o "live month" precisa ignorar o dia em aberto.
 
-### 2. Hero compacto
-- Título "Banco de Horas" + subtítulo curto
-- Seletor de mês/ano em chips/pills (◀ Novembro 2026 ▶) com navegação por setas
-- Botão "Usar horas do banco" (admin) à direita
+## Mudanças
 
-### 3. Seletor de funcionário moderno
-Substituir o `Select` de 260px por uma faixa horizontal com:
-- Input de busca por nome com ícone
-- Quando nenhum selecionado → mostra **tabela resumo** modernizada (cards/linhas) com avatar, nome, saldo mensal e acumulado em badges coloridos; clicar abre o detalhe
-- Quando selecionado → mostra **card do funcionário** no topo (avatar + nome + cargo + botão "Voltar")
+### 1. `src/pages/OvertimeBank.tsx`
+No memo `summaryPerEmployee`, ao iterar os dias do mês corrente para `attendanceMonthByEmp`:
+- Continuar a saltar `dateStr > today` (já existe).
+- **Saltar também `dateStr === today`** quando estamos no mês corrente (`isCurrentMonth`). A justificação: o dia em curso ainda não fechou; não deve gerar débito até ao final do expediente. (Outros dias incompletos passados continuam a contar como hoje — só o "hoje" é excluído.)
 
-### 4. Aba "Visão Geral" (saldos + detalhe diário)
-**Painel de saldos** — reduzir de 5 para **3 cards principais grandes**, em vez de 5 cards pequenos amontoados:
-- **Saldo do Mês** (verde se positivo, vermelho se negativo) — com mini-breakdown "+Xh extra / -Yh défice" abaixo
-- **Saldo do Mês Anterior** (transitado)
-- **Saldo Acumulado** — destaque maior com badge "A favor do funcionário" / "A dever à empresa"
+Isto mantém:
+- "Saldo do Mês" e "Saldo Acumulado" coerentes (ambos passam a ignorar o dia em curso).
+- Coerência com o que admin vê quando comparado ao histórico do colaborador.
 
-Cards usam gradiente sutil esmeralda, ícones com fundo redondo e tipografia Sora em peso 700 para os valores monoespaçados.
+### 2. `supabase/functions/employee-portal/index.ts`
+Já calcula `timeBankAccumulatedMinutes` como `lastClosure.carried_over + approved movements after cutoff`. Esta parte **não** inclui live-month, então o portal já mostra apenas o saldo oficial. Verificar que o número do portal para Maria do Céu hoje é **-240 (-4:00)**, batendo com o carry oficial. Sem alteração necessária ali a menos que se confirme divergência.
 
-**Tabela diária** mantém a lógica atual, mas:
-- Header sticky
-- Linhas com estado colorido por tipo (folga/férias/feriado/falta-banco) já existe — refinar com pill esquerda colorida em vez de bg
-- Expansão inline mais limpa (cards de 4 pontos: entrada / almoço / regresso / saída) com previsto vs real lado a lado e diferença em verde/vermelho
-- Tolerâncias movem para um popover "ⓘ Tolerâncias" em vez de linha solta de texto
+### 3. Verificação
+- `bun run typecheck`
+- Abrir `/banco-horas` com mês = Junho/2026, confirmar:
+  - Maria do Céu: Saldo do Mês = 0:00 (ou o que for sem contar hoje), Saldo Acumulado = -4:00.
+- Confirmar que dias passados incompletos (ex.: 13/06) continuam a contar como déficit (não foram afetados).
 
-### 5. Aba "Conta Corrente"
-Mover o card de Conta Corrente para uma aba dedicada:
-- 7 valores (aprovado/pendente/pago/rejeitado/usado/disponível/potencial) em grid responsivo de cards menores com ícone
-- Destaque grande para "Saldo Disponível" no topo
-- Lista cronológica dos movimentos (`time_bank_movements`) — atualmente não é mostrada; adicionar tabela com data, tipo, minutos, decisão, descrição
+## Fora de escopo
 
-### 6. Aba "Aprovações"
-Embrulha o `OvertimeApprovalsTab` existente num card limpo, sem alterar lógica.
-
-### 7. Aba "Fecho Mensal"
-Embrulha o `MonthlyClosureTab` existente num card limpo, sem alterar lógica.
-
-### 8. Detalhes técnicos
-- Arquivo único: `src/pages/OvertimeBank.tsx` (refator) — sem mudanças nas queries, hooks ou cálculos (`calculateWorkday`, `computeBalance`, etc.)
-- Novos sub-componentes locais no mesmo arquivo: `PeriodNavigator`, `EmployeePicker`, `BalanceHeroCards`, `DailyTable` para reduzir o tamanho do JSX
-- Adicionar `<Tabs>` do shadcn já presente no projeto
-- Manter `UseBankHoursDialog`, `OvertimeApprovalsTab`, `MonthlyClosureTab`, `BalanceLine` como estão
-- Sem mudanças de banco, sem mudanças de regras de negócio, sem mudanças nas tolerâncias
-
-### Fora de escopo
-- Refator de `OvertimeApprovalsTab` e `MonthlyClosureTab` (componentes internos) — só receberão um wrapper visual; refator profundo desses pode ser feito numa segunda passagem se desejado
-- Mudanças no portal do funcionário
-- Lógica de cálculo de saldo
+- Não alterar regras de cálculo do banco (`calculateWorkday`, tolerâncias, fecho mensal).
+- Não alterar a função `close_time_bank_month` nem movimentos existentes.
+- Não tocar nas RLS nem em queries de outros funcionários.
