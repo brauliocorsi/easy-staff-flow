@@ -196,21 +196,81 @@ export default function OvertimeBank() {
     },
   });
 
-  const { data: empPrevBankMovements } = useQuery({
-    queryKey: ["overtime-emp-bank-movements-prev", selectedEmployee, prevRangeStart, prevRangeEnd],
-    enabled: !!selectedEmployee,
+  // All approved/paid movements globally — used to compute the official accumulated balance
+  const { data: allApprovedMovements } = useQuery({
+    queryKey: ["overtime-all-approved-movements"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("time_bank_movements")
-        .select("effective_minutes, status, record_date")
-        .eq("employee_id", selectedEmployee)
-        .eq("status", "approved")
-        .gte("record_date", prevRangeStart)
-        .lte("record_date", prevRangeEnd);
+        .select("employee_id, effective_minutes, status, record_date")
+        .in("status", ["approved", "paid"]);
       if (error) throw error;
       return data as any[];
     },
   });
+
+  // All monthly closures — used to anchor accumulated to last carried_over balance
+  const { data: allClosures } = useQuery({
+    queryKey: ["overtime-all-closures"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_bank_monthly_closures")
+        .select("employee_id, period_year, period_month, carried_over_minutes");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Accumulated balance per employee as of the end of the viewed month, following the
+  // official rule: last closure carried_over + approved/paid movements after that cutoff.
+  const accumulatedByEmployee = useMemo(() => {
+    const map = new Map<string, number>();
+    const closures = allClosures || [];
+    const movs = allApprovedMovements || [];
+    const movsByEmp = new Map<string, any[]>();
+    for (const m of movs) {
+      if (!m.record_date || m.record_date > rangeEnd) continue;
+      const arr = movsByEmp.get(m.employee_id) || [];
+      arr.push(m);
+      movsByEmp.set(m.employee_id, arr);
+    }
+    const closuresByEmp = new Map<string, any[]>();
+    for (const c of closures) {
+      // Only consider closures up to the viewed month (period_month is 1-12)
+      if (c.period_year > year) continue;
+      if (c.period_year === year && c.period_month - 1 > month) continue;
+      const arr = closuresByEmp.get(c.employee_id) || [];
+      arr.push(c);
+      closuresByEmp.set(c.employee_id, arr);
+    }
+    const empIds = new Set<string>([
+      ...Array.from(movsByEmp.keys()),
+      ...Array.from(closuresByEmp.keys()),
+    ]);
+    for (const empId of empIds) {
+      const empClosures = (closuresByEmp.get(empId) || []).sort(
+        (a, b) => (b.period_year - a.period_year) || (b.period_month - a.period_month)
+      );
+      const last = empClosures[0];
+      const empMovs = movsByEmp.get(empId) || [];
+      if (!last) {
+        map.set(
+          empId,
+          empMovs.reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0)
+        );
+        continue;
+      }
+      const cutoff = format(
+        endOfMonth(new Date(last.period_year, last.period_month - 1)),
+        "yyyy-MM-dd"
+      );
+      const after = empMovs
+        .filter((m) => m.record_date > cutoff)
+        .reduce((s, m) => s + (Number(m.effective_minutes) || 0), 0);
+      map.set(empId, Number(last.carried_over_minutes || 0) + after);
+    }
+    return map;
+  }, [allApprovedMovements, allClosures, year, month, rangeEnd]);
 
   const rows = useMemo(() => {
     if (!records) return [];
