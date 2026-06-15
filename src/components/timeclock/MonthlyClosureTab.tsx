@@ -54,6 +54,9 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   const [snapshotCutoff, setSnapshotCutoff] = useState<string>("");
   const [snapshotHours, setSnapshotHours] = useState<string>("");
   const [snapshotNotes, setSnapshotNotes] = useState<string>("");
+  // Zerar saldo (sem pagar)
+  const [zeroOpen, setZeroOpen] = useState(false);
+  const [zeroNotes, setZeroNotes] = useState<string>("");
 
   const effectiveEmp = employeeId ?? empId;
 
@@ -345,6 +348,54 @@ export function MonthlyClosureTab({ employeeId }: Props) {
 
   const closed = !!existing?.is_locked;
 
+  const balanceBeforeClosure =
+    preview && !("error" in preview) ? preview.balanceBeforeClosure : 0;
+
+  const zeroOutMut = useMutation({
+    mutationFn: async () => {
+      if (!effectiveEmp) throw new Error("Sem funcionário");
+      if (!zeroNotes.trim()) throw new Error("Motivo obrigatório");
+      const adjust = -balanceBeforeClosure; // sinal oposto ao saldo
+      if (adjust !== 0) {
+        const movement_type = adjust > 0 ? "credit" : "debit";
+        const magnitude = Math.abs(adjust);
+        const effective_minutes = adjust; // já com sinal
+        const { error: insErr } = await supabase.from("time_bank_movements").insert({
+          employee_id: effectiveEmp,
+          record_date: lastDay,
+          source_type: "manual_zero_adjustment",
+          movement_type,
+          minutes: magnitude,
+          effective_minutes,
+          decision: adjust > 0 ? "credit_to_bank" : "use_bank_hours",
+          status: "approved",
+          description: `Zerar saldo no fecho de ${String(month).padStart(2,"0")}/${year} — ${zeroNotes.trim()}`,
+        });
+        if (insErr) throw insErr;
+      }
+      const { data, error } = await supabase.rpc("close_time_bank_month", {
+        _employee_id: effectiveEmp,
+        _year: year, _month: month,
+        _decision: "carry_over_all",
+        _paid_minutes: 0,
+        _notes: `[Saldo zerado] ${zeroNotes.trim()}`,
+        _attendance_debit_minutes: attendanceDebitToApply,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Banco zerado", description: "O saldo foi anulado e o mês fechado." });
+      qc.invalidateQueries({ queryKey: ["closure-existing"] });
+      qc.invalidateQueries({ queryKey: ["closure-movements"] });
+      qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
+      qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
+      setZeroOpen(false);
+      setZeroNotes("");
+    },
+    onError: (e: any) => toast({ title: "Erro ao zerar", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -536,6 +587,45 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                     Fechar mês
                   </Button>
                 )}
+
+                <div className="pt-2 border-t border-dashed">
+                  <Dialog open={zeroOpen} onOpenChange={setZeroOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={!!(preview && "error" in preview)}
+                      >
+                        Zerar saldo (sem pagar)
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Zerar banco de horas</DialogTitle>
+                        <DialogDescription>
+                          Esta ação cria um movimento de ajuste manual auditável que anula o saldo
+                          atual (<strong>{minutesToHHMM(balanceBeforeClosure)}</strong>) e fecha o mês
+                          com saldo a transitar = <strong>0:00</strong>. Não há pagamento associado.
+                          Use apenas em casos excecionais (regularização, acordo com o colaborador).
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Motivo (obrigatório)</Label>
+                        <Textarea rows={3} value={zeroNotes} onChange={(e) => setZeroNotes(e.target.value)} />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setZeroOpen(false)}>Cancelar</Button>
+                        <Button
+                          variant="destructive"
+                          disabled={!zeroNotes.trim() || zeroOutMut.isPending}
+                          onClick={() => zeroOutMut.mutate()}
+                        >
+                          Confirmar e zerar
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             )}
 
