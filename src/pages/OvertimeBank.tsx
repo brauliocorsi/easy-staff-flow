@@ -236,7 +236,7 @@ export default function OvertimeBank() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("time_bank_monthly_closures")
-        .select("employee_id, period_year, period_month, carried_over_minutes");
+        .select("employee_id, period_year, period_month, carried_over_minutes, is_locked");
       if (error) throw error;
       return data as any[];
     },
@@ -338,6 +338,10 @@ export default function OvertimeBank() {
     }
     const closuresByEmp = new Map<string, any[]>();
     for (const c of closures) {
+      // Only LOCKED closures anchor the accumulated balance. Reopened months
+      // (is_locked=false) are ignored — their credits/debits are recomputed
+      // from real approved movements instead of a stale carried_over.
+      if (c.is_locked === false) continue;
       // Only consider closures up to the viewed month (period_month is 1-12)
       if (c.period_year > year) continue;
       if (c.period_year === year && c.period_month - 1 > month) continue;
