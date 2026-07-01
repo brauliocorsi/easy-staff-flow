@@ -12,7 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CheckCheck, Loader2 } from "lucide-react";
+import { CheckCheck, Loader2, RefreshCw } from "lucide-react";
 import { minutesToHHMM } from "@/lib/timeClock";
 import { ApproveOvertimeDialog } from "./ApproveOvertimeDialog";
 
@@ -36,6 +36,8 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBatchOpen, setConfirmBatchOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+  const [confirmBackfillOpen, setConfirmBackfillOpen] = useState(false);
 
   const { data: approvals } = useQuery({
     queryKey: ["overtime-approvals", employeeId ?? "all", statusFilter],
@@ -75,6 +77,47 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
     setSelectedIds(checked ? new Set(pendingRows.map((r) => r.id)) : new Set());
   };
 
+  const runBackfill = async () => {
+    setBackfillRunning(true);
+    try {
+      const { data: firstRec, error: firstErr } = await supabase
+        .from("time_clock_records")
+        .select("record_date")
+        .order("record_date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (firstErr) throw firstErr;
+      if (!firstRec?.record_date) {
+        toast.info("Sem registos de ponto para varrer.");
+        return;
+      }
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const to = yesterday.toISOString().slice(0, 10);
+
+      const { data, error } = await supabase.functions.invoke(
+        "generate-overtime-approvals",
+        { body: { from: firstRec.record_date, to } },
+      );
+      if (error) throw error;
+      const created = (data as any)?.created ?? 0;
+      const bk = (data as any)?.by_kind ?? {};
+      toast.success(
+        `Varredura concluída: ${created} novo(s) candidato(s) pendente(s)` +
+          (created > 0
+            ? ` (extra: ${bk.overtime ?? 0}, folga: ${bk.day_off_work ?? 0}, feriado: ${bk.holiday_work ?? 0})`
+            : ""),
+      );
+      qc.invalidateQueries({ queryKey: ["overtime-approvals"] });
+    } catch (e: any) {
+      toast.error(`Falha na varredura: ${e?.message ?? e}`);
+    } finally {
+      setBackfillRunning(false);
+      setConfirmBackfillOpen(false);
+    }
+  };
+
   const runBatch = async () => {
     setBatchRunning(true);
     let ok = 0;
@@ -103,6 +146,17 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
       <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
         <CardTitle className="text-lg">Aprovações de Horas Extra / Folga / Feriado</CardTitle>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirmBackfillOpen(true)}
+            disabled={backfillRunning}
+            className="gap-2"
+            title="Detetar todos os dias excepcionais desde o primeiro registo de ponto até ontem"
+          >
+            {backfillRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Gerar pendentes retroativos
+          </Button>
           {statusFilter === "pending" && selectedRows.length > 0 && (
             <Button
               size="sm"
@@ -213,6 +267,31 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
               {batchRunning ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A processar…</>
               ) : "Confirmar e creditar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmBackfillOpen} onOpenChange={setConfirmBackfillOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar pendentes retroativos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vai varrer TODOS os dias desde o primeiro registo de ponto até ontem, detetando trabalho em
+              folga, fim de semana e feriado, e horas extra acima da tolerância. Cria apenas candidatos
+              <strong> pendentes</strong> — nada é creditado no banco sem a sua aprovação. A operação é
+              idempotente: candidatos já decididos não são reabertos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={backfillRunning}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runBackfill(); }}
+              disabled={backfillRunning}
+            >
+              {backfillRunning ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A varrer…</>
+              ) : "Iniciar varredura"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
