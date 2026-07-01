@@ -22,7 +22,7 @@ type Approval = {
   id: string;
   employee_id: string;
   record_date: string;
-  kind: "overtime" | "day_off_work" | "holiday_work";
+  kind: "overtime" | "day_off_work" | "holiday_work" | "vacation_work";
   minutes: number;
   time_clock_record_id: string | null;
 };
@@ -31,6 +31,7 @@ const KIND_LABEL: Record<Approval["kind"], string> = {
   overtime: "Hora Extra",
   day_off_work: "Trabalho em Dia de Folga",
   holiday_work: "Trabalho em Feriado",
+  vacation_work: "Trabalho em Férias",
 };
 
 /** Decisões que exigem motivo obrigatório (não-creditações simples). */

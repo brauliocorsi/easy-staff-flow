@@ -20,6 +20,7 @@ const KIND_LABEL: Record<string, string> = {
   overtime: "Hora Extra",
   day_off_work: "Trabalho em Folga",
   holiday_work: "Trabalho em Feriado",
+  vacation_work: "Trabalho em Férias",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -106,7 +107,7 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
       toast.success(
         `Varredura concluída: ${created} novo(s) candidato(s) pendente(s)` +
           (created > 0
-            ? ` (extra: ${bk.overtime ?? 0}, folga: ${bk.day_off_work ?? 0}, feriado: ${bk.holiday_work ?? 0})`
+            ? ` (extra: ${bk.overtime ?? 0}, folga: ${bk.day_off_work ?? 0}, feriado: ${bk.holiday_work ?? 0}, férias: ${bk.vacation_work ?? 0})`
             : ""),
       );
       qc.invalidateQueries({ queryKey: ["overtime-approvals"] });

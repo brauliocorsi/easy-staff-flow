@@ -250,7 +250,7 @@ export default function OvertimeBank() {
       const { data, error } = await supabase
         .from("time_bank_movements")
         .select("employee_id, effective_minutes, minutes, status, source_type, record_date")
-        .in("source_type", ["day_off_work", "holiday_work"])
+        .in("source_type", ["day_off_work", "holiday_work", "vacation_work"])
         .gte("record_date", rangeStart)
         .lte("record_date", rangeEnd);
       if (error) throw error;
@@ -660,11 +660,11 @@ export default function OvertimeBank() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center gap-1 cursor-help">
-                                Folga/Feriado <Info className="h-3 w-3" />
+                                Folga/Feriado/Férias <Info className="h-3 w-3" />
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs text-xs">
-                              Recorte do trabalho em folga, fim de semana ou feriado no período. Este valor
+                              Recorte do trabalho em folga, fim de semana, feriado ou férias no período. Este valor
                               já está incluído no Saldo Acumulado — não é adicional.
                             </TooltipContent>
                           </Tooltip>
@@ -732,7 +732,7 @@ export default function OvertimeBank() {
                     )}
                     {filteredEmployees && filteredEmployees.length > 0 && (
                       <TableRow className="bg-muted/40 hover:bg-muted/40 border-t border-border/60 font-semibold">
-                        <TableCell className="py-2 text-xs uppercase tracking-wider text-muted-foreground">Total Folga/Feriado</TableCell>
+                        <TableCell className="py-2 text-xs uppercase tracking-wider text-muted-foreground">Total Folga/Feriado/Férias</TableCell>
                         <TableCell />
                         <TableCell />
                         <TableCell className="text-right text-sm tabular-nums text-primary">
