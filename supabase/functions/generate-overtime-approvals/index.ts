@@ -300,24 +300,53 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Deduplicate rows by (employee_id, record_date, kind).
+    // If duplicates exist (multiple time_clock_records same day), keep the one with MAX minutes.
+    // Postgres refuses ON CONFLICT when the same key appears twice in one command
+    // ("cannot affect row a second time"), so dedup MUST happen before upsert.
+    const dedupMap = new Map<string, Row>();
+    for (const r of rows) {
+      const key = `${r.employee_id}:${r.record_date}:${r.kind}`;
+      const existing = dedupMap.get(key);
+      if (!existing || r.minutes > existing.minutes) dedupMap.set(key, r);
+    }
+    const dedupedRows = Array.from(dedupMap.values());
+
+    // Count how many of the deduped candidates already exist in DB (any status)
+    // so we can report accurate created counts. ignoreDuplicates:true with .select()
+    // does NOT return the ignored rows, so we compute created = detected - already_existing.
+    const uniqueEmpIds = [...new Set(dedupedRows.map((r) => r.employee_id))];
+    const uniqueDates = [...new Set(dedupedRows.map((r) => r.record_date))];
+    const { data: existing, error: exErr } = await supabase
+      .from("overtime_approvals")
+      .select("employee_id, record_date, kind")
+      .in("employee_id", uniqueEmpIds)
+      .in("record_date", uniqueDates);
+    if (exErr) throw exErr;
+    const existingSet = new Set(
+      (existing || []).map((e: any) => `${e.employee_id}:${e.record_date}:${e.kind}`),
+    );
+    const newRows = dedupedRows.filter(
+      (r) => !existingSet.has(`${r.employee_id}:${r.record_date}:${r.kind}`),
+    );
+
     // Idempotent upsert — never overwrite an already-decided row. Chunk for large ranges.
     const CHUNK = 500;
     let createdCount = 0;
     const byKind: Record<string, number> = { overtime: 0, day_off_work: 0, holiday_work: 0 };
-    for (let i = 0; i < rows.length; i += CHUNK) {
-      const slice = rows.slice(i, i + CHUNK);
-      const { data: inserted, error: upErr } = await supabase
+    for (let i = 0; i < dedupedRows.length; i += CHUNK) {
+      const slice = dedupedRows.slice(i, i + CHUNK);
+      const { error: upErr } = await supabase
         .from("overtime_approvals")
         .upsert(slice, {
           onConflict: "employee_id,record_date,kind",
           ignoreDuplicates: true,
-        })
-        .select("id, kind");
+        });
       if (upErr) throw upErr;
-      for (const r of inserted || []) {
-        createdCount++;
-        byKind[(r as any).kind] = (byKind[(r as any).kind] || 0) + 1;
-      }
+    }
+    for (const r of newRows) {
+      createdCount++;
+      byKind[r.kind] = (byKind[r.kind] || 0) + 1;
     }
 
     if (createdCount > 0) {
@@ -340,6 +369,8 @@ Deno.serve(async (req) => {
         to: rangeEnd,
         days: dates.length,
         candidates_found: rows.length,
+        candidates_detected: dedupedRows.length,
+        already_existing: dedupedRows.length - createdCount,
         created: createdCount,
         by_kind: byKind,
       }),
