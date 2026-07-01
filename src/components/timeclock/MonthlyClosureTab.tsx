@@ -200,6 +200,39 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     },
   });
 
+  // Férias aprovadas que intersetam o mês — dias dentro destes períodos
+  // são IGNORADOS na conciliação (não geram débito por ausência).
+  const { data: monthVacations } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-month-vacations", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .select("start_date, end_date")
+        .eq("employee_id", effectiveEmp!)
+        .eq("status", "approved")
+        .lte("start_date", lastDay).gte("end_date", firstDay);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Ausências justificadas no mês — também ignoradas.
+  const { data: monthAbsences } = useQuery({
+    enabled: !!effectiveEmp,
+    queryKey: ["closure-month-absences", effectiveEmp, firstDay, lastDay],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("absences")
+        .select("absence_date, justified")
+        .eq("employee_id", effectiveEmp!)
+        .eq("justified", true)
+        .gte("absence_date", firstDay).lte("absence_date", lastDay);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Pendentes positivos no mês (informativo)
   const { data: pendingPositives } = useQuery({
     enabled: !!effectiveEmp,
@@ -245,6 +278,17 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     const templateMap = new Map<number, any>();
     (templateDays || []).forEach((s: any) => templateMap.set(s.day_of_week, s));
 
+    // Conjunto de datas ISO a ignorar (férias aprovadas + ausências justificadas).
+    const skipSet = new Set<string>();
+    for (const v of monthVacations || []) {
+      const s = new Date(v.start_date as string + "T12:00:00Z");
+      const e = new Date(v.end_date as string + "T12:00:00Z");
+      for (let d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+        skipSet.add(d.toISOString().slice(0, 10));
+      }
+    }
+    for (const a of monthAbsences || []) skipSet.add(a.absence_date as string);
+
     const days: AttendanceDay[] = [];
     const lastDayNum = new Date(year, month, 0).getDate();
     for (let d = 1; d <= lastDayNum; d++) {
@@ -253,7 +297,12 @@ export function MonthlyClosureTab({ employeeId }: Props) {
       const dow = date.getDay();
       const sched = indivMap.get(dow) || templateMap.get(dow) || null;
       const rec = recordByDate.get(iso) || null;
-      days.push({ schedule: sched, record: rec, tolerances: templateTol ?? null });
+      days.push({
+        schedule: sched,
+        record: rec,
+        tolerances: templateTol ?? null,
+        skip: skipSet.has(iso),
+      });
     }
     const negative = computeMonthlyNegativeDiff(days);
     const alreadyAdjusted = (existingAttendanceAdjustment || []).reduce(
@@ -261,7 +310,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     );
     const pendingDebit = computePendingAttendanceDebit(negative, alreadyAdjusted);
     return { negative, pendingDebit, alreadyAdjusted };
-  }, [monthRecords, employeeScheduleRows, templateDays, templateTol, existingAttendanceAdjustment, year, month]);
+  }, [monthRecords, employeeScheduleRows, templateDays, templateTol, existingAttendanceAdjustment, monthVacations, monthAbsences, year, month]);
 
   const opening = prevClosure?.carried_over_minutes ?? 0;
   const previousMonthClosed = !!prevClosure;
