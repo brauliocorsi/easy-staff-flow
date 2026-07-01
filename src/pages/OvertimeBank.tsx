@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Clock, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown,
   Search, Info, ArrowLeftRight, Wallet, CheckCircle2, XCircle, CalendarCheck,
