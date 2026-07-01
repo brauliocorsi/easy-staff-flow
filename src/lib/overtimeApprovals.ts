@@ -9,7 +9,7 @@ import {
   type Tolerances,
 } from "./timeClock";
 
-export type ApprovalKind = "overtime" | "day_off_work" | "holiday_work";
+export type ApprovalKind = "overtime" | "day_off_work" | "holiday_work" | "vacation_work";
 export type ApprovalStatus = "approved" | "pending" | "rejected";
 /** Status used in the frontend when no row exists in `overtime_approvals` yet. */
 export type LogicalStatus = ApprovalStatus | "not_submitted";
