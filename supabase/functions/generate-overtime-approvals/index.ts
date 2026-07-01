@@ -135,6 +135,27 @@ Deno.serve(async (req) => {
 
     const employeeIds = employees.map((e: any) => e.id);
 
+    // Approved & admin-confirmed vacations that overlap the processed range.
+    // Build a set of "employee_id:date" strings for O(1) lookup per day.
+    const { data: vacations } = await supabase
+      .from("vacation_requests")
+      .select("employee_id, start_date, end_date, status, admin_confirmed")
+      .eq("status", "approved")
+      .eq("admin_confirmed", true)
+      .in("employee_id", employeeIds)
+      .lte("start_date", rangeEnd)
+      .gte("end_date", rangeStart);
+    const vacationSet = new Set<string>();
+    for (const v of vacations || []) {
+      const s = new Date((v.start_date as string) + "T12:00:00Z");
+      const e = new Date((v.end_date as string) + "T12:00:00Z");
+      for (let d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+        vacationSet.add(`${v.employee_id}:${d.toISOString().slice(0, 10)}`);
+      }
+    }
+    const isVacationOn = (empId: string, date: string) =>
+      vacationSet.has(`${empId}:${date}`);
+
     // Punches for the whole range (single query, regroup by date)
     const { data: records } = await supabase
       .from("time_clock_records")
@@ -192,7 +213,7 @@ Deno.serve(async (req) => {
     type Row = {
       employee_id: string;
       record_date: string;
-      kind: "overtime" | "day_off_work" | "holiday_work";
+      kind: "overtime" | "day_off_work" | "holiday_work" | "vacation_work";
       minutes: number;
       status: "pending";
       time_clock_record_id: string;
@@ -238,7 +259,24 @@ Deno.serve(async (req) => {
         worked = Math.max(0, worked);
       }
 
-      // Holiday work → always wins
+      // Vacation work → highest priority (wins over holiday/day-off).
+      // Only generated if there was actual work; otherwise it's regular vacation.
+      if (isVacationOn(rec.employee_id, recDate)) {
+        if (worked > 0) {
+          rows.push({
+            employee_id: rec.employee_id,
+            record_date: recDate,
+            kind: "vacation_work",
+            minutes: worked,
+            status: "pending",
+            time_clock_record_id: rec.id,
+            tolerance_applied_minutes: 0,
+          });
+        }
+        continue;
+      }
+
+      // Holiday work
       if (isHoliday) {
         if (worked > 0) {
           rows.push({
@@ -333,7 +371,7 @@ Deno.serve(async (req) => {
     // Idempotent upsert — never overwrite an already-decided row. Chunk for large ranges.
     const CHUNK = 500;
     let createdCount = 0;
-    const byKind: Record<string, number> = { overtime: 0, day_off_work: 0, holiday_work: 0 };
+    const byKind: Record<string, number> = { overtime: 0, day_off_work: 0, holiday_work: 0, vacation_work: 0 };
     for (let i = 0; i < dedupedRows.length; i += CHUNK) {
       const slice = dedupedRows.slice(i, i + CHUNK);
       const { error: upErr } = await supabase
@@ -354,6 +392,7 @@ Deno.serve(async (req) => {
       if (byKind.overtime) parts.push(`${byKind.overtime} hora(s) extra`);
       if (byKind.day_off_work) parts.push(`${byKind.day_off_work} trabalho(s) em folga`);
       if (byKind.holiday_work) parts.push(`${byKind.holiday_work} trabalho(s) em feriado`);
+      if (byKind.vacation_work) parts.push(`${byKind.vacation_work} trabalho(s) em férias`);
 
       const scope = dates.length === 1 ? dates[0] : `${rangeStart} → ${rangeEnd}`;
       await supabase.from("admin_notifications").insert({
