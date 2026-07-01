@@ -242,6 +242,41 @@ export default function OvertimeBank() {
     },
   });
 
+  // Exceptional-work movements (day-off / weekend on day off / holiday) in visualized period.
+  // Approved ones are already inside the accumulated balance — this is only a breakdown view.
+  const { data: allExceptionalMovements } = useQuery({
+    queryKey: ["overtime-exceptional-movements", rangeStart, rangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_bank_movements")
+        .select("employee_id, effective_minutes, minutes, status, source_type, record_date")
+        .in("source_type", ["day_off_work", "holiday_work"])
+        .gte("record_date", rangeStart)
+        .lte("record_date", rangeEnd);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { exceptionalApprovedByEmp, exceptionalPendingByEmp, exceptionalApprovedTotal } = useMemo(() => {
+    const approvedMap = new Map<string, number>();
+    const pendingMap = new Map<string, number>();
+    let totalApproved = 0;
+    for (const m of allExceptionalMovements || []) {
+      const eid = m.employee_id as string;
+      const status = m.status as string;
+      if (status === "approved" || status === "paid") {
+        const mins = Number(m.effective_minutes) || 0;
+        approvedMap.set(eid, (approvedMap.get(eid) || 0) + mins);
+        totalApproved += mins;
+      } else if (status === "pending") {
+        const mins = Number(m.minutes) || 0;
+        pendingMap.set(eid, (pendingMap.get(eid) || 0) + mins);
+      }
+    }
+    return { exceptionalApprovedByEmp: approvedMap, exceptionalPendingByEmp: pendingMap, exceptionalApprovedTotal: totalApproved };
+  }, [allExceptionalMovements]);
+
   const { data: allMonthRecords } = useQuery({
     queryKey: ["overtime-all-month-records", rangeStart, rangeEnd],
     queryFn: async () => {
