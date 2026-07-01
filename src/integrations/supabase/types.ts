@@ -1258,7 +1258,15 @@ export type Database = {
           tolerance_applied_minutes?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "overtime_approvals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

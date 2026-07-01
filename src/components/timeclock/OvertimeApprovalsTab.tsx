@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +40,7 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [confirmBackfillOpen, setConfirmBackfillOpen] = useState(false);
 
-  const { data: approvals } = useQuery({
+  const { data: approvals, error: approvalsError } = useQuery({
     queryKey: ["overtime-approvals", employeeId ?? "all", statusFilter],
     queryFn: async () => {
       let q = supabase
@@ -54,6 +54,12 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
       return data as any[];
     },
   });
+
+  useEffect(() => {
+    if (approvalsError) {
+      toast.error(`Erro ao carregar aprovações: ${(approvalsError as any)?.message ?? approvalsError}`);
+    }
+  }, [approvalsError]);
 
   const pendingRows = useMemo(
     () => (approvals || []).filter((a) => a.status === "pending"),
