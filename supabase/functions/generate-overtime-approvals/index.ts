@@ -54,6 +54,19 @@ function yesterdayLisbon(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function eachDateInclusive(from: string, to: string): string[] {
+  const out: string[] = [];
+  const start = new Date(from + "T12:00:00Z");
+  const end = new Date(to + "T12:00:00Z");
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return out;
+  const cur = new Date(start);
+  while (cur <= end) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -65,29 +78,47 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Resolve target date (body.date or yesterday in Lisbon)
-    let targetDate = "";
+    // Resolve target dates: body.from/body.to (range) or body.date (single) or yesterday (default).
+    let bodyDate = "";
+    let bodyFrom = "";
+    let bodyTo = "";
     try {
       const body = await req.json();
-      targetDate = body?.date || "";
+      bodyDate = body?.date || "";
+      bodyFrom = body?.from || "";
+      bodyTo = body?.to || "";
     } catch {
       // no body
     }
-    if (!targetDate) targetDate = yesterdayLisbon();
 
-    // Day-of-week (JS: Sunday=0). Same convention used elsewhere in this project.
-    const dayOfWeek = new Date(targetDate + "T12:00:00Z").getUTCDay();
+    let dates: string[];
+    if (bodyFrom && bodyTo) {
+      dates = eachDateInclusive(bodyFrom, bodyTo);
+      if (!dates.length) {
+        return new Response(
+          JSON.stringify({ error: "Intervalo inválido (from > to ou datas inválidas)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    } else {
+      dates = [bodyDate || yesterdayLisbon()];
+    }
+
+    const rangeStart = dates[0];
+    const rangeEnd = dates[dates.length - 1];
 
     // Holiday check
-    const mmdd = targetDate.slice(5);
     const { data: holidays } = await supabase
       .from("holidays")
       .select("holiday_date, recurring_yearly");
-    const isHoliday = (holidays || []).some((h: any) => {
-      if (h.holiday_date === targetDate) return true;
-      if (h.recurring_yearly && String(h.holiday_date).slice(5) === mmdd) return true;
-      return false;
-    });
+    const isHolidayOn = (date: string): boolean => {
+      const mmdd = date.slice(5);
+      return (holidays || []).some((h: any) => {
+        if (h.holiday_date === date) return true;
+        if (h.recurring_yearly && String(h.holiday_date).slice(5) === mmdd) return true;
+        return false;
+      });
+    };
 
     // Active employees
     const { data: employees, error: empErr } = await supabase
@@ -97,42 +128,42 @@ Deno.serve(async (req) => {
     if (empErr) throw empErr;
     if (!employees?.length) {
       return new Response(
-        JSON.stringify({ date: targetDate, is_holiday: isHoliday, candidates_found: 0, created: 0 }),
+        JSON.stringify({ from: rangeStart, to: rangeEnd, days: dates.length, candidates_found: 0, created: 0, by_kind: {} }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const employeeIds = employees.map((e: any) => e.id);
 
-    // Punches for the day
+    // Punches for the whole range (single query, regroup by date)
     const { data: records } = await supabase
       .from("time_clock_records")
       .select("id, employee_id, record_date, clock_in, lunch_out, lunch_in, clock_out")
-      .eq("record_date", targetDate)
+      .gte("record_date", rangeStart)
+      .lte("record_date", rangeEnd)
       .in("employee_id", employeeIds);
     if (!records?.length) {
       return new Response(
-        JSON.stringify({ date: targetDate, is_holiday: isHoliday, candidates_found: 0, created: 0 }),
+        JSON.stringify({ from: rangeStart, to: rangeEnd, days: dates.length, candidates_found: 0, created: 0, by_kind: {} }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Per-employee overrides
+    // Per-employee overrides (all days-of-week, indexed by employee+dow)
     const { data: overrides } = await supabase
       .from("employee_schedules")
       .select(
         "employee_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off",
       )
-      .eq("day_of_week", dayOfWeek)
       .in("employee_id", employeeIds);
-    const overrideMap = new Map<string, any>();
-    for (const o of overrides || []) overrideMap.set(o.employee_id, o);
+    const overrideMap = new Map<string, any>(); // key: `${employee_id}:${dow}`
+    for (const o of overrides || []) overrideMap.set(`${o.employee_id}:${o.day_of_week}`, o);
 
     // Templates
     const templateIds = [
       ...new Set(employees.map((e: any) => e.schedule_template_id).filter(Boolean)),
     ] as string[];
-    const templateDayMap = new Map<string, any>();
+    const templateDayMap = new Map<string, any>(); // key: `${template_id}:${dow}`
     const templateInfoMap = new Map<string, { tolerance_overtime_minutes: number }>();
     if (templateIds.length) {
       const [{ data: tDays }, { data: tInfo }] = await Promise.all([
@@ -141,14 +172,13 @@ Deno.serve(async (req) => {
           .select(
             "template_id, day_of_week, clock_in_time, lunch_out_time, lunch_in_time, clock_out_time, is_day_off",
           )
-          .eq("day_of_week", dayOfWeek)
           .in("template_id", templateIds),
         supabase
           .from("schedule_templates")
           .select("id, tolerance_overtime_minutes")
           .in("id", templateIds),
       ]);
-      for (const td of tDays || []) templateDayMap.set(td.template_id, td);
+      for (const td of tDays || []) templateDayMap.set(`${td.template_id}:${td.day_of_week}`, td);
       for (const t of tInfo || []) {
         templateInfoMap.set(t.id, {
           tolerance_overtime_minutes: t.tolerance_overtime_minutes ?? 15,
@@ -178,10 +208,14 @@ Deno.serve(async (req) => {
       const hasPunch = !!(rec.clock_in || rec.clock_out || rec.lunch_in || rec.lunch_out);
       if (!hasPunch) continue;
 
+      const recDate: string = rec.record_date;
+      const dow = new Date(recDate + "T12:00:00Z").getUTCDay();
+      const isHoliday = isHolidayOn(recDate);
+
       // Resolve schedule (override > template_day)
-      const override = overrideMap.get(rec.employee_id);
+      const override = overrideMap.get(`${rec.employee_id}:${dow}`);
       const tDay = emp.schedule_template_id
-        ? templateDayMap.get(emp.schedule_template_id)
+        ? templateDayMap.get(`${emp.schedule_template_id}:${dow}`)
         : null;
       const schedule = override || tDay || null;
       const tolerance =
@@ -209,7 +243,7 @@ Deno.serve(async (req) => {
         if (worked > 0) {
           rows.push({
             employee_id: rec.employee_id,
-            record_date: targetDate,
+            record_date: recDate,
             kind: "holiday_work",
             minutes: worked,
             status: "pending",
@@ -225,7 +259,7 @@ Deno.serve(async (req) => {
         if (worked > 0) {
           rows.push({
             employee_id: rec.employee_id,
-            record_date: targetDate,
+            record_date: recDate,
             kind: "day_off_work",
             minutes: worked,
             status: "pending",
@@ -250,7 +284,7 @@ Deno.serve(async (req) => {
 
       rows.push({
         employee_id: rec.employee_id,
-        record_date: targetDate,
+        record_date: recDate,
         kind: "overtime",
         minutes: extra - tolerance,
         status: "pending",
@@ -261,44 +295,53 @@ Deno.serve(async (req) => {
 
     if (!rows.length) {
       return new Response(
-        JSON.stringify({ date: targetDate, is_holiday: isHoliday, candidates_found: 0, created: 0 }),
+        JSON.stringify({ from: rangeStart, to: rangeEnd, days: dates.length, candidates_found: 0, created: 0, by_kind: {} }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Idempotent upsert — never overwrite an already-decided row
-    const { data: inserted, error: upErr } = await supabase
-      .from("overtime_approvals")
-      .upsert(rows, {
-        onConflict: "employee_id,record_date,kind",
-        ignoreDuplicates: true,
-      })
-      .select("id, employee_id, kind");
-    if (upErr) throw upErr;
-
-    const createdCount = inserted?.length || 0;
+    // Idempotent upsert — never overwrite an already-decided row. Chunk for large ranges.
+    const CHUNK = 500;
+    let createdCount = 0;
+    const byKind: Record<string, number> = { overtime: 0, day_off_work: 0, holiday_work: 0 };
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const slice = rows.slice(i, i + CHUNK);
+      const { data: inserted, error: upErr } = await supabase
+        .from("overtime_approvals")
+        .upsert(slice, {
+          onConflict: "employee_id,record_date,kind",
+          ignoreDuplicates: true,
+        })
+        .select("id, kind");
+      if (upErr) throw upErr;
+      for (const r of inserted || []) {
+        createdCount++;
+        byKind[(r as any).kind] = (byKind[(r as any).kind] || 0) + 1;
+      }
+    }
 
     if (createdCount > 0) {
-      const byKind = { overtime: 0, day_off_work: 0, holiday_work: 0 } as Record<string, number>;
-      for (const r of inserted!) byKind[(r as any).kind] = (byKind[(r as any).kind] || 0) + 1;
       const parts: string[] = [];
       if (byKind.overtime) parts.push(`${byKind.overtime} hora(s) extra`);
       if (byKind.day_off_work) parts.push(`${byKind.day_off_work} trabalho(s) em folga`);
       if (byKind.holiday_work) parts.push(`${byKind.holiday_work} trabalho(s) em feriado`);
 
+      const scope = dates.length === 1 ? dates[0] : `${rangeStart} → ${rangeEnd}`;
       await supabase.from("admin_notifications").insert({
         title: "Aprovações de horas pendentes",
-        message: `${createdCount} candidato(s) detetado(s) em ${targetDate}: ${parts.join(", ")}. Reveja na aba de Aprovações.`,
+        message: `${createdCount} candidato(s) detetado(s) em ${scope}: ${parts.join(", ")}. Reveja na aba de Aprovações.`,
         type: "overtime_pending",
       });
     }
 
     return new Response(
       JSON.stringify({
-        date: targetDate,
-        is_holiday: isHoliday,
+        from: rangeStart,
+        to: rangeEnd,
+        days: dates.length,
         candidates_found: rows.length,
         created: createdCount,
+        by_kind: byKind,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
