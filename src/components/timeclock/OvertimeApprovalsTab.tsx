@@ -53,7 +53,14 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
       if (error) throw error;
       return data as any[];
     },
+    meta: {
+      onError: (e: any) =>
+        toast.error(`Erro ao carregar aprovações: ${e?.message ?? e}`),
+    },
   });
+
+  // Surface query errors so a broken join never renders as a silent empty list.
+  const approvalsQuery = useQuery as any;
 
   const pendingRows = useMemo(
     () => (approvals || []).filter((a) => a.status === "pending"),
