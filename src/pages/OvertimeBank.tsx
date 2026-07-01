@@ -655,6 +655,21 @@ export default function OvertimeBank() {
                       <TableHead className="text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold">Colaborador</TableHead>
                       <TableHead className="text-right text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold">Saldo do Mês</TableHead>
                       <TableHead className="text-right text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold">Saldo Acumulado</TableHead>
+                      <TableHead className="text-right text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 cursor-help">
+                                Folga/Feriado <Info className="h-3 w-3" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              Recorte do trabalho em folga, fim de semana ou feriado no período. Este valor
+                              já está incluído no Saldo Acumulado — não é adicional.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -682,6 +697,27 @@ export default function OvertimeBank() {
                         <TableCell className="text-right">
                           <BalancePill minutes={e.accumulated} bold />
                         </TableCell>
+                        <TableCell className="text-right">
+                          {(() => {
+                            const approved = exceptionalApprovedByEmp.get(e.id) || 0;
+                            const pending = exceptionalPendingByEmp.get(e.id) || 0;
+                            if (approved === 0 && pending === 0) {
+                              return <span className="text-xs text-muted-foreground/50">—</span>;
+                            }
+                            return (
+                              <div className="flex flex-col items-end leading-tight">
+                                <span className={cn("text-sm font-semibold tabular-nums", approved > 0 ? "text-primary" : "text-muted-foreground")}>
+                                  {approved > 0 ? "+" : ""}{minutesToHHMM(approved)}
+                                </span>
+                                {pending > 0 && (
+                                  <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500">
+                                    +{minutesToHHMM(pending)} pendente
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell className="text-right pr-4">
                           <ChevronRight className="h-4 w-4 text-muted-foreground/50 ml-auto" />
                         </TableCell>
@@ -689,9 +725,20 @@ export default function OvertimeBank() {
                     ))}
                     {(!filteredEmployees || filteredEmployees.length === 0) && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-10 text-sm">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-10 text-sm">
                           {employeeQuery ? "Nenhum colaborador encontrado" : "Sem dados disponíveis"}
                         </TableCell>
+                      </TableRow>
+                    )}
+                    {filteredEmployees && filteredEmployees.length > 0 && (
+                      <TableRow className="bg-muted/40 hover:bg-muted/40 border-t border-border/60 font-semibold">
+                        <TableCell className="py-2 text-xs uppercase tracking-wider text-muted-foreground">Total Folga/Feriado</TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell className="text-right text-sm tabular-nums text-primary">
+                          {exceptionalApprovedTotal > 0 ? "+" : ""}{minutesToHHMM(exceptionalApprovedTotal)}
+                        </TableCell>
+                        <TableCell />
                       </TableRow>
                     )}
                   </TableBody>
