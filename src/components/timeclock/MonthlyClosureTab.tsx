@@ -30,6 +30,7 @@ import {
 } from "@/lib/attendanceReconciliation";
 import { Lock, Unlock, AlertTriangle, FileWarning } from "lucide-react";
 import { BatchClosureDialog } from "./BatchClosureDialog";
+import { BatchReopenDialog } from "./BatchReopenDialog";
 
 const MONTHS = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -461,7 +462,8 @@ export function MonthlyClosureTab({ employeeId }: Props) {
       </CardHeader>
       <CardContent className="space-y-4">
         {isAdmin && !employeeId && (
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <BatchReopenDialog />
             <BatchClosureDialog />
           </div>
         )}
