@@ -492,7 +492,33 @@ export function BatchClosureDialog() {
           <>
             <div className="text-xs text-muted-foreground">
               {totalToClose} mês(es) a fechar para {new Set(preview.map((r) => r.employeeId)).size} colaborador(es).
+              {pendingRows.length > 0 && (
+                <span className="ml-2 text-amber-600">
+                  {pendingRows.length} mês(es) com {pendingCandidatesTotal} candidato(s) pendente(s)
+                  {forcePending ? " serão forçados" : " excluídos por padrão"}.
+                </span>
+              )}
             </div>
+            {pendingRows.length > 0 && (
+              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 space-y-1">
+                <label className="flex items-start gap-2 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={forcePending}
+                    onCheckedChange={(v) => { setForcePending(!!v); if (!v) setAckForce(false); }}
+                    className="mt-0.5"
+                  />
+                  <span>Incluir meses com pendentes (forçar)</span>
+                </label>
+                {forcePending && (
+                  <label className="flex items-start gap-2 text-xs cursor-pointer pl-6">
+                    <Checkbox checked={ackForce} onCheckedChange={(v) => setAckForce(!!v)} className="mt-0.5" />
+                    <span>
+                      Entendo que {pendingCandidatesTotal} candidato(s) pendente(s) ficarão de fora do saldo transitado.
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
             <ScrollArea className="h-[420px] rounded-md border">
               <Table>
                 <TableHeader>
@@ -503,12 +529,13 @@ export function BatchClosureDialog() {
                     <TableHead className="text-right">Créditos</TableHead>
                     <TableHead className="text-right">Débitos</TableHead>
                     <TableHead className="text-right">Conciliação</TableHead>
+                    <TableHead className="text-right">Pendentes</TableHead>
                     <TableHead className="text-right">Transita</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {preview.map((r, i) => (
-                    <TableRow key={i} className={r.error ? "bg-destructive/5" : ""}>
+                    <TableRow key={i} className={r.error ? "bg-destructive/5" : r.pendingCount > 0 ? "bg-amber-500/10" : ""}>
                       <TableCell className="font-medium">{r.employeeName}</TableCell>
                       <TableCell>{String(r.month).padStart(2, "0")}/{r.year}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{minutesToHHMM(r.opening)}</TableCell>
@@ -516,6 +543,11 @@ export function BatchClosureDialog() {
                       <TableCell className="text-right font-mono text-xs text-destructive">{minutesToHHMM(-r.debits)}</TableCell>
                       <TableCell className="text-right font-mono text-xs text-destructive">
                         {r.attendanceDebit > 0 ? minutesToHHMM(-r.attendanceDebit) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {r.pendingCount > 0 ? (
+                          <Badge variant="outline" className="border-amber-500 text-amber-700">{r.pendingCount}</Badge>
+                        ) : "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-bold">
                         {r.error
@@ -538,7 +570,7 @@ export function BatchClosureDialog() {
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={running}>Cancelar</Button>
               <Button
                 onClick={executeBatch}
-                disabled={running || totalToClose === 0 || !dataReady}
+                disabled={running || totalToClose === 0 || !dataReady || (forcePending && pendingRows.length > 0 && !ackForce)}
               >
                 {running ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A fechar…</> : `Confirmar e fechar (${totalToClose})`}
               </Button>
