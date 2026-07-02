@@ -32,6 +32,7 @@ type PreviewRow = {
   attendanceDebit: number;
   closingBalance: number;
   alreadyClosed: boolean;
+  pendingCount: number;
   error?: string;
 };
 
@@ -61,6 +62,8 @@ export function BatchClosureDialog() {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<ExecResult[] | null>(null);
+  const [forcePending, setForcePending] = useState(false);
+  const [ackForce, setAckForce] = useState(false);
 
   // current month (don't close it)
   const now = new Date();
@@ -122,6 +125,20 @@ export function BatchClosureDialog() {
     },
   });
 
+  const { data: allPending } = useQuery({
+    enabled: open && empIds.length > 0,
+    queryKey: ["batch-closure-pending", empIds.length],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("overtime_approvals")
+        .select("employee_id, record_date")
+        .eq("status", "pending")
+        .in("employee_id", empIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: allEmpSchedules } = useQuery({
     enabled: open && empIds.length > 0,
     queryKey: ["batch-closure-emp-schedules", empIds.length],
@@ -163,7 +180,7 @@ export function BatchClosureDialog() {
   });
 
   const dataReady =
-    !!employees && !!allMovements && !!allRecords && !!allClosures && !!allEmpSchedules;
+    !!employees && !!allMovements && !!allRecords && !!allClosures && !!allEmpSchedules && !!allPending;
 
   // ---- Preview computation ----
   const preview = useMemo<PreviewRow[]>(() => {
@@ -203,6 +220,14 @@ export function BatchClosureDialog() {
     }
     const tolByTpl = new Map<string, any>();
     for (const t of (allTemplates || [])) tolByTpl.set(t.id, t);
+
+    // Pending counts by employee+monthKey
+    const pendingMap = new Map<string, number>();
+    for (const p of (allPending || [])) {
+      const { year: py, month: pm } = monthOfDate(p.record_date as string);
+      const k = `${p.employee_id}:${monthKey(py, pm)}`;
+      pendingMap.set(k, (pendingMap.get(k) || 0) + 1);
+    }
 
     const rows: PreviewRow[] = [];
 
@@ -282,6 +307,7 @@ export function BatchClosureDialog() {
             hasPriorMovements: idx > startIdx,
             attendanceDebitMinutes: pendingDebit,
           });
+          const pendingCount = pendingMap.get(`${emp.id}:${idx}`) || 0;
           rows.push({
             employeeId: emp.id,
             employeeName: `${emp.first_name} ${emp.last_name}`,
@@ -292,6 +318,7 @@ export function BatchClosureDialog() {
             attendanceDebit: pendingDebit,
             closingBalance: res.closingBalance,
             alreadyClosed: false,
+            pendingCount,
           });
           runningOpening = res.closingBalance;
         } catch (e: any) {
@@ -301,14 +328,16 @@ export function BatchClosureDialog() {
             year: y, month: m,
             opening: runningOpening, credits: 0, debits: 0,
             attendanceDebit: pendingDebit, closingBalance: runningOpening,
-            alreadyClosed: false, error: e.message,
+            alreadyClosed: false,
+            pendingCount: pendingMap.get(`${emp.id}:${idx}`) || 0,
+            error: e.message,
           });
           break; // stop this employee's chain
         }
       }
     }
     return rows;
-  }, [dataReady, employees, allMovements, allRecords, allClosures, allEmpSchedules, allTemplateDays, allTemplates, lastClosableIdx]);
+  }, [dataReady, employees, allMovements, allRecords, allClosures, allEmpSchedules, allTemplateDays, allTemplates, allPending, lastClosableIdx]);
 
   // ---- Execution ----
   const computeAttendanceDebitForExec = (
