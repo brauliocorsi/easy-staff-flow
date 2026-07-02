@@ -57,6 +57,9 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   // Zerar saldo (sem pagar)
   const [zeroOpen, setZeroOpen] = useState(false);
   const [zeroNotes, setZeroNotes] = useState<string>("");
+  // Forçar fecho apesar de candidatos pendentes
+  const [forcePending, setForcePending] = useState(false);
+  const [ackForce, setAckForce] = useState(false);
 
   const effectiveEmp = employeeId ?? empId;
 
@@ -343,6 +346,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _paid_minutes: paidMinutes ?? 0,
         _notes: notes || null,
         _attendance_debit_minutes: attendanceDebitToApply,
+        _force: forcePending,
       });
       if (error) throw error;
       return data;
@@ -354,6 +358,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
       qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
       setNotes(""); setPaidHours("");
+      setForcePending(false); setAckForce(false);
     },
     onError: (e: any) => toast({ title: "Erro ao fechar", description: e.message, variant: "destructive" }),
   });
@@ -429,6 +434,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _paid_minutes: 0,
         _notes: `[Saldo zerado] ${zeroNotes.trim()}`,
         _attendance_debit_minutes: attendanceDebitToApply,
+        _force: forcePending,
       });
       if (error) throw error;
       return data;
@@ -579,6 +585,42 @@ export function MonthlyClosureTab({ employeeId }: Props) {
 
             {!closed && isAdmin && (
               <div className="rounded-md border p-3 space-y-3">
+                {(pendingPositives ?? 0) > 0 && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+                      <div className="flex-1">
+                        <p className="font-medium text-amber-700">
+                          {pendingPositives} candidato(s) de aprovação pendente(s) neste mês.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Aprove ou rejeite-os na aba <strong>Aprovações</strong> antes de fechar —
+                          caso contrário os créditos correspondentes ficarão de fora do saldo transitado.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="flex items-start gap-2 text-xs cursor-pointer opacity-80">
+                      <Checkbox
+                        checked={forcePending}
+                        onCheckedChange={(v) => { setForcePending(!!v); if (!v) setAckForce(false); }}
+                        className="mt-0.5"
+                      />
+                      <span>Fechar mesmo assim (forçar)</span>
+                    </label>
+                    {forcePending && (
+                      <label className="flex items-start gap-2 text-xs cursor-pointer pl-6">
+                        <Checkbox
+                          checked={ackForce}
+                          onCheckedChange={(v) => setAckForce(!!v)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Entendo que o fecho <strong>não incluirá</strong> os {pendingPositives} candidato(s) pendente(s).
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs">Destino do saldo</Label>
                   <Select value={decision} onValueChange={(v) => setDecision(v as ClosureDecision)}>
@@ -615,7 +657,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                 {decision === "pay_all_and_zero" ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button disabled={!!(preview && "error" in preview) || closeMut.isPending}>Fechar mês</Button>
+                      <Button disabled={!!(preview && "error" in preview) || closeMut.isPending || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}>Fechar mês</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -632,7 +674,10 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                     </AlertDialogContent>
                   </AlertDialog>
                 ) : (
-                  <Button disabled={!!(preview && "error" in preview) || closeMut.isPending} onClick={() => closeMut.mutate()}>
+                  <Button
+                    disabled={!!(preview && "error" in preview) || closeMut.isPending || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}
+                    onClick={() => closeMut.mutate()}
+                  >
                     Fechar mês
                   </Button>
                 )}
@@ -643,7 +688,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                       <Button
                         variant="destructive"
                         size="sm"
-                        disabled={!!(preview && "error" in preview)}
+                        disabled={!!(preview && "error" in preview) || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}
                       >
                         Zerar saldo (sem pagar)
                       </Button>

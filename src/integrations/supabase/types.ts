@@ -2154,18 +2154,32 @@ export type Database = {
         Args: { _employee_id: string; _viewer_id: string }
         Returns: boolean
       }
-      close_time_bank_month: {
-        Args: {
-          _attendance_debit_minutes?: number
-          _decision: string
-          _employee_id: string
-          _month: number
-          _notes?: string
-          _paid_minutes?: number
-          _year: number
-        }
-        Returns: Json
-      }
+      close_time_bank_month:
+        | {
+            Args: {
+              _attendance_debit_minutes?: number
+              _decision: string
+              _employee_id: string
+              _month: number
+              _notes?: string
+              _paid_minutes?: number
+              _year: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _attendance_debit_minutes?: number
+              _decision: string
+              _employee_id: string
+              _force?: boolean
+              _month: number
+              _notes?: string
+              _paid_minutes?: number
+              _year: number
+            }
+            Returns: Json
+          }
       create_opening_balance_snapshot: {
         Args: {
           _cutoff_date: string
