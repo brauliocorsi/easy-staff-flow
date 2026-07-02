@@ -657,7 +657,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                 {decision === "pay_all_and_zero" ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button disabled={!!(preview && "error" in preview) || closeMut.isPending}>Fechar mês</Button>
+                      <Button disabled={!!(preview && "error" in preview) || closeMut.isPending || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}>Fechar mês</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -674,7 +674,10 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                     </AlertDialogContent>
                   </AlertDialog>
                 ) : (
-                  <Button disabled={!!(preview && "error" in preview) || closeMut.isPending} onClick={() => closeMut.mutate()}>
+                  <Button
+                    disabled={!!(preview && "error" in preview) || closeMut.isPending || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}
+                    onClick={() => closeMut.mutate()}
+                  >
                     Fechar mês
                   </Button>
                 )}
@@ -685,7 +688,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                       <Button
                         variant="destructive"
                         size="sm"
-                        disabled={!!(preview && "error" in preview)}
+                        disabled={!!(preview && "error" in preview) || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}
                       >
                         Zerar saldo (sem pagar)
                       </Button>
