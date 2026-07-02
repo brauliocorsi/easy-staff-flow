@@ -57,6 +57,9 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   // Zerar saldo (sem pagar)
   const [zeroOpen, setZeroOpen] = useState(false);
   const [zeroNotes, setZeroNotes] = useState<string>("");
+  // Forçar fecho apesar de candidatos pendentes
+  const [forcePending, setForcePending] = useState(false);
+  const [ackForce, setAckForce] = useState(false);
 
   const effectiveEmp = employeeId ?? empId;
 
@@ -343,6 +346,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _paid_minutes: paidMinutes ?? 0,
         _notes: notes || null,
         _attendance_debit_minutes: attendanceDebitToApply,
+        _force: forcePending,
       });
       if (error) throw error;
       return data;
@@ -354,6 +358,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
       qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
       setNotes(""); setPaidHours("");
+      setForcePending(false); setAckForce(false);
     },
     onError: (e: any) => toast({ title: "Erro ao fechar", description: e.message, variant: "destructive" }),
   });
@@ -429,6 +434,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _paid_minutes: 0,
         _notes: `[Saldo zerado] ${zeroNotes.trim()}`,
         _attendance_debit_minutes: attendanceDebitToApply,
+        _force: forcePending,
       });
       if (error) throw error;
       return data;
