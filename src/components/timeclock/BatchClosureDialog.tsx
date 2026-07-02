@@ -394,7 +394,8 @@ export function BatchClosureDialog() {
 
     // Group by employee, in order
     const byEmp = new Map<string, PreviewRow[]>();
-    for (const row of preview) {
+    const rowsToRun = preview.filter((r) => !r.error && (r.pendingCount === 0 || forcePending));
+    for (const row of rowsToRun) {
       const arr = byEmp.get(row.employeeId) || [];
       arr.push(row);
       byEmp.set(row.employeeId, arr);
@@ -414,13 +415,17 @@ export function BatchClosureDialog() {
           _paid_minutes: 0,
           _notes: "Fecho em lote — regularização",
           _attendance_debit_minutes: attendanceDebit,
+          _force: row.pendingCount > 0 && forcePending,
         });
         if (error) {
           const msg = error.message || String(error);
-          // If RPC says month already closed, mark skipped, keep going for this employee
           if (/já fechado/i.test(msg)) {
             out.push({ employeeName: row.employeeName, year: row.year, month: row.month, status: "skipped", message: msg });
             continue;
+          }
+          if (/candidato\(s\) de aprovação pendente/i.test(msg)) {
+            out.push({ employeeName: row.employeeName, year: row.year, month: row.month, status: "skipped", message: "Bloqueado por pendentes" });
+            break;
           }
           out.push({ employeeName: row.employeeName, year: row.year, month: row.month, status: "failed", message: msg });
           break; // stop chain for this employee
@@ -450,7 +455,10 @@ export function BatchClosureDialog() {
 
   if (!isAdmin) return null;
 
-  const totalToClose = preview.filter((r) => !r.error).length;
+  const cleanRows = preview.filter((r) => !r.error && r.pendingCount === 0);
+  const pendingRows = preview.filter((r) => !r.error && r.pendingCount > 0);
+  const pendingCandidatesTotal = pendingRows.reduce((a, r) => a + r.pendingCount, 0);
+  const totalToClose = forcePending ? cleanRows.length + pendingRows.length : cleanRows.length;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setResults(null); }}>
