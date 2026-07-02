@@ -585,6 +585,42 @@ export function MonthlyClosureTab({ employeeId }: Props) {
 
             {!closed && isAdmin && (
               <div className="rounded-md border p-3 space-y-3">
+                {(pendingPositives ?? 0) > 0 && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+                      <div className="flex-1">
+                        <p className="font-medium text-amber-700">
+                          {pendingPositives} candidato(s) de aprovação pendente(s) neste mês.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Aprove ou rejeite-os na aba <strong>Aprovações</strong> antes de fechar —
+                          caso contrário os créditos correspondentes ficarão de fora do saldo transitado.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="flex items-start gap-2 text-xs cursor-pointer opacity-80">
+                      <Checkbox
+                        checked={forcePending}
+                        onCheckedChange={(v) => { setForcePending(!!v); if (!v) setAckForce(false); }}
+                        className="mt-0.5"
+                      />
+                      <span>Fechar mesmo assim (forçar)</span>
+                    </label>
+                    {forcePending && (
+                      <label className="flex items-start gap-2 text-xs cursor-pointer pl-6">
+                        <Checkbox
+                          checked={ackForce}
+                          onCheckedChange={(v) => setAckForce(!!v)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Entendo que o fecho <strong>não incluirá</strong> os {pendingPositives} candidato(s) pendente(s).
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs">Destino do saldo</Label>
                   <Select value={decision} onValueChange={(v) => setDecision(v as ClosureDecision)}>
