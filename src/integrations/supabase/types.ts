@@ -1200,6 +1200,200 @@ export type Database = {
           },
         ]
       }
+      mural_checklist_items: {
+        Row: {
+          created_at: string
+          done: boolean
+          id: string
+          order_index: number
+          task_id: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          order_index?: number
+          task_id: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          order_index?: number
+          task_id?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mural_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "mural_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mural_comments: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mural_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "mural_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mural_projects: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mural_task_assignees: {
+        Row: {
+          assigned_at: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mural_task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "mural_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mural_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: number
+          due_date: string | null
+          effort_hours: number | null
+          id: string
+          order_index: number
+          project_id: string
+          start_date: string | null
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          due_date?: string | null
+          effort_hours?: number | null
+          id?: string
+          order_index?: number
+          project_id: string
+          start_date?: string | null
+          status?: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          due_date?: string | null
+          effort_hours?: number | null
+          id?: string
+          order_index?: number
+          project_id?: string
+          start_date?: string | null
+          status?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mural_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "mural_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       overtime_approvals: {
         Row: {
           actual_clock_in: string | null
