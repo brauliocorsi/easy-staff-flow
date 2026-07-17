@@ -80,7 +80,7 @@ export default function Mural() {
             <Button variant="outline" onClick={() => setProjectDialog({ open: true, project: null })}>
               <FolderPlus className="h-4 w-4 mr-1" /> Novo projeto
             </Button>
-            <Button onClick={() => setTaskDialog({ open: true, task: null })} disabled={activeProjects.length === 0}>
+            <Button onClick={() => setTaskDialog({ open: true, taskId: null })} disabled={activeProjects.length === 0}>
               <Plus className="h-4 w-4 mr-1" /> Nova tarefa
             </Button>
           </div>
