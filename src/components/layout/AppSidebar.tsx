@@ -24,6 +24,7 @@ import {
   CalendarDays,
   Timer,
   Bug,
+  KanbanSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -99,6 +100,13 @@ const menuGroups = [
       { title: "Reuniões", icon: Handshake, path: "/reunioes" },
       { title: "Memorando", icon: CalendarDays, path: "/reunioes/memorando" },
       { title: "Sugestões", icon: MessageSquare, path: "/sugestoes" },
+    ],
+  },
+  {
+    label: "Planejamento",
+    icon: KanbanSquare,
+    items: [
+      { title: "Mural", icon: KanbanSquare, path: "/mural" },
     ],
   },
 ];
