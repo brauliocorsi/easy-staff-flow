@@ -27,7 +27,7 @@ export default function Mural() {
   const deleteProject = useDeleteProject();
 
   const [projectDialog, setProjectDialog] = useState<{ open: boolean; project?: MuralProject | null }>({ open: false });
-  const [taskDialog, setTaskDialog] = useState<{ open: boolean; task?: MuralTask | null; projectId?: string | null }>({ open: false });
+  const [taskDialog, setTaskDialog] = useState<{ open: boolean; taskId?: string | null; projectId?: string | null }>({ open: false });
 
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
@@ -161,13 +161,13 @@ export default function Mural() {
             <TabsTrigger value="gantt" className="gap-1.5"><GanttChart className="h-4 w-4" />Gantt</TabsTrigger>
           </TabsList>
           <TabsContent value="list" className="mt-4">
-            <MuralList tasks={filteredTasks} projects={projectsMini} admins={admins} onOpenTask={(t) => setTaskDialog({ open: true, task: t })} />
+            <MuralList tasks={filteredTasks} projects={projectsMini} admins={admins} onOpenTask={(t) => setTaskDialog({ open: true, taskId: t.id })} />
           </TabsContent>
           <TabsContent value="kanban" className="mt-4">
-            <MuralKanban tasks={filteredTasks} projects={projectsMini} admins={admins} onOpenTask={(t) => setTaskDialog({ open: true, task: t })} />
+            <MuralKanban tasks={filteredTasks} projects={projectsMini} admins={admins} onOpenTask={(t) => setTaskDialog({ open: true, taskId: t.id })} />
           </TabsContent>
           <TabsContent value="gantt" className="mt-4">
-            <MuralGantt tasks={filteredTasks} projects={projectsMini} onOpenTask={(t) => setTaskDialog({ open: true, task: t })} />
+            <MuralGantt tasks={filteredTasks} projects={projectsMini} onOpenTask={(t) => setTaskDialog({ open: true, taskId: t.id })} />
           </TabsContent>
         </Tabs>
       </div>
@@ -179,8 +179,8 @@ export default function Mural() {
       />
       <TaskFormDialog
         open={taskDialog.open}
-        onOpenChange={(o) => setTaskDialog({ open: o, task: o ? taskDialog.task : null })}
-        task={taskDialog.task ?? null}
+        onOpenChange={(o) => setTaskDialog({ open: o, taskId: o ? taskDialog.taskId : null })}
+        task={taskDialog.taskId ? tasks.find((t) => t.id === taskDialog.taskId) ?? null : null}
         projectId={taskDialog.projectId ?? (projectFilter !== "all" ? projectFilter : null)}
         projects={activeProjects.map((p) => ({ id: p.id, title: p.title, color: p.color }))}
       />
