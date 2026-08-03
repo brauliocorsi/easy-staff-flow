@@ -1616,6 +1616,42 @@ export type Database = {
         }
         Relationships: []
       }
+      time_bank_auto_closure_logs: {
+        Row: {
+          closed_count: number
+          created_at: string
+          errors: Json
+          failed_count: number
+          id: string
+          period_month: number
+          period_year: number
+          skipped_count: number
+          triggered_by: string
+        }
+        Insert: {
+          closed_count?: number
+          created_at?: string
+          errors?: Json
+          failed_count?: number
+          id?: string
+          period_month: number
+          period_year: number
+          skipped_count?: number
+          triggered_by?: string
+        }
+        Update: {
+          closed_count?: number
+          created_at?: string
+          errors?: Json
+          failed_count?: number
+          id?: string
+          period_month?: number
+          period_year?: number
+          skipped_count?: number
+          triggered_by?: string
+        }
+        Relationships: []
+      }
       time_bank_monthly_closures: {
         Row: {
           approved_credits_minutes: number
@@ -2383,6 +2419,11 @@ export type Database = {
         }
         Returns: Json
       }
+      cron_close_all_months: {
+        Args: { _month: number; _triggered_by?: string; _year: number }
+        Returns: Json
+      }
+      cron_close_month_if_last_day: { Args: never; Returns: undefined }
       get_employee_id_for_user: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
