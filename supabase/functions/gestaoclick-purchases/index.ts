@@ -8,6 +8,14 @@ const corsHeaders = {
 
 const GESTAOCLICK_BASE = "https://api.gestaoclick.com/api";
 
+class UpstreamError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function gestaoGet(path: string, params?: Record<string, string>) {
   const token = (Deno.env.get("GESTAOCLICK_TOKEN") || "").trim();
   const secret = (Deno.env.get("GESTAOCLICK_SECRET") || "").trim();
@@ -20,34 +28,46 @@ async function gestaoGet(path: string, params?: Record<string, string>) {
     }
   }
 
-  // Force HTTP/1.1 to avoid Deno HTTP/2 connection errors
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  let lastStatus = 0;
+  let lastText = "";
 
-  let res: Response;
-  try {
-    res = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        "access-token": token,
-        "secret-access-token": secret,
-        "Content-Type": "application/json",
-      },
-      signal: controller.signal,
-      // @ts-ignore Deno-specific option
-      client: Deno.createHttpClient({ http2: false }),
-    });
-  } finally {
-    clearTimeout(timeoutId);
+  // Retry transient upstream 5xx errors
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          "access-token": token,
+          "secret-access-token": secret,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        // @ts-ignore Deno-specific option
+        client: Deno.createHttpClient({ http2: false }),
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (res.ok) return res.json();
+
+    lastStatus = res.status;
+    lastText = await res.text();
+
+    if (res.status < 500) break;
+    await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
   }
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GestaoClick API error [${res.status}]: ${text}`);
-  }
-
-  return res.json();
+  throw new UpstreamError(
+    lastStatus,
+    `GestaoClick API error [${lastStatus}]: ${lastText.slice(0, 300)}`,
+  );
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -90,11 +110,24 @@ Deno.serve(async (req) => {
       if (situacaoId) params.situacao_id = situacaoId;
       if (lojaId) params.loja_id = lojaId;
 
-      const data = await gestaoGet("compras", params);
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      try {
+        const data = await gestaoGet("compras", params);
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        // Upstream ERP often 500s on pages past the last one — end pagination gracefully
+        if (err instanceof UpstreamError && err.status >= 500) {
+          console.error("Upstream purchases error:", err.message);
+          return new Response(
+            JSON.stringify({ data: [], upstream_error: true, message: err.message }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        throw err;
+      }
     }
+
 
     if (action === "purchase-statuses") {
       const data = await gestaoGet("situacoes_compras");

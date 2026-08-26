@@ -109,18 +109,22 @@ async function fetchPurchasesForStore(store: StoreInfo): Promise<Purchase[]> {
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Erro ao buscar compras da loja ${store.nome}: ${text}`);
+      // Falha numa página: mantém o que já foi carregado em vez de rebentar a página
+      console.error(`Erro ao buscar compras da loja ${store.nome}:`, await res.text());
+      break;
     }
 
     const json = await res.json();
     const items = json?.data || [];
+
+    if (json?.upstream_error) break;
 
     if (json?.meta?.total_paginas) {
       totalPages = json.meta.total_paginas;
     }
 
     if (!Array.isArray(items) || items.length === 0) break;
+
 
     allPurchases.push(...items.map((item: Record<string, unknown>) => mapCompra(item, store.id, store.nome)));
     page++;
