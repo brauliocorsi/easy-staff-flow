@@ -110,11 +110,24 @@ Deno.serve(async (req) => {
       if (situacaoId) params.situacao_id = situacaoId;
       if (lojaId) params.loja_id = lojaId;
 
-      const data = await gestaoGet("compras", params);
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      try {
+        const data = await gestaoGet("compras", params);
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        // Upstream ERP often 500s on pages past the last one — end pagination gracefully
+        if (err instanceof UpstreamError && err.status >= 500) {
+          console.error("Upstream purchases error:", err.message);
+          return new Response(
+            JSON.stringify({ data: [], upstream_error: true, message: err.message }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        throw err;
+      }
     }
+
 
     if (action === "purchase-statuses") {
       const data = await gestaoGet("situacoes_compras");
