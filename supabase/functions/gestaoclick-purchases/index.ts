@@ -128,6 +128,57 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (action === "purchases-all") {
+      const storesResp = await gestaoGet("lojas");
+      const stores: Array<{ id: string; nome: string }> = (storesResp?.data || []).map(
+        (s: Record<string, unknown>) => {
+          const l = (s as { Loja?: Record<string, unknown> }).Loja || s;
+          return { id: String(l.id ?? ""), nome: String(l.nome ?? l.razao_social ?? "Loja") };
+        },
+      );
+
+      const maxPages = 60;
+      const concurrency = 6;
+      const purchases: Array<Record<string, unknown>> = [];
+      let partial = false;
+
+      const fetchPage = async (lojaId: string, pagina: number) => {
+        try {
+          return await gestaoGet("compras", { pagina: String(pagina), loja_id: lojaId });
+        } catch (err) {
+          partial = true;
+          console.error(`Falha loja ${lojaId} pág ${pagina}:`, (err as Error).message);
+          return null;
+        }
+      };
+
+      for (const store of stores) {
+        const first = await fetchPage(store.id, 1);
+        if (!first) continue;
+        const items = Array.isArray(first.data) ? first.data : [];
+        purchases.push(...items.map((i: Record<string, unknown>) => ({ ...i, __loja_id: store.id, __loja_nome: store.nome })));
+
+        const total = Math.min(Number(first?.meta?.total_paginas || 1) || 1, maxPages);
+        if (total < 2) continue;
+
+        const pages = Array.from({ length: total - 1 }, (_, i) => i + 2);
+        for (let i = 0; i < pages.length; i += concurrency) {
+          const chunk = pages.slice(i, i + concurrency);
+          const results = await Promise.all(chunk.map((p) => fetchPage(store.id, p)));
+          for (const r of results) {
+            const rows = Array.isArray(r?.data) ? r!.data : [];
+            purchases.push(...rows.map((i2: Record<string, unknown>) => ({ ...i2, __loja_id: store.id, __loja_nome: store.nome })));
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ stores, purchases, partial }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
+
 
     if (action === "purchase-statuses") {
       const data = await gestaoGet("situacoes_compras");
