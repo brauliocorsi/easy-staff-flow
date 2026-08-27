@@ -74,9 +74,9 @@ function mapCompra(item: Record<string, unknown>, lojaId: string, lojaNome: stri
   };
 }
 
-async function fetchStores(): Promise<StoreInfo[]> {
+async function fetchAllPurchases(): Promise<{ stores: StoreInfo[]; purchases: Purchase[] }> {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=stores`;
+  const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=purchases-all`;
 
   const { data: { session } } = await supabase.auth.getSession();
   const res = await fetch(url, {
@@ -86,62 +86,20 @@ async function fetchStores(): Promise<StoreInfo[]> {
     },
   });
 
-  if (!res.ok) throw new Error("Erro ao buscar lojas");
-  const json = await res.json();
-  return json?.data || [];
-}
-
-async function fetchPurchasesForStore(store: StoreInfo): Promise<Purchase[]> {
-  const allPurchases: Purchase[] = [];
-  let page = 1;
-  let totalPages = 1;
-
-  while (page <= totalPages) {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const url = `https://${projectId}.supabase.co/functions/v1/gestaoclick-purchases?action=purchases&pagina=${page}&loja_id=${store.id}`;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(url, {
-      headers: {
-        "Authorization": `Bearer ${session?.access_token}`,
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-    });
-
-    if (!res.ok) {
-      // Falha numa página: mantém o que já foi carregado em vez de rebentar a página
-      console.error(`Erro ao buscar compras da loja ${store.nome}:`, await res.text());
-      break;
-    }
-
-    const json = await res.json();
-    const items = json?.data || [];
-
-    if (json?.upstream_error) break;
-
-    if (json?.meta?.total_paginas) {
-      totalPages = json.meta.total_paginas;
-    }
-
-    if (!Array.isArray(items) || items.length === 0) break;
-
-
-    allPurchases.push(...items.map((item: Record<string, unknown>) => mapCompra(item, store.id, store.nome)));
-    page++;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text.slice(0, 200) || "Erro ao carregar compras");
   }
 
-  return allPurchases;
-}
-
-async function fetchAllPurchases(): Promise<{ stores: StoreInfo[]; purchases: Purchase[] }> {
-  const stores = await fetchStores();
-
-  // Fetch purchases from all stores in parallel
-  const results = await Promise.all(stores.map(fetchPurchasesForStore));
-  const purchases = results.flat();
+  const json = await res.json();
+  const stores: StoreInfo[] = json?.stores || [];
+  const purchases: Purchase[] = (json?.purchases || []).map((item: Record<string, unknown>) =>
+    mapCompra(item, String(item.__loja_id || ""), String(item.__loja_nome || ""))
+  );
 
   return { stores, purchases };
 }
+
 
 function groupBySupplier(purchases: Purchase[]): SupplierSummary[] {
   const map = new Map<string, SupplierSummary>();
