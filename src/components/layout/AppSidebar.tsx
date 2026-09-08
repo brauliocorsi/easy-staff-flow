@@ -105,6 +105,7 @@ const menuGroups = [
   {
     label: "Planejamento",
     icon: KanbanSquare,
+    adminOnly: true,
     items: [
       { title: "Mural", icon: KanbanSquare, path: "/mural" },
     ],

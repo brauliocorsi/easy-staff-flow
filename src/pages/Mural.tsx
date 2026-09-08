@@ -86,7 +86,7 @@ export default function Mural() {
           </div>
         </div>
 
-        {activeProjects.length > 0 && (
+        {projects.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {activeProjects.map((p) => {
               const count = tasks.filter((t) => t.project_id === p.id).length;
