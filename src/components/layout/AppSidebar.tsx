@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { Separator } from "@/components/ui/separator";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const menuGroups = [
   {
@@ -117,6 +118,8 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const isSuperAdmin = user?.email === "brauliocorsi@upmoveis.pt";
+  const { data: isAdmin } = useIsAdmin();
+  const visibleGroups = menuGroups.filter((g) => !("adminOnly" in g && g.adminOnly) || !!isAdmin);
 
   const handleSignOut = async () => {
     await signOut();
@@ -140,7 +143,7 @@ export function AppSidebar() {
       <Separator className="mx-4 w-auto" />
 
       <SidebarContent className="pt-2">
-        {menuGroups.map((group) => {
+        {visibleGroups.map((group) => {
           const groupActive = group.items.some((item) => location.pathname === item.path);
           return (
             <Collapsible key={group.label} defaultOpen={groupActive} className="group/collapsible">
