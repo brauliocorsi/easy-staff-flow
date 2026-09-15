@@ -265,7 +265,7 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
             ))}
             {(!approvals || approvals.length === 0) && (
               <TableRow>
-                <TableCell colSpan={(employeeId ? 6 : 7) + (statusFilter === "pending" ? 1 : 0)} className="text-center text-muted-foreground py-6">
+                <TableCell colSpan={(employeeId ? 8 : 9) + (statusFilter === "pending" ? 1 : 0)} className="text-center text-muted-foreground py-6">
                   Sem aprovações neste filtro.
                 </TableCell>
               </TableRow>
