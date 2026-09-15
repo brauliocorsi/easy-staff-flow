@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
           const ts = lisbonTimeToUTC(today, h, m);
           const { data: newRec } = await supabase
             .from("time_clock_records")
-            .insert({ employee_id: emp.id, record_date: today, clock_in: ts.toISOString() })
+            .insert({ employee_id: emp.id, record_date: today, clock_in: ts.toISOString(), punch_origin: "auto" })
             .select()
             .single();
           if (newRec) recordMap.set(emp.id, newRec);
@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
           const ts = lisbonTimeToUTC(today, h, m);
           await supabase
             .from("time_clock_records")
-            .update({ [field]: ts.toISOString() })
+            .update({ [field]: ts.toISOString(), punch_origin: "auto" })
             .eq("id", rec.id);
           rec[field] = ts.toISOString();
         }

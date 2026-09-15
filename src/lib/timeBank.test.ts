@@ -372,3 +372,22 @@ describe("computeMonthlyClosure — conciliação do ponto", () => {
     expect(r.balanceBeforeClosure).toBe(0);
   });
 });
+describe("computeBalance — pagamento é um débito real", () => {
+  it("crédito aprovado +50 com pagamento de 50 dá saldo 0 e pago 50", () => {
+    const r = computeBalance([
+      { source_type: "overtime", movement_type: "credit", minutes: 50, effective_minutes: 50, status: "approved", decision: "credit_to_bank" },
+      { source_type: "payout", movement_type: "debit", minutes: 50, effective_minutes: -50, status: "paid", decision: "pay_as_overtime" },
+    ]);
+    expect(r.available).toBe(0);
+    expect(r.approved).toBe(0);
+    expect(r.paid).toBe(50);
+  });
+
+  it("hora extra paga diretamente (neutro) não altera o saldo", () => {
+    const r = computeBalance([
+      { source_type: "overtime", movement_type: "neutral", minutes: 60, effective_minutes: 0, status: "paid", decision: "pay_as_overtime" },
+    ]);
+    expect(r.available).toBe(0);
+    expect(r.paid).toBe(60);
+  });
+});

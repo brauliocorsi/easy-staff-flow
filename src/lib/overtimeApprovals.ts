@@ -1,15 +1,25 @@
 import {
-  calculateWorkday,
-  isPartTimeSchedule,
   scheduledWorkMinutes,
-  timeToMinutes,
   timestampToLisbonMinutes,
   type ScheduleLike,
   type TimeClockRecordLike,
-  type Tolerances,
 } from "./timeClock";
 
-export type ApprovalKind = "overtime" | "day_off_work" | "holiday_work" | "vacation_work";
+/**
+ * Deteção de candidatos: implementação ÚNICA no motor partilhado.
+ * Aqui apenas se reexporta, para não existirem duas regras diferentes.
+ */
+export {
+  detectOvertimeCandidate,
+  detectEarlyEntryCandidate,
+} from "../../supabase/functions/_shared/attendance/engine";
+
+export type ApprovalKind =
+  | "overtime"
+  | "early_entry"
+  | "day_off_work"
+  | "holiday_work"
+  | "vacation_work";
 export type ApprovalStatus = "approved" | "pending" | "rejected";
 /** Status used in the frontend when no row exists in `overtime_approvals` yet. */
 export type LogicalStatus = ApprovalStatus | "not_submitted";
@@ -81,38 +91,6 @@ export function splitBalance(dailyDiffSum: number, approvals: ApprovalLike[]): B
   }
 
   return { approved, pending, rejected, potential: approved + pending };
-}
-
-/**
- * Detects how many minutes of OVERTIME a regular workday produced beyond the
- * tolerance. Returns null when there is no overtime candidate.
- */
-export function detectOvertimeCandidate(
-  record: TimeClockRecordLike | null | undefined,
-  schedule: ScheduleLike,
-  tolerances: Tolerances
-): { minutes: number; toleranceApplied: number } | null {
-  if (!record || schedule.is_day_off) return null;
-  const wd = calculateWorkday(record, schedule, tolerances);
-  if (wd.incomplete) return null;
-
-  const normalized = wd.normalized;
-  const effectiveOut = isPartTimeSchedule(schedule)
-    ? normalized.lunch_out || normalized.clock_out
-    : normalized.clock_out;
-  if (!effectiveOut) return null;
-
-  const scheduledOut = isPartTimeSchedule(schedule)
-    ? timeToMinutes(schedule.lunch_out_time)
-    : timeToMinutes(schedule.clock_out_time);
-  const actualOut = timestampToLisbonMinutes(effectiveOut);
-  const extra = actualOut - scheduledOut;
-  if (extra <= tolerances.tolerance_overtime_minutes) return null;
-
-  return {
-    minutes: extra - tolerances.tolerance_overtime_minutes,
-    toleranceApplied: tolerances.tolerance_overtime_minutes,
-  };
 }
 
 /**

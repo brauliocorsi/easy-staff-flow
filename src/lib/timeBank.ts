@@ -93,6 +93,10 @@ export function computeBalance(movements: MovementLike[]): BankBalance {
         break;
       case "paid":
         paid += m.minutes;
+        // Um pagamento é um DÉBITO real: sai do saldo disponível.
+        // Sem isto, a Conta Corrente e a Visão Geral mostravam valores
+        // diferentes (crédito +50 e pagamento −50 davam 50 em vez de 0).
+        if (m.movement_type === "debit") approved += m.effective_minutes;
         break;
       case "rejected":
         rejected += m.minutes;
