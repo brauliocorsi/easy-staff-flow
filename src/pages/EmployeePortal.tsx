@@ -205,10 +205,10 @@ export default function EmployeePortal() {
   // ===== Login screen =====
   if (!data) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4">
-        <Card className="w-full max-w-sm shadow-xl border-primary/10">
+      <div className="min-h-screen bg-card flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm shadow-sm border-primary/10">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-3 p-4 rounded-2xl bg-gradient-to-br from-primary to-primary/70 w-fit shadow-lg">
+            <div className="mx-auto mb-3 p-4 rounded-2xl bg-card w-fit shadow-lg">
               <Lock className="h-7 w-7 text-primary-foreground" />
             </div>
             <CardTitle className="text-2xl">Portal do Funcionário</CardTitle>
@@ -277,9 +277,9 @@ export default function EmployeePortal() {
     (data.tools || []).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-muted/30 via-background to-background">
+    <div className="min-h-screen bg-card">
       {/* Header / Hero */}
-      <div className="relative overflow-hidden border-b bg-gradient-to-r from-primary/15 via-primary/5 to-accent/10">
+      <div className="relative overflow-hidden border-b bg-card">
         <div className="absolute inset-0 opacity-30 pointer-events-none"
              style={{ backgroundImage: "radial-gradient(circle at 20% 20%, hsl(var(--primary)/0.25), transparent 40%), radial-gradient(circle at 80% 60%, hsl(var(--accent)/0.25), transparent 40%)" }} />
         <div className="relative max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

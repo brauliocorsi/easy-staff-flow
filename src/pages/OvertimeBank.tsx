@@ -633,7 +633,7 @@ export default function OvertimeBank() {
         {/* HERO */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card shadow-sm">
               <PiggyBank className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
@@ -784,7 +784,7 @@ export default function OvertimeBank() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border/60 shadow-sm bg-gradient-to-br from-card to-primary/[0.02]">
+          <Card className="border-border/60 shadow-sm bg-card">
             <CardContent className="flex flex-wrap items-center gap-4 py-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-semibold ring-2 ring-primary/20">
                 {emp?.first_name?.[0]}{emp?.last_name?.[0]}
@@ -978,7 +978,7 @@ export default function OvertimeBank() {
 
           {/* ACCOUNT */}
           <TabsContent value="account" className="space-y-4 mt-4">
-            <Card className="border-primary/30 shadow-sm bg-gradient-to-br from-primary/5 to-transparent">
+            <Card className="border-primary/30 shadow-sm bg-card">
               <CardContent className="py-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -1142,7 +1142,7 @@ function BalanceHeroCard({ icon: Icon, label, minutes, sub, highlight }: {
   return (
     <Card className={cn(
       "border-border/60 shadow-sm overflow-hidden relative",
-      highlight && "border-primary/40 bg-gradient-to-br from-primary/5 to-transparent ring-1 ring-primary/10"
+      highlight && "border-primary/40 bg-card ring-1 ring-primary/10"
     )}>
       <CardContent className="pt-5 pb-4">
         <div className="flex items-start justify-between gap-2 mb-3">
