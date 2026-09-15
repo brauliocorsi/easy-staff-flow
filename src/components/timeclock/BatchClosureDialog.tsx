@@ -63,8 +63,6 @@ export function BatchClosureDialog() {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<ExecResult[] | null>(null);
-  const [forcePending, setForcePending] = useState(false);
-  const [ackForce, setAckForce] = useState(false);
 
   // current month (don't close it)
   const now = new Date();

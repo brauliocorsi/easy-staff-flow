@@ -59,6 +59,7 @@ export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName,
   const [lunchIn, setLunchIn] = useState("");
   const [clockOut, setClockOut] = useState("");
   const [notes, setNotes] = useState("");
+  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -68,55 +69,40 @@ export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName,
       setLunchIn(tsToTime(record?.lunch_in ?? null));
       setClockOut(tsToTime(record?.clock_out ?? null));
       setNotes(record?.notes ?? "");
+      setReason("");
     }
   }, [open, record]);
 
   const handleSave = async () => {
+    if (!reason.trim()) {
+      toast.error("Indique o motivo da correção");
+      return;
+    }
     setSaving(true);
     try {
-      const payload = {
-        employee_id: employeeId,
-        record_date: recordDate,
-        clock_in: clockIn ? timeToTimestamp(recordDate, clockIn) : null,
-        lunch_out: lunchOut ? timeToTimestamp(recordDate, lunchOut) : null,
-        lunch_in: lunchIn ? timeToTimestamp(recordDate, lunchIn) : null,
-        clock_out: clockOut ? timeToTimestamp(recordDate, clockOut) : null,
-        notes: notes || null,
-      };
+      // Correção auditada no servidor: guarda antes/depois e autor, bloqueia
+      // meses fechados e volta a colocar os candidatos do dia por apurar.
+      const { data, error } = await supabase.rpc("correct_time_clock_record", {
+        _employee_id: employeeId,
+        _record_date: recordDate,
+        _clock_in: clockIn ? timeToTimestamp(recordDate, clockIn) : null,
+        _lunch_out: lunchOut ? timeToTimestamp(recordDate, lunchOut) : null,
+        _lunch_in: lunchIn ? timeToTimestamp(recordDate, lunchIn) : null,
+        _clock_out: clockOut ? timeToTimestamp(recordDate, clockOut) : null,
+        _reason: reason.trim(),
+        _notes: notes || null,
+      });
+      if (error) throw error;
 
-      if (isEditing) {
-        const { error } = await supabase
-          .from("time_clock_records")
-          .update(payload)
-          .eq("id", record!.id!);
-        if (error) throw error;
-        toast.success("Registo atualizado com sucesso!");
-      } else {
-        // Check if record already exists for this date
-        const { data: existing } = await supabase
-          .from("time_clock_records")
-          .select("id")
-          .eq("employee_id", employeeId)
-          .eq("record_date", recordDate)
-          .maybeSingle();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("time_clock_records")
-            .update(payload)
-            .eq("id", existing.id);
-          if (error) throw error;
-          toast.success("Registo atualizado com sucesso!");
-        } else {
-          const { error } = await supabase
-            .from("time_clock_records")
-            .insert(payload);
-          if (error) throw error;
-          toast.success("Registo criado com sucesso!");
-        }
-      }
+      const res = (data ?? {}) as any;
+      const extra = res.pending_candidates_cleared
+        ? ` ${res.pending_candidates_cleared} candidato(s) do dia voltam a ser apurados.`
+        : "";
+      toast.success(`Registo corrigido com auditoria.${extra}`);
 
       qc.invalidateQueries({ queryKey: ["time-clock-report"] });
+      qc.invalidateQueries({ queryKey: ["closure-readiness"] });
+      qc.invalidateQueries({ queryKey: ["overtime-approvals"] });
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar registo");
@@ -163,6 +149,17 @@ export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName,
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="reason">Motivo da correção *</Label>
+            <Textarea
+              id="reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Obrigatório. Fica registado com o antes e o depois."
+              rows={2}
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="notes">Observações</Label>
             <Textarea
               id="notes"
@@ -176,7 +173,7 @@ export function TimeClockRecordDialog({ open, onClose, employeeId, employeeName,
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || !reason.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
             Salvar
           </Button>

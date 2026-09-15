@@ -16,30 +16,30 @@ não publicar automaticamente. Histórico sempre consultável.
 - [x] Rótulos sem dupla sinalização ("+ +00:45").
 - [x] 12 testes novos; 72 testes no total a passar.
 
-## Fase 2 — Backup e segurança de base de dados
-- [ ] Schema privado `backup_<data>` com cópia de time_clock_records, time_bank_movements,
+## Fase 2 — Backup e segurança de base de dados (CONCLUÍDA)
+- [x] Schema privado `backup_<data>` com cópia de time_clock_records, time_bank_movements,
       overtime_approvals, time_bank_monthly_closures, employee_schedules, schedule_templates
       e configuração do cron. Sem PIN/credenciais. GRANTs restritos, verificação de contagens.
-- [ ] Revogar EXECUTE de `cron_close_all_months` a anon/authenticated; validar chamador.
-- [ ] Encaminhar INSERT/UPDATE de `time_clock_records` por RPC controlada (relógio do servidor,
+- [x] Revogar EXECUTE de `cron_close_all_months` a anon/authenticated; validar chamador.
+- [x] Encaminhar INSERT/UPDATE de `time_clock_records` por RPC controlada (relógio do servidor,
       sequência validada, idempotência anti-duplo-clique), mantendo acessos legítimos.
 
-## Fase 3 — Cadeia de revisão e fecho
-- [ ] RPC transacional de correção de ponto: motivo obrigatório, antes/depois, autor;
+## Fase 3 — Cadeia de revisão e fecho (CONCLUÍDA, exceto painel legado)
+- [x] RPC transacional de correção de ponto: motivo obrigatório, antes/depois, autor;
       recalcula candidatos pendentes, preserva decididos e sinaliza revisão.
-- [ ] Utilização de horas referencia ocorrência/dia e minutos compensados (idempotente).
-- [ ] Unificar `close_time_bank_month` numa implementação central; validar no servidor
+- [x] Utilização de horas referencia ocorrência/dia e minutos compensados (idempotente).
+- [x] Unificar `close_time_bank_month` numa implementação central; validar no servidor
       pendentes, ocorrências, mês terminado e mês anterior fechado.
-- [ ] Bloquear alterações/aprovações em mês fechado; reabertura nunca cancela pagamento real.
-- [ ] Cron deixa de forçar: prepara e sinaliza bloqueios, não fecha sem conciliação validada.
+- [x] Bloquear alterações/aprovações em mês fechado; reabertura nunca cancela pagamento real.
+- [x] Cron deixa de forçar: prepara e sinaliza bloqueios, não fecha sem conciliação validada.
 - [ ] Painel de reconciliação legado somente leitura (409 candidatos, fechos divergentes).
 
 ## Fase 4 — Horário e origem
-- [ ] Resolução central de horário: individual > template, com férias/feriados/ausências.
-- [ ] Auto-punch respeita férias/feriados/folgas.
-- [ ] Registar origem (manual/automática) e versão do horário a partir de agora.
+- [x] Resolução central de horário: individual > template, com férias/feriados/ausências.
+- [x] Auto-punch respeita férias/feriados/folgas.
+- [x] Registar origem (manual/automática) e versão do horário a partir de agora.
 - [ ] UI reflete a regra efetiva de tolerância à saída antecipada (0).
-- [ ] Turno noturno: validação explícita enquanto não modelado.
+- [x] Turno noturno: validação explícita enquanto não modelado.
 
 ## Fase 5 — Interface premium
 - [ ] Tokens e tipografia: fundo #F6F7F9, superfícies brancas, carvão/azul profundo,
