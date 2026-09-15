@@ -3,7 +3,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LegacyAuditTab } from "@/components/timeclock/LegacyAuditTab";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -814,7 +816,7 @@ export default function OvertimeBank() {
 
         {/* TABS */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 h-11 bg-muted/50 p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-5 h-11 bg-muted/50 p-1 rounded-xl">
             <TabsTrigger value="overview" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
               <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Visão Geral</span><span className="sm:hidden">Saldos</span>
             </TabsTrigger>
@@ -826,6 +828,9 @@ export default function OvertimeBank() {
             </TabsTrigger>
             <TabsTrigger value="closure" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
               <CalendarCheck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Fecho Mensal</span><span className="sm:hidden">Fecho</span>
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
+              <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Histórico</span><span className="sm:hidden">Hist.</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1087,6 +1092,10 @@ export default function OvertimeBank() {
           </TabsContent>
 
           {/* CLOSURE */}
+          <TabsContent value="audit" className="mt-4">
+            <LegacyAuditTab />
+          </TabsContent>
+
           <TabsContent value="closure" className="mt-4">
             <MonthlyClosureTab employeeId={selectedEmployee || undefined} />
           </TabsContent>
