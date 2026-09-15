@@ -518,9 +518,10 @@ export default function OvertimeBank() {
     for (const tolerance of allTemplateTolerances || []) {
       tolerancesByTemplate.set(tolerance.id, tolerance);
     }
+    // DIAGNÓSTICO DO PONTO — informativo. NUNCA é usado como saldo do banco.
+    // O saldo oficial vem exclusivamente dos movimentos aprovados/pagos.
     const attendanceMonthByEmp = new Map<string, number>();
     for (const emp of employees) {
-      if (monthMovementEmpIds.has(emp.id)) continue;
       const empRecords = recordsByEmp.get(emp.id) || [];
       if (empRecords.length === 0) continue;
       const recordMap = new Map<string, any>();
