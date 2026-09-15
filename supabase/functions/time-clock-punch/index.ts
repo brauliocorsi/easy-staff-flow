@@ -116,6 +116,20 @@ Deno.serve(async (req) => {
       .eq("record_date", today)
       .maybeSingle();
 
+    // Anti duplo-clique: ignora nova picagem a menos de 60 segundos da anterior.
+    if (existingRecord) {
+      const last = [existingRecord.clock_in, existingRecord.lunch_out, existingRecord.lunch_in, existingRecord.clock_out]
+        .filter(Boolean)
+        .map((t: string) => new Date(t).getTime())
+        .sort((a: number, b: number) => b - a)[0];
+      if (last && Date.now() - last < 60_000) {
+        return new Response(
+          JSON.stringify({ error: "Picagem já registada há instantes. Aguarde um momento." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Determine next action
     let action: string;
     if (!existingRecord) {
@@ -193,7 +207,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Relógio do SERVIDOR — nunca o do terminal.
     const timestamp = now.toISOString();
+    const scheduleSnapshot = schedule
+      ? {
+          clock_in_time: schedule.clock_in_time,
+          lunch_out_time: schedule.lunch_out_time,
+          lunch_in_time: schedule.lunch_in_time,
+          clock_out_time: schedule.clock_out_time,
+          is_day_off: schedule.is_day_off,
+          source: indivSchedule ? "employee_schedule" : "schedule_template",
+        }
+      : null;
     // For part-time clock_out, store in the lunch_out DB field
     const dbField = partTime && action === "clock_out" ? "lunch_out" : action;
     let record;
@@ -201,7 +226,10 @@ Deno.serve(async (req) => {
     if (!existingRecord) {
       const { data, error } = await supabase
         .from("time_clock_records")
-        .insert({ employee_id, record_date: today, clock_in: timestamp })
+        .insert({
+          employee_id, record_date: today, clock_in: timestamp,
+          punch_origin: "kiosk", schedule_snapshot: scheduleSnapshot,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -209,7 +237,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await supabase
         .from("time_clock_records")
-        .update({ [dbField]: timestamp })
+        .update({ [dbField]: timestamp, punch_origin: "kiosk", schedule_snapshot: scheduleSnapshot })
         .eq("id", existingRecord.id)
         .select()
         .single();
