@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Admin dialog to record a DEBIT in the time bank (employee used bank hours
@@ -26,7 +25,6 @@ export function UseBankHoursDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { user } = useAuth();
   const qc = useQueryClient();
   const [employeeId, setEmployeeId] = useState(defaultEmployeeId ?? "");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -55,24 +53,25 @@ export function UseBankHoursDialog({
       if (total <= 0) throw new Error("Indique uma duração maior que zero");
       if (!reason.trim()) throw new Error("Motivo obrigatório");
 
-      const { error } = await supabase.from("time_bank_movements").insert({
-        employee_id: employeeId,
-        record_date: date,
-        source_type: sourceType,
-        movement_type: "debit",
-        minutes: total,
-        effective_minutes: -total,
-        decision: "use_bank_hours",
-        status: "approved",
-        description: reason,
-        created_by: user?.id ?? null,
-        approved_by: user?.id ?? null,
-        approved_at: new Date().toISOString(),
+      // Operação no servidor: valida saldo, bloqueia meses fechados, fica
+      // ligada ao dia da ocorrência e não pode ser lançada duas vezes.
+      const { data, error } = await supabase.rpc("use_time_bank_hours", {
+        _employee_id: employeeId,
+        _occurrence_date: date,
+        _minutes: total,
+        _reason: reason.trim(),
+        _source_type: sourceType,
       });
       if (error) throw error;
+      return data as any;
     },
-    onSuccess: () => {
-      toast.success("Débito registado no banco de horas");
+    onSuccess: (data: any) => {
+      toast.success(
+        data?.duplicated
+          ? "Esta utilização já estava registada — nada foi duplicado."
+          : "Débito registado no banco de horas",
+      );
+      qc.invalidateQueries({ queryKey: ["closure-readiness"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
       onOpenChange(false);
       setHours("0"); setMinutes("0"); setReason("");
