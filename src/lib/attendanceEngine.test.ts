@@ -194,8 +194,8 @@ describe("picagens ambíguas", () => {
     );
     expect(day.needsReview).toBe(true);
     expect(day.reviewReasons).toContain("ambiguous_punches");
-    expect(day.deficit).toBe(0);
-    expect(day.overtimeCandidate).toBe(0);
+    expect(day.deficitMinutes).toBe(0);
+    expect(day.overtimeCandidateMinutes).toBe(0);
     // Campos originais preservados, sem redistribuição.
     expect(day.normalized.clock_in).toBe("2026-03-10T12:05:00Z");
     expect(day.normalized.clock_out).toBe("2026-03-10T08:02:00Z");
