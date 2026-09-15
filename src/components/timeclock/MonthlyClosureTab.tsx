@@ -28,7 +28,7 @@ import {
   computeMonthlyNegativeDiff, computePendingAttendanceDebit,
   type AttendanceDay,
 } from "@/lib/attendanceReconciliation";
-import { Lock, Unlock, AlertTriangle, FileWarning } from "lucide-react";
+import { Lock, Unlock, AlertTriangle, FileWarning, CheckCircle2 } from "lucide-react";
 import { BatchClosureDialog } from "./BatchClosureDialog";
 import { BatchReopenDialog } from "./BatchReopenDialog";
 
@@ -598,29 +598,59 @@ export function MonthlyClosureTab({ employeeId }: Props) {
 
             {!closed && isAdmin && (
               <div className="rounded-md border p-3 space-y-3">
-                {readiness && !readiness.ready && (
-                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-                    <div className="flex gap-2">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
-                      <div className="flex-1 space-y-1">
-                        <p className="font-medium text-amber-700">Preparação do fecho por concluir</p>
-                        <ul className="text-xs text-muted-foreground space-y-0.5">
-                          {readiness.pending_candidates > 0 && (
-                            <li>• {readiness.pending_candidates} candidato(s) por decidir na aba <strong>Aprovações</strong>.</li>
+                {readiness && (
+                  <div className="rounded-lg border bg-card p-3">
+                    <p className="text-sm font-medium mb-2">Preparação do fecho</p>
+                    <ul className="space-y-1.5 text-sm">
+                      {[
+                        {
+                          ok: readiness.month_finished,
+                          label: "O mês já terminou",
+                          blocked: "O mês ainda está a decorrer",
+                        },
+                        {
+                          ok: readiness.previous_month_closed || !readiness.has_prior_movements,
+                          label: "Mês anterior fechado",
+                          blocked: "Feche primeiro o mês anterior",
+                        },
+                        {
+                          ok: (readiness.missing_evaluations ?? 0) === 0,
+                          label: "Todos os dias apurados",
+                          blocked: `${readiness.missing_evaluations} dia(s) por apurar`,
+                        },
+                        {
+                          ok: (readiness.stale_evaluations ?? 0) === 0,
+                          label: "Apuramentos atualizados",
+                          blocked: `${readiness.stale_evaluations} dia(s) com apuramento antigo (o ponto mudou depois)`,
+                        },
+                        {
+                          ok: (readiness.review_days ?? 0) === 0,
+                          label: "Sem dias de ponto por validar",
+                          blocked: `${readiness.review_days} dia(s) de ponto por validar`,
+                        },
+                        {
+                          ok: (readiness.pending_candidates ?? 0) === 0,
+                          label: "Sem horas por decidir",
+                          blocked: `${readiness.pending_candidates} pedido(s) por decidir em Aprovações`,
+                        },
+                        {
+                          ok: (readiness.flagged_candidates ?? 0) === 0,
+                          label: "Sem decisões sinalizadas",
+                          blocked: `${readiness.flagged_candidates} decisão(ões) a precisar de nova revisão`,
+                        },
+                      ].map((item, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          {item.ok ? (
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-success" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-warning" />
                           )}
-                          {readiness.review_days > 0 && (
-                            <li>• {readiness.review_days} dia(s) de ponto por validar.</li>
-                          )}
-                          {readiness.missing_evaluations > 0 && (
-                            <li>• {readiness.missing_evaluations} dia(s) por apurar. Execute o apuramento do ponto.</li>
-                          )}
-                          {!readiness.month_finished && <li>• O mês ainda não terminou.</li>}
-                          {!readiness.previous_month_closed && readiness.has_prior_movements && (
-                            <li>• O mês anterior ainda não está fechado.</li>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
+                          <span className={item.ok ? "text-muted-foreground" : "font-medium"}>
+                            {item.ok ? item.label : item.blocked}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 

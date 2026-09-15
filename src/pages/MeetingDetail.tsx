@@ -203,7 +203,7 @@ export default function MeetingDetail() {
               <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
             </Button>
             <div className="flex items-center gap-3">
-              <h1 className="font-display text-3xl font-bold tracking-tight">{meeting.title}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">{meeting.title}</h1>
               <Badge variant={isPaused ? "destructive" : status.variant}>
                 {isPaused ? "Pausada" : status.label}
               </Badge>
@@ -296,7 +296,7 @@ export default function MeetingDetail() {
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="font-display">Pautas</CardTitle>
+                <CardTitle>Pautas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!isCompleted && (
@@ -326,7 +326,7 @@ export default function MeetingDetail() {
           {/* Participants */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="font-display text-base">Participantes</CardTitle>
+              <CardTitle className="text-base">Participantes</CardTitle>
               {isScheduled && (
                 <Popover>
                   <PopoverTrigger asChild>

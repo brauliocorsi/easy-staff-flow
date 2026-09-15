@@ -85,7 +85,7 @@ export function AgendaCard({ agenda, index, editable, participants, onUpdateDeci
             <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
               {index + 1}
             </span>
-            <h4 className="font-display font-semibold">{agenda.title}</h4>
+            <h4 className="font-semibold">{agenda.title}</h4>
           </div>
           {agenda.decision && !editing && (
             <Check className="h-4 w-4 text-success shrink-0" />

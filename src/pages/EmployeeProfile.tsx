@@ -309,7 +309,7 @@ export default function EmployeeProfile() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight">
+              <h1 className="text-xl font-semibold tracking-tight">
                 {employee.first_name} {employee.last_name}
               </h1>
               <div className="flex items-center gap-2 mt-1">
@@ -378,7 +378,7 @@ export default function EmployeeProfile() {
           {/* Left: Personal Info */}
           <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle className="font-display text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
                 <User className="h-4 w-4" /> Dados Pessoais
               </CardTitle>
             </CardHeader>
@@ -401,7 +401,7 @@ export default function EmployeeProfile() {
             {/* Absences */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                   Faltas
                   <Badge variant="secondary" className="ml-auto text-xs">{absences?.length || 0} total</Badge>
@@ -438,7 +438,7 @@ export default function EmployeeProfile() {
             {/* Warnings */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <FileText className="h-4 w-4 text-destructive" />
                   Advertências
                   <Badge variant="secondary" className="ml-auto text-xs">{totalWarnings} total</Badge>
@@ -468,7 +468,7 @@ export default function EmployeeProfile() {
             {/* Vacations */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <Palmtree className="h-4 w-4 text-primary" />
                   Férias
                   <div className="ml-auto flex items-center gap-1.5">
@@ -518,7 +518,7 @@ export default function EmployeeProfile() {
             {/* Meetings */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <CalendarCheck2 className="h-4 w-4 text-primary" />
                   Reuniões
                   <Badge variant="secondary" className="ml-auto text-xs">
@@ -569,7 +569,7 @@ export default function EmployeeProfile() {
             {/* Contracts */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-primary" />
                   Contratos
                   <Badge variant="secondary" className="ml-auto text-xs">{contracts?.length || 0} total</Badge>
@@ -602,7 +602,7 @@ export default function EmployeeProfile() {
             {/* Evaluations */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <ClipboardCheck className="h-4 w-4 text-primary" />
                   Avaliações
                   <Badge variant="secondary" className="ml-auto text-xs">{evaluations?.length || 0} concluídas</Badge>
@@ -640,7 +640,7 @@ export default function EmployeeProfile() {
             {/* Trainings */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <GraduationCap className="h-4 w-4 text-primary" />
                   Formações
                   <Badge variant="secondary" className="ml-auto text-xs">
@@ -681,7 +681,7 @@ export default function EmployeeProfile() {
             {/* EPIs */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <HardHat className="h-4 w-4 text-primary" />
                   EPIs Entregues
                   <Badge variant="secondary" className="ml-auto text-xs">{episData?.length || 0} total</Badge>
@@ -714,7 +714,7 @@ export default function EmployeeProfile() {
             {/* Ferramentas */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <Wrench className="h-4 w-4 text-primary" />
                   Ferramentas Atribuídas
                   <Badge variant="secondary" className="ml-auto text-xs">{toolsData?.filter((t: any) => t.status === "assigned").length || 0} ativas</Badge>
@@ -744,7 +744,7 @@ export default function EmployeeProfile() {
             {/* Manutenções */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <Settings2 className="h-4 w-4 text-primary" />
                   Manutenções Realizadas
                   <Badge variant="secondary" className="ml-auto text-xs">{maintenanceData?.length || 0} total</Badge>
@@ -774,7 +774,7 @@ export default function EmployeeProfile() {
             {/* Medicina do Trabalho */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <Stethoscope className="h-4 w-4 text-primary" />
                   Medicina do Trabalho
                   <Badge variant="secondary" className="ml-auto text-xs">{medicalExams?.length || 0} exames</Badge>

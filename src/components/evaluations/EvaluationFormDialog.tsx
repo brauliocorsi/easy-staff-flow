@@ -137,7 +137,7 @@ export default function EvaluationFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) { handleReset(); onClose(); } }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Nova Avaliação</DialogTitle>
+          <DialogTitle>Nova Avaliação</DialogTitle>
           <DialogDescription>Atribua avaliações individuais ou em grupo.</DialogDescription>
         </DialogHeader>
 

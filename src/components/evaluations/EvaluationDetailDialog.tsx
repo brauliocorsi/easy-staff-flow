@@ -33,7 +33,7 @@ export default function EvaluationDetailDialog({ open, onClose, evaluation }: Pr
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display">Detalhes da Avaliação</DialogTitle>
+          <DialogTitle>Detalhes da Avaliação</DialogTitle>
           <DialogDescription>
             {emp && `${emp.first_name} ${emp.last_name}`} — avaliado por {evaluator && `${evaluator.first_name} ${evaluator.last_name}`}
           </DialogDescription>

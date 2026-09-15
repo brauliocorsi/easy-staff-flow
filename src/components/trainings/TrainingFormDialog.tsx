@@ -108,7 +108,7 @@ export default function TrainingFormDialog({ open, onClose, training }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display">{isEdit ? "Editar Formação" : "Registar Formação"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Editar Formação" : "Registar Formação"}</DialogTitle>
           <DialogDescription>Registe uma formação realizada por um funcionário.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

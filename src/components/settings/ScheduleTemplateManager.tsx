@@ -151,7 +151,12 @@ function TemplateEditor({
             <Input type="number" min={0} max={60} className="h-8 text-xs" value={tolerances.tolerance_overtime_minutes} onChange={(e) => setTolerances((p) => ({ ...p, tolerance_overtime_minutes: parseInt(e.target.value) || 0 }))} />
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">Atraso: minutos tolerados antes de debitar atraso · Hora Extra: minutos após saída antes de contar hora extra · Saída antecipada: sem tolerância, debitada desde o 1º minuto.</p>
+        <ul className="space-y-1 text-[11px] text-muted-foreground">
+          <li><strong>Atraso:</strong> minutos tolerados antes de contar como atraso.</li>
+          <li><strong>Hora extra:</strong> minutos após a hora de saída antes de gerar um pedido de hora extra.</li>
+          <li><strong>Saída antecipada:</strong> sem tolerância — conta desde o 1.º minuto.</li>
+          <li><strong>Entrada antecipada:</strong> sem tolerância — gera pedido desde o 1.º minuto e só entra no saldo depois de aprovada.</li>
+        </ul>
       </div>
     </div>
   );
@@ -276,7 +281,7 @@ export function ScheduleTemplateManager() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="font-display flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" /> Modelos de Horário
         </CardTitle>
         {!creating && (

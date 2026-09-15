@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,19 +55,21 @@ export default function Documents() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Documentos</h1>
-            <p className="text-muted-foreground mt-1">Gerencie documentos dos funcionários</p>
-          </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Adicionar Documento
-          </Button>
-        </div>
+        <PageHeader
+          title={"Documentos"}
+          description={"Gerencie documentos dos funcionários"}
+          actions={
+            <>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Documento
+              </Button>
+            </>
+          }
+        />
 
         <Card>
-          <CardHeader><CardTitle className="font-display">Todos os Documentos</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Todos os Documentos</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>

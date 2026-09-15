@@ -220,7 +220,7 @@ export default function ServiceOrders() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Assistências</h1>
+            <h1 className="text-2xl font-semibold">Assistências</h1>
             <p className="text-muted-foreground">
               Ordens de serviço do GestãoClick — contagem mensal
             </p>

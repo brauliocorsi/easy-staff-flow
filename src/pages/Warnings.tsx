@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,16 +120,18 @@ export default function Warnings() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Advertências</h1>
-            <p className="text-muted-foreground mt-1">Registre e gerencie advertências disciplinares</p>
-          </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Advertência
-          </Button>
-        </div>
+        <PageHeader
+          title={"Advertências"}
+          description={"Registre e gerencie advertências disciplinares"}
+          actions={
+            <>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Advertência
+              </Button>
+            </>
+          }
+        />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -172,7 +175,7 @@ export default function Warnings() {
 
         {/* Table */}
         <Card>
-          <CardHeader><CardTitle className="font-display">Histórico de Advertências</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Histórico de Advertências</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -272,7 +275,7 @@ export default function Warnings() {
             return (
               <>
                 <SheetHeader>
-                  <SheetTitle className="font-display flex items-center gap-2">
+                  <SheetTitle className="flex items-center gap-2">
                     <Icon className="h-5 w-5" />
                     Detalhes da Advertência
                   </SheetTitle>

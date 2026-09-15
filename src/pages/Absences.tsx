@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -413,24 +414,26 @@ export default function Absences() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Registro de Faltas</h1>
-            <p className="text-muted-foreground mt-1">Faltas automáticas e manuais com justificação</p>
-          </div>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setDetectOpen(true)}>
-                <Radar className="h-4 w-4 mr-2" />
-                Detectar Faltas
-              </Button>
-              <Button onClick={() => setRegisterOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Registrar Falta
-              </Button>
-            </div>
-          )}
-        </div>
+        <PageHeader
+          title={"Registro de Faltas"}
+          description={"Faltas automáticas e manuais com justificação"}
+          actions={
+            <>
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setDetectOpen(true)}>
+                    <Radar className="h-4 w-4 mr-2" />
+                    Detectar Faltas
+                  </Button>
+                  <Button onClick={() => setRegisterOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Registrar Falta
+                  </Button>
+                </div>
+              )}
+            </>
+          }
+        />
 
         {/* Summary cards */}
         {absences && absences.length > 0 && (
@@ -462,7 +465,7 @@ export default function Absences() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle className="font-display">Faltas Registradas</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Faltas Registradas</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>

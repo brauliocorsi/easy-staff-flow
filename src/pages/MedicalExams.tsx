@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -129,10 +130,7 @@ export default function MedicalExams() {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Medicina do Trabalho</h1>
-            <p className="text-muted-foreground mt-1">Controlo de exames médicos dos funcionários</p>
-          </div>
+          <PageHeader title={"Medicina do Trabalho"} description={"Controlo de exames médicos dos funcionários"} />
           {isAdmin && (
             <Button onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4 mr-2" /> Registar Exame

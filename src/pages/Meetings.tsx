@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -63,16 +64,18 @@ export default function Meetings() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Reuniões</h1>
-            <p className="text-muted-foreground mt-1">Agende e gerencie reuniões com pautas</p>
-          </div>
-          <Button onClick={() => { setEditingMeeting(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Reunião
-          </Button>
-        </div>
+        <PageHeader
+          title={"Reuniões"}
+          description={"Agende e gerencie reuniões com pautas"}
+          actions={
+            <>
+              <Button onClick={() => { setEditingMeeting(null); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Reunião
+              </Button>
+            </>
+          }
+        />
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -120,7 +123,7 @@ export default function Meetings() {
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-3">
-                        <h3 className="font-display font-semibold text-lg truncate">{m.title}</h3>
+                        <h3 className="font-semibold text-lg truncate">{m.title}</h3>
                         <Badge variant={cfg.variant} className="shrink-0">
                           {cfg.label}
                         </Badge>

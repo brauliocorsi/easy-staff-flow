@@ -98,7 +98,7 @@ export function EmployeeScheduleEditor({ employeeId }: Props) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="font-display text-base">Horário de Trabalho</CardTitle>
+        <CardTitle className="text-base">Horário de Trabalho</CardTitle>
         <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
           Salvar Horários

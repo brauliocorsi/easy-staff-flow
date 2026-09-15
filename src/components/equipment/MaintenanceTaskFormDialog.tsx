@@ -71,7 +71,7 @@ export function MaintenanceTaskFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Nova Tarefa de Manutenção</DialogTitle>
+          <DialogTitle>Nova Tarefa de Manutenção</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

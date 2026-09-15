@@ -76,7 +76,7 @@ export default function TimeClock() {
         <ClockDisplay />
 
         <div className="text-center">
-          <h1 className="font-display text-2xl font-bold text-foreground">Relógio de Ponto</h1>
+          <h1 className="text-xl font-semibold text-foreground">Relógio de Ponto</h1>
           {deptName && (
             <p className="text-primary font-medium text-sm mt-1">{deptName}</p>
           )}

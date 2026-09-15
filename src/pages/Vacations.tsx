@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,88 +158,90 @@ export default function Vacations() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Mapa de Férias</h1>
-            <p className="text-muted-foreground mt-1">Gerencie férias individuais e coletivas</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {years.map((y) => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}
-              </SelectContent>
-            </Select>
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" /> Novo Pedido
-            </Button>
-            <Button
-              variant="outline"
-              disabled={syncMutation.isPending}
-              onClick={async () => {
-                try {
-                  const r = await syncMutation.mutateAsync(year);
-                  toast.success(
-                    `Sincronização concluída — ${r.created} registo(s) criado(s), ${r.marked} marcado(s) como gozados`
-                  );
-                } catch (e: any) {
-                  toast.error(e.message || "Erro na sincronização");
-                }
-              }}
-              title="Cria registos coletivos em falta e marca períodos passados como gozados"
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              {syncMutation.isPending ? "A sincronizar..." : "Sincronizar Gozadas"}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Printer className="h-4 w-4 mr-2" /> Imprimir Mapa
-                  <ChevronDown className="h-3 w-3 ml-2 opacity-60" />
+        <PageHeader
+          title={"Mapa de Férias"}
+          description={"Gerencie férias individuais e coletivas"}
+          actions={
+            <>
+              <div className="flex items-center gap-3">
+                <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {years.map((y) => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => setDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" /> Novo Pedido
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Imprimir Mapa de Férias</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (!vacations || vacations.length === 0) { toast.error("Sem dados para imprimir"); return; }
-                    generateVacationMapPdf(vacations, year, "all");
+                <Button
+                  variant="outline"
+                  disabled={syncMutation.isPending}
+                  onClick={async () => {
+                    try {
+                      const r = await syncMutation.mutateAsync(year);
+                      toast.success(
+                        `Sincronização concluída — ${r.created} registo(s) criado(s), ${r.marked} marcado(s) como gozados`
+                      );
+                    } catch (e: any) {
+                      toast.error(e.message || "Erro na sincronização");
+                    }
                   }}
+                  title="Cria registos coletivos em falta e marca períodos passados como gozados"
                 >
-                  <CalendarDays className="h-4 w-4 mr-2" /> Geral (todos)
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    const f = (vacations || []).filter((v) => (v.category || "individual") === "individual");
-                    if (f.length === 0) { toast.error("Sem dados individuais"); return; }
-                    generateVacationMapPdf(vacations || [], year, "individual");
-                  }}
-                >
-                  <Palmtree className="h-4 w-4 mr-2" /> Individual
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    const f = (vacations || []).filter((v) => v.category === "factory");
-                    if (f.length === 0) { toast.error("Sem dados da Fábrica"); return; }
-                    generateVacationMapPdf(vacations || [], year, "factory");
-                  }}
-                >
-                  <Factory className="h-4 w-4 mr-2" /> Fábrica
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    const f = (vacations || []).filter((v) => v.category === "warehouse");
-                    if (f.length === 0) { toast.error("Sem dados do Armazém"); return; }
-                    generateVacationMapPdf(vacations || [], year, "warehouse");
-                  }}
-                >
-                  <Warehouse className="h-4 w-4 mr-2" /> Armazém
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {syncMutation.isPending ? "A sincronizar..." : "Sincronizar Gozadas"}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <Printer className="h-4 w-4 mr-2" /> Imprimir Mapa
+                      <ChevronDown className="h-3 w-3 ml-2 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Imprimir Mapa de Férias</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (!vacations || vacations.length === 0) { toast.error("Sem dados para imprimir"); return; }
+                        generateVacationMapPdf(vacations, year, "all");
+                      }}
+                    >
+                      <CalendarDays className="h-4 w-4 mr-2" /> Geral (todos)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const f = (vacations || []).filter((v) => (v.category || "individual") === "individual");
+                        if (f.length === 0) { toast.error("Sem dados individuais"); return; }
+                        generateVacationMapPdf(vacations || [], year, "individual");
+                      }}
+                    >
+                      <Palmtree className="h-4 w-4 mr-2" /> Individual
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const f = (vacations || []).filter((v) => v.category === "factory");
+                        if (f.length === 0) { toast.error("Sem dados da Fábrica"); return; }
+                        generateVacationMapPdf(vacations || [], year, "factory");
+                      }}
+                    >
+                      <Factory className="h-4 w-4 mr-2" /> Fábrica
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const f = (vacations || []).filter((v) => v.category === "warehouse");
+                        if (f.length === 0) { toast.error("Sem dados do Armazém"); return; }
+                        generateVacationMapPdf(vacations || [], year, "warehouse");
+                      }}
+                    >
+                      <Warehouse className="h-4 w-4 mr-2" /> Armazém
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </>
+          }
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -291,7 +294,7 @@ export default function Vacations() {
           <TabsContent value="individual">
             <Card>
               <CardHeader>
-                <CardTitle className="font-display">Férias Individuais — {year}</CardTitle>
+                <CardTitle>Férias Individuais — {year}</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (

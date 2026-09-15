@@ -258,7 +258,7 @@ export function CollectiveVacationForm({ year, category, title }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-display text-lg">{title} — {year}</CardTitle>
+        <CardTitle className="text-lg">{title} — {year}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">

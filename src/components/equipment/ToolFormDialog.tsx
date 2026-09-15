@@ -69,7 +69,7 @@ export function ToolFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Atribuir Ferramenta</DialogTitle>
+          <DialogTitle>Atribuir Ferramenta</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

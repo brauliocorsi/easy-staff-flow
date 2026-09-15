@@ -171,3 +171,47 @@ describe("candidatos partilhados com o servidor", () => {
     expect(detectOvertimeCandidate(rec, schedule)).toBeNull();
   });
 });
+
+describe("picagens ambíguas", () => {
+  const schedule = {
+    clock_in_time: "08:00",
+    lunch_out_time: "12:00",
+    lunch_in_time: "13:00",
+    clock_out_time: "17:00",
+    is_day_off: false,
+  };
+
+  it("não remapeia silenciosamente: marca o dia para revisão", () => {
+    // Duas picagens guardadas em campos que não correspondem à sequência.
+    const day = evaluateDay(
+      {
+        clock_in: "2026-03-10T12:05:00Z",
+        lunch_out: null,
+        lunch_in: null,
+        clock_out: "2026-03-10T08:02:00Z",
+      },
+      schedule,
+    );
+    expect(day.needsReview).toBe(true);
+    expect(day.reviewReasons).toContain("ambiguous_punches");
+    expect(day.deficitMinutes).toBe(0);
+    expect(day.overtimeCandidateMinutes).toBe(0);
+    // Campos originais preservados, sem redistribuição.
+    expect(day.normalized.clock_in).toBe("2026-03-10T12:05:00Z");
+    expect(day.normalized.clock_out).toBe("2026-03-10T08:02:00Z");
+  });
+
+  it("sequência correta continua a ser avaliada normalmente", () => {
+    const day = evaluateDay(
+      {
+        clock_in: "2026-03-10T08:00:00Z",
+        lunch_out: "2026-03-10T12:00:00Z",
+        lunch_in: "2026-03-10T13:00:00Z",
+        clock_out: "2026-03-10T17:00:00Z",
+      },
+      schedule,
+    );
+    expect(day.needsReview).toBe(false);
+    expect(day.worked).toBe(480);
+  });
+});

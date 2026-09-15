@@ -134,7 +134,7 @@ export function AppSidebar() {
             <Users className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <h1 className="font-display text-base font-bold leading-tight">RH UP Móveis</h1>
+            <h1 className="text-base font-bold leading-tight">RH UP Móveis</h1>
             <p className="text-[11px] text-muted-foreground">Gestão de Pessoas</p>
           </div>
         </Link>
@@ -164,6 +164,7 @@ export function AppSidebar() {
                             asChild
                             isActive={location.pathname === item.path}
                             tooltip={item.title}
+                            className="data-[active=true]:border-l-2 data-[active=true]:border-primary data-[active=true]:font-medium data-[active=true]:text-accent-foreground data-[active=true]:bg-secondary"
                           >
                             <Link to={item.path}>
                               <item.icon className="h-4 w-4" />

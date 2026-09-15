@@ -26,6 +26,7 @@ export {
   countPunches,
   scheduledWorkMinutes,
   normalizeTimeRecord,
+  resolvePunches,
   evaluateDay,
   calculateWorkedMinutes,
   calculateWorkday,

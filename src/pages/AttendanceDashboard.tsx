@@ -143,7 +143,7 @@ export default function AttendanceDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard de Presença</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard de Presença</h1>
             <p className="text-muted-foreground mt-1 capitalize">{formattedDate}</p>
           </div>
           <Button variant="outline" size="icon" onClick={() => fetchData(storedPin)} disabled={loading}>

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,10 +42,7 @@ export default function Suggestions() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Sugestões & Avaliações</h1>
-          <p className="text-muted-foreground mt-1">Feedback dos funcionários</p>
-        </div>
+        <PageHeader title={"Sugestões & Avaliações"} description={"Feedback dos funcionários"} />
 
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

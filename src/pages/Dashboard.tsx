@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,10 +140,7 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão geral do sistema de RH</p>
-        </div>
+        <PageHeader title={"Dashboard"} description={"Visão geral do sistema de RH"} />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
@@ -154,7 +152,7 @@ export default function Dashboard() {
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-display font-bold">{stat.value}</div>
+                <div className="text-3xl font-bold">{stat.value}</div>
               </CardContent>
             </Card>
           ))}
@@ -165,7 +163,7 @@ export default function Dashboard() {
           <Card className="lg:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
-                <CardTitle className="font-display flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
                   Notificações
                 </CardTitle>
@@ -236,7 +234,7 @@ export default function Dashboard() {
           {/* Birthdays card */}
           <Card>
             <CardHeader>
-              <CardTitle className="font-display flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <Cake className="h-5 w-5" />
                 Aniversariantes do Mês
               </CardTitle>

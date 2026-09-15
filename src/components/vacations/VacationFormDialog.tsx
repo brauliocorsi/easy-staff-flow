@@ -141,7 +141,7 @@ export function VacationFormDialog({ open, onClose, year }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display">Novo Pedido de Férias</DialogTitle>
+          <DialogTitle>Novo Pedido de Férias</DialogTitle>
           <DialogDescription>Adicione múltiplos períodos de férias para o funcionário</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

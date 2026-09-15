@@ -3,7 +3,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LegacyAuditTab } from "@/components/timeclock/LegacyAuditTab";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -631,11 +633,11 @@ export default function OvertimeBank() {
         {/* HERO */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card shadow-sm">
               <PiggyBank className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight">Banco de Horas</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Banco de Horas</h1>
               <p className="text-xs text-muted-foreground">Saldo mensal, acumulado e conta corrente por colaborador</p>
             </div>
           </div>
@@ -782,13 +784,13 @@ export default function OvertimeBank() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border/60 shadow-sm bg-gradient-to-br from-card to-primary/[0.02]">
+          <Card className="border-border/60 shadow-sm bg-card">
             <CardContent className="flex flex-wrap items-center gap-4 py-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-semibold ring-2 ring-primary/20">
                 {emp?.first_name?.[0]}{emp?.last_name?.[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-display text-lg font-bold leading-tight">{emp?.first_name} {emp?.last_name}</h2>
+                <h2 className="text-lg font-bold leading-tight">{emp?.first_name} {emp?.last_name}</h2>
                 {emp?.position && <p className="text-xs text-muted-foreground">{emp.position}</p>}
               </div>
               {selectedTemplate && (
@@ -814,7 +816,7 @@ export default function OvertimeBank() {
 
         {/* TABS */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 h-11 bg-muted/50 p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-5 h-11 bg-muted/50 p-1 rounded-xl">
             <TabsTrigger value="overview" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
               <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Visão Geral</span><span className="sm:hidden">Saldos</span>
             </TabsTrigger>
@@ -826,6 +828,9 @@ export default function OvertimeBank() {
             </TabsTrigger>
             <TabsTrigger value="closure" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
               <CalendarCheck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Fecho Mensal</span><span className="sm:hidden">Fecho</span>
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
+              <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Histórico</span><span className="sm:hidden">Hist.</span>
             </TabsTrigger>
           </TabsList>
 
@@ -973,7 +978,7 @@ export default function OvertimeBank() {
 
           {/* ACCOUNT */}
           <TabsContent value="account" className="space-y-4 mt-4">
-            <Card className="border-primary/30 shadow-sm bg-gradient-to-br from-primary/5 to-transparent">
+            <Card className="border-primary/30 shadow-sm bg-card">
               <CardContent className="py-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -983,7 +988,7 @@ export default function OvertimeBank() {
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Saldo Disponível</p>
                       <p className={cn(
-                        "font-display font-bold text-4xl font-mono leading-tight tracking-tight",
+                        "font-bold text-4xl font-mono leading-tight tracking-tight",
                         bankBalance.available > 0 ? "text-primary" : bankBalance.available < 0 ? "text-destructive" : "text-foreground"
                       )}>
                         {minutesToHHMM(bankBalance.available)}
@@ -1087,6 +1092,10 @@ export default function OvertimeBank() {
           </TabsContent>
 
           {/* CLOSURE */}
+          <TabsContent value="audit" className="mt-4">
+            <LegacyAuditTab />
+          </TabsContent>
+
           <TabsContent value="closure" className="mt-4">
             <MonthlyClosureTab employeeId={selectedEmployee || undefined} />
           </TabsContent>
@@ -1133,7 +1142,7 @@ function BalanceHeroCard({ icon: Icon, label, minutes, sub, highlight }: {
   return (
     <Card className={cn(
       "border-border/60 shadow-sm overflow-hidden relative",
-      highlight && "border-primary/40 bg-gradient-to-br from-primary/5 to-transparent ring-1 ring-primary/10"
+      highlight && "border-primary/40 bg-card ring-1 ring-primary/10"
     )}>
       <CardContent className="pt-5 pb-4">
         <div className="flex items-start justify-between gap-2 mb-3">
@@ -1146,7 +1155,7 @@ function BalanceHeroCard({ icon: Icon, label, minutes, sub, highlight }: {
           </div>
         </div>
         <p className={cn(
-          "font-display font-bold text-2xl font-mono tracking-tight",
+          "text-xl font-semibold font-mono tracking-tight",
           positive ? "text-primary" : negative ? "text-destructive" : "text-foreground"
         )}>
           {minutesToHHMM(minutes)}

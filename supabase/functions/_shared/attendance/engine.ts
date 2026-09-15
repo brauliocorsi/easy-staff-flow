@@ -242,6 +242,34 @@ export function normalizeTimeRecord<T extends TimeClockRecordLike | null | undef
   record: T,
   schedule: ScheduleLike | null | undefined,
 ): TimeClockRecordLike {
+  return resolvePunches(record, schedule).record;
+}
+
+/**
+ * Resolve as picagens registadas, indicando SEMPRE se a associação proposta
+ * difere dos campos originais. Quando difere, os campos originais são
+ * preservados e o dia é marcado para revisão humana — nunca se remapeia
+ * silenciosamente uma picagem ambígua.
+ */
+export function resolvePunches<T extends TimeClockRecordLike | null | undefined>(
+  record: T,
+  schedule: ScheduleLike | null | undefined,
+): { record: TimeClockRecordLike; remapped: boolean } {
+  const proposed = proposePunches(record, schedule);
+  const original: TimeClockRecordLike = {
+    clock_in: record?.clock_in ?? null,
+    lunch_out: record?.lunch_out ?? null,
+    lunch_in: record?.lunch_in ?? null,
+    clock_out: record?.clock_out ?? null,
+  };
+  const remapped = punchFields.some((f) => (proposed[f] ?? null) !== (original[f] ?? null));
+  return { record: remapped ? original : proposed, remapped };
+}
+
+function proposePunches<T extends TimeClockRecordLike | null | undefined>(
+  record: T,
+  schedule: ScheduleLike | null | undefined,
+): TimeClockRecordLike {
   const empty = { clock_in: null, lunch_out: null, lunch_in: null, clock_out: null };
   if (!record || !schedule || schedule.is_day_off) return { ...empty, ...(record || {}) };
 
@@ -298,7 +326,8 @@ export type ReviewReason =
   | "part_time_single_punch"
   | "unpaired_lunch"
   | "overnight_shift"
-  | "interval_anomaly";
+  | "interval_anomaly"
+  | "ambiguous_punches";
 
 export type DayEvaluation = {
   scheduled: number;
@@ -381,8 +410,19 @@ export function evaluateDay(
     return emptyEvaluation(scheduled, normalizeTimeRecord(null, schedule), { noRecord: true });
   }
 
-  const normalized = normalizeTimeRecord(record, schedule);
+  const resolved = resolvePunches(record, schedule);
+  const normalized = resolved.record;
   const partTime = isPartTimeSchedule(schedule);
+
+  // Picagens que não correspondem à sequência prevista: não são reinterpretadas.
+  if (resolved.remapped) {
+    return emptyEvaluation(scheduled, normalized, {
+      punchCount,
+      incomplete: true,
+      needsReview: true,
+      reviewReasons: ["ambiguous_punches"],
+    });
+  }
 
   // Turno noturno não está modelado: exige validação explícita.
   if (isOvernightSchedule(schedule)) {

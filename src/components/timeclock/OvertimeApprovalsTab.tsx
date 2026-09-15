@@ -17,7 +17,8 @@ import { minutesToHHMM } from "@/lib/timeClock";
 import { ApproveOvertimeDialog } from "./ApproveOvertimeDialog";
 
 const KIND_LABEL: Record<string, string> = {
-  overtime: "Hora Extra",
+  early_entry: "Entrada antecipada",
+  overtime: "Saída depois da hora",
   day_off_work: "Trabalho em Folga",
   holiday_work: "Trabalho em Feriado",
   vacation_work: "Trabalho em Férias",
@@ -28,6 +29,16 @@ const STATUS_LABEL: Record<string, string> = {
   approved: "Aprovado",
   rejected: "Rejeitado",
 };
+
+const formatTime = (t?: string | null) => (t ? String(t).slice(0, 5) : "—");
+const formatStamp = (ts?: string | null) =>
+  ts
+    ? new Date(ts).toLocaleTimeString("pt-PT", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Lisbon",
+      })
+    : "—";
 
 export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
   const qc = useQueryClient();
@@ -201,7 +212,9 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
               {!employeeId && <TableHead>Funcionário</TableHead>}
               <TableHead>Data</TableHead>
               <TableHead>Tipo</TableHead>
-              <TableHead className="text-right">Minutos</TableHead>
+              <TableHead>Horário previsto</TableHead>
+              <TableHead>Registo real</TableHead>
+              <TableHead className="text-right">Tempo</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Decisão</TableHead>
               <TableHead></TableHead>
@@ -225,7 +238,15 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
                   <TableCell>{a.employees?.first_name} {a.employees?.last_name}</TableCell>
                 )}
                 <TableCell className="font-mono text-sm">{a.record_date}</TableCell>
-                <TableCell>{KIND_LABEL[a.kind] ?? a.kind}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={a.kind === "early_entry" ? "border-info/40 bg-info/10 text-info" : "border-warning/40 bg-warning/10 text-warning"}>
+                    {KIND_LABEL[a.kind] ?? a.kind}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-mono text-sm">{formatTime(a.scheduled_clock_out)}</TableCell>
+                <TableCell className="font-mono text-sm">
+                  {a.kind === "early_entry" ? formatStamp(a.actual_clock_in) : formatStamp(a.actual_clock_out)}
+                </TableCell>
                 <TableCell className="text-right font-mono">{minutesToHHMM(a.minutes)}</TableCell>
                 <TableCell>
                   <Badge variant={a.status === "pending" ? "secondary" : a.status === "approved" ? "default" : "destructive"}>
@@ -244,7 +265,7 @@ export function OvertimeApprovalsTab({ employeeId }: { employeeId?: string }) {
             ))}
             {(!approvals || approvals.length === 0) && (
               <TableRow>
-                <TableCell colSpan={(employeeId ? 6 : 7) + (statusFilter === "pending" ? 1 : 0)} className="text-center text-muted-foreground py-6">
+                <TableCell colSpan={(employeeId ? 8 : 9) + (statusFilter === "pending" ? 1 : 0)} className="text-center text-muted-foreground py-6">
                   Sem aprovações neste filtro.
                 </TableCell>
               </TableRow>

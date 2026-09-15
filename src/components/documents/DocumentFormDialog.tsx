@@ -92,7 +92,7 @@ export function DocumentFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Adicionar Documento</DialogTitle>
+          <DialogTitle>Adicionar Documento</DialogTitle>
           <DialogDescription>Vincule um documento a um funcionário</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

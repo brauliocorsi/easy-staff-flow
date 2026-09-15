@@ -190,7 +190,7 @@ export default function VehicleInspection() {
   // PIN Screen
   if (!employee) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-muted/50 to-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-card flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-3">
@@ -218,7 +218,7 @@ export default function VehicleInspection() {
   // Success screen
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-muted/50 to-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-card flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-6 space-y-4">
             <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
@@ -240,7 +240,7 @@ export default function VehicleInspection() {
 
   // Inspection form
   return (
-    <div className="min-h-screen bg-gradient-to-br from-muted/50 to-background p-4">
+    <div className="min-h-screen bg-card p-4">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

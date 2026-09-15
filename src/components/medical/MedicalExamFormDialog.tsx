@@ -78,7 +78,7 @@ export function MedicalExamFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display">Registar Exame Médico</DialogTitle>
+          <DialogTitle>Registar Exame Médico</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

@@ -135,7 +135,7 @@ export function EmployeeFormDialog({ open, onClose, employee }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display">
+          <DialogTitle>
             {isEdit ? "Editar Funcionário" : "Novo Funcionário"}
           </DialogTitle>
           <DialogDescription>

@@ -127,12 +127,14 @@ export default function Trainings() {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight flex items-center gap-2">
-              <GraduationCap className="h-6 w-6" />
-              Formações
-            </h1>
-            <p className="text-muted-foreground mt-1">Registo e acompanhamento de formações contínuas.</p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-accent">
+              <GraduationCap className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Formações</h1>
+              <p className="text-sm text-muted-foreground">Registo e acompanhamento de formações contínuas.</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Select value={year} onValueChange={setYear}>
@@ -200,7 +202,7 @@ export default function Trainings() {
         {employeeStats.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="font-display text-base">Horas por Funcionário — Obrigatório: {ANNUAL_REQUIRED_HOURS}h/ano</CardTitle>
+              <CardTitle className="text-base">Horas por Funcionário — Obrigatório: {ANNUAL_REQUIRED_HOURS}h/ano</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-60 overflow-y-auto">
