@@ -22,6 +22,7 @@ import {
   calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM,
   scheduledWorkMinutes, resolveTolerances, type Tolerances,
 } from "@/lib/timeClock";
+import { evaluateDay } from "@/lib/attendanceEngine";
 import { useHolidays } from "@/hooks/useHolidays";
 import { computeBalance, type MovementLike } from "@/lib/timeBank";
 import { OvertimeApprovalsTab } from "@/components/timeclock/OvertimeApprovalsTab";
@@ -518,9 +519,10 @@ export default function OvertimeBank() {
     for (const tolerance of allTemplateTolerances || []) {
       tolerancesByTemplate.set(tolerance.id, tolerance);
     }
+    // DIAGNÓSTICO DO PONTO — informativo. NUNCA é usado como saldo do banco.
+    // O saldo oficial vem exclusivamente dos movimentos aprovados/pagos.
     const attendanceMonthByEmp = new Map<string, number>();
     for (const emp of employees) {
-      if (monthMovementEmpIds.has(emp.id)) continue;
       const empRecords = recordsByEmp.get(emp.id) || [];
       if (empRecords.length === 0) continue;
       const recordMap = new Map<string, any>();
@@ -537,17 +539,18 @@ export default function OvertimeBank() {
         if (isCurrentMonth && dateStr === format(new Date(), "yyyy-MM-dd")) return;
         const schedule = individual?.get(date.getDay()) || template?.get(date.getDay());
         if (!schedule || schedule.is_day_off) return;
-        const calculated = calculateWorkday(recordMap.get(dateStr), schedule, tolerances);
-        total += calculated.diff;
+        const ev = evaluateDay(recordMap.get(dateStr), schedule, tolerances);
+        total -= ev.deficitMinutes;
       });
       attendanceMonthByEmp.set(emp.id, total);
     }
     return employees.map((emp) => ({
       ...emp,
-      balance: monthByEmp.get(emp.id) || attendanceMonthByEmp.get(emp.id) || 0,
-      accumulated: (accumulatedByEmployee.get(emp.id) || 0) + (
-        isCurrentMonth && !monthMovementEmpIds.has(emp.id) ? (attendanceMonthByEmp.get(emp.id) || 0) : 0
-      ),
+      // Saldo oficial: apenas movimentos. Sem qualquer recurso ao diff do ponto.
+      balance: monthByEmp.get(emp.id) || 0,
+      accumulated: accumulatedByEmployee.get(emp.id) || 0,
+      /** Diagnóstico do ponto (minutos em falta no mês) — informativo. */
+      attendanceDiagnostic: attendanceMonthByEmp.get(emp.id) || 0,
     }));
   }, [employees, allApprovedMovements, allMonthRecords, allEmployeeSchedules, allTemplateDays, allTemplateTolerances, accumulatedByEmployee, rangeStart, rangeEnd, year, month, isCurrentMonth]);
 
@@ -711,11 +714,11 @@ export default function OvertimeBank() {
                             return (
                               <div className="flex flex-col items-end leading-tight">
                                 <span className={cn("text-sm font-semibold tabular-nums", approved > 0 ? "text-primary" : "text-muted-foreground")}>
-                                  {approved > 0 ? "+" : ""}{minutesToHHMM(approved)}
+                                  {minutesToHHMM(approved)}
                                 </span>
                                 {pending > 0 && (
                                   <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500">
-                                    +{minutesToHHMM(pending)} pendente
+                                    {minutesToHHMM(pending)} a validar
                                   </span>
                                 )}
                               </div>
