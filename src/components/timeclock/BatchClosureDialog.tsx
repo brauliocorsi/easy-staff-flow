@@ -407,7 +407,8 @@ export function BatchClosureDialog() {
 
     for (const [empId, rows] of byEmp) {
       for (const row of rows) {
-        const attendanceDebit = computeAttendanceDebitForExec(empId, row.year, row.month);
+        // O desconto de ponto é apurado pelo servidor; o ecrã não o envia
+        // e já não existe forma de forçar o fecho.
         const { error } = await supabase.rpc("close_time_bank_month", {
           _employee_id: empId,
           _year: row.year,
@@ -415,8 +416,6 @@ export function BatchClosureDialog() {
           _decision: "carry_over_all",
           _paid_minutes: 0,
           _notes: "Fecho em lote — regularização",
-          _attendance_debit_minutes: attendanceDebit,
-          _force: row.pendingCount > 0 && forcePending,
         });
         if (error) {
           const msg = error.message || String(error);
@@ -424,7 +423,7 @@ export function BatchClosureDialog() {
             out.push({ employeeName: row.employeeName, year: row.year, month: row.month, status: "skipped", message: msg });
             continue;
           }
-          if (/candidato\(s\) de aprovação pendente/i.test(msg)) {
+          if (/por decidir|por validar|por apurar|ainda não terminou/i.test(msg)) {
             out.push({ employeeName: row.employeeName, year: row.year, month: row.month, status: "skipped", message: "Bloqueado por pendentes" });
             break;
           }
