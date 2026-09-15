@@ -637,7 +637,7 @@ export default function OvertimeBank() {
               <PiggyBank className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight">Banco de Horas</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Banco de Horas</h1>
               <p className="text-xs text-muted-foreground">Saldo mensal, acumulado e conta corrente por colaborador</p>
             </div>
           </div>
@@ -790,7 +790,7 @@ export default function OvertimeBank() {
                 {emp?.first_name?.[0]}{emp?.last_name?.[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-display text-lg font-bold leading-tight">{emp?.first_name} {emp?.last_name}</h2>
+                <h2 className="text-lg font-bold leading-tight">{emp?.first_name} {emp?.last_name}</h2>
                 {emp?.position && <p className="text-xs text-muted-foreground">{emp.position}</p>}
               </div>
               {selectedTemplate && (
@@ -988,7 +988,7 @@ export default function OvertimeBank() {
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Saldo Disponível</p>
                       <p className={cn(
-                        "font-display font-bold text-4xl font-mono leading-tight tracking-tight",
+                        "font-bold text-4xl font-mono leading-tight tracking-tight",
                         bankBalance.available > 0 ? "text-primary" : bankBalance.available < 0 ? "text-destructive" : "text-foreground"
                       )}>
                         {minutesToHHMM(bankBalance.available)}
@@ -1155,7 +1155,7 @@ function BalanceHeroCard({ icon: Icon, label, minutes, sub, highlight }: {
           </div>
         </div>
         <p className={cn(
-          "font-display font-bold text-2xl font-mono tracking-tight",
+          "text-xl font-semibold font-mono tracking-tight",
           positive ? "text-primary" : negative ? "text-destructive" : "text-foreground"
         )}>
           {minutesToHHMM(minutes)}

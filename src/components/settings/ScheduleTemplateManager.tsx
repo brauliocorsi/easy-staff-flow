@@ -281,7 +281,7 @@ export function ScheduleTemplateManager() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="font-display flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" /> Modelos de Horário
         </CardTitle>
         {!creating && (

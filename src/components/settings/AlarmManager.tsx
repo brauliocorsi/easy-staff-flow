@@ -83,7 +83,7 @@ export function AlarmManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-display flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2">
           <Bell className="h-5 w-5" />
           Sinais Sonoros do Relógio de Ponto
         </CardTitle>

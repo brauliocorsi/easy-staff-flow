@@ -65,7 +65,7 @@ export default function Meetings() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Reuniões</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Reuniões</h1>
             <p className="text-muted-foreground mt-1">Agende e gerencie reuniões com pautas</p>
           </div>
           <Button onClick={() => { setEditingMeeting(null); setDialogOpen(true); }}>
@@ -120,7 +120,7 @@ export default function Meetings() {
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-3">
-                        <h3 className="font-display font-semibold text-lg truncate">{m.title}</h3>
+                        <h3 className="font-semibold text-lg truncate">{m.title}</h3>
                         <Badge variant={cfg.variant} className="shrink-0">
                           {cfg.label}
                         </Badge>

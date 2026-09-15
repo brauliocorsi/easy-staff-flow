@@ -140,7 +140,7 @@ export function VacationMap({ vacations, year, isLoading }: Props) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="font-display text-lg">Mapa Anual — {year}</CardTitle>
+          <CardTitle className="text-lg">Mapa Anual — {year}</CardTitle>
           <div className="flex gap-3 text-xs">
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 rounded-sm bg-primary" /> Individual

@@ -329,7 +329,7 @@ export default function VacationPublic() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
-              <CardTitle className="font-display text-lg">Vender Dias de Férias</CardTitle>
+              <CardTitle className="text-lg">Vender Dias de Férias</CardTitle>
             </div>
             <p className="text-sm text-muted-foreground">
               Pode optar por vender dias de férias à empresa. O pedido será analisado pelo RH.

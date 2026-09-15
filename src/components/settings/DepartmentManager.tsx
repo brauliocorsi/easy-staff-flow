@@ -89,7 +89,7 @@ export function DepartmentManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-display flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
           Departamentos
         </CardTitle>

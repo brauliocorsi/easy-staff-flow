@@ -98,7 +98,7 @@ export default function MeetingPublic() {
         {/* Header */}
         <div className="text-center space-y-2">
           <Badge variant={isPaused ? "destructive" : "outline"}>{statusLabel}</Badge>
-          <h1 className="font-display text-4xl font-bold tracking-tight">{data.title}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{data.title}</h1>
           {data.description && (
             <p className="text-muted-foreground text-lg">{data.description}</p>
           )}
@@ -112,7 +112,7 @@ export default function MeetingPublic() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Agendas */}
           <div className="md:col-span-2 space-y-4">
-            <h2 className="font-display text-xl font-semibold">Pautas</h2>
+            <h2 className="text-xl font-semibold">Pautas</h2>
             {data.agendas.length > 0 ? (
               data.agendas.map((a, i) => (
                 <AgendaCard key={a.id} agenda={a} index={i} />
@@ -128,7 +128,7 @@ export default function MeetingPublic() {
 
           {/* Participants */}
           <div>
-            <h2 className="font-display text-xl font-semibold mb-4">Participantes</h2>
+            <h2 className="text-xl font-semibold mb-4">Participantes</h2>
             <Card>
               <CardContent className="p-4">
                 <ParticipantsList participants={data.participants} />

@@ -23,7 +23,7 @@ export function ClockDisplay() {
 
   return (
     <div className="text-center space-y-1">
-      <div className="font-display text-6xl font-bold tracking-tight text-foreground tabular-nums">
+      <div className="text-6xl font-bold tracking-tight text-foreground tabular-nums">
         {timeStr}
       </div>
       <p className="text-muted-foreground text-lg capitalize">{dateStr}</p>

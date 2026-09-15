@@ -80,7 +80,7 @@ export default function Auth() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
             <Users className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="font-display text-2xl">Entrar</CardTitle>
+          <CardTitle className="text-2xl">Entrar</CardTitle>
           <CardDescription>Acesse o sistema RH UP Móveis</CardDescription>
         </CardHeader>
         <CardContent>

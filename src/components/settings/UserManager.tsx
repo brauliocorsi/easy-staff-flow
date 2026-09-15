@@ -172,7 +172,7 @@ export function UserManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="font-display flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
             Registrar Novo Utilizador
           </CardTitle>
@@ -218,7 +218,7 @@ export function UserManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-display flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Utilizadores Ativos
             {profiles && (

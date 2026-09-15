@@ -211,7 +211,7 @@ export default function EmployeePortal() {
             <div className="mx-auto mb-3 p-4 rounded-2xl bg-gradient-to-br from-primary to-primary/70 w-fit shadow-lg">
               <Lock className="h-7 w-7 text-primary-foreground" />
             </div>
-            <CardTitle className="font-display text-2xl">Portal do Funcionário</CardTitle>
+            <CardTitle className="text-2xl">Portal do Funcionário</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">Insira o seu PIN de 4 dígitos</p>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5 pb-6">
@@ -292,7 +292,7 @@ export default function EmployeePortal() {
               <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
                 {greeting()} · {format(new Date(), "EEEE, d 'de' MMMM", { locale: pt })}
               </p>
-              <h1 className="font-display font-bold text-2xl leading-tight">{emp.first_name} {emp.last_name}</h1>
+              <h1 className="text-xl font-semibold leading-tight">{emp.first_name} {emp.last_name}</h1>
               <p className="text-sm text-muted-foreground">
                 {emp.position}{emp.departments?.name ? ` · ${emp.departments.name}` : ""}
               </p>
@@ -323,7 +323,7 @@ export default function EmployeePortal() {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Saldo Acumulado</p>
-                <p className={`font-display font-bold text-4xl leading-none mt-1 ${bankPositive ? "text-primary" : "text-destructive"}`}>
+                <p className={`font-bold text-4xl leading-none mt-1 ${bankPositive ? "text-primary" : "text-destructive"}`}>
                   {formatMinutes(bankAccumulated)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -341,7 +341,7 @@ export default function EmployeePortal() {
               </Badge>
               <div className="text-right">
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Este mês</p>
-                <p className={`font-display font-semibold text-lg leading-none mt-0.5 ${bankMonth >= 0 ? "text-primary" : "text-destructive"}`}>
+                <p className={`font-semibold text-lg leading-none mt-0.5 ${bankMonth >= 0 ? "text-primary" : "text-destructive"}`}>
                   {formatMinutes(bankMonth)}
                 </p>
               </div>
@@ -386,7 +386,7 @@ export default function EmployeePortal() {
         {/* Personal info */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base flex items-center gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
               <User className="h-4 w-4 text-primary" /> Dados Pessoais
             </CardTitle>
           </CardHeader>
@@ -588,7 +588,7 @@ export default function EmployeePortal() {
         {docsCount > 0 && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="font-display text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-primary" /> Documentos & Equipamentos
               </CardTitle>
             </CardHeader>
@@ -649,7 +649,7 @@ export default function EmployeePortal() {
       <Dialog open={evalOpen} onOpenChange={setEvalOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" /> Avaliar o meu Líder
             </DialogTitle>
             <DialogDescription>
@@ -832,7 +832,7 @@ function KpiCard({ icon: Icon, tone = "primary", value, label, hint, progress }:
             <Icon className={`h-5 w-5 ${t.text}`} />
           </div>
         </div>
-        <p className="font-display text-2xl font-bold mt-3 leading-none">{value}</p>
+        <p className="text-xl font-semibold mt-3 leading-none">{value}</p>
         <p className="text-xs text-muted-foreground mt-1">{label}</p>
         {hint && <p className="text-[11px] text-muted-foreground/80 mt-0.5">{hint}</p>}
         {typeof progress === "number" && <Progress value={progress} className="h-1 mt-2" />}
@@ -848,7 +848,7 @@ function SectionCard({ title, icon: Icon, tone = "primary", count, extra, childr
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="font-display text-base flex items-center gap-2">
+        <CardTitle className="text-base flex items-center gap-2">
           <Icon className={`h-4 w-4 ${t.text}`} />
           {title}
           <Badge variant="secondary" className="ml-auto text-xs">{extra || (count != null ? `${count} total` : "")}</Badge>
@@ -875,7 +875,7 @@ function MiniStat({ icon: Icon, value, label }: any) {
   return (
     <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted/40">
       <Icon className="h-4 w-4 text-muted-foreground" />
-      <p className="font-display text-xl font-bold leading-none">{value}</p>
+      <p className="text-xl font-bold leading-none">{value}</p>
       <p className="text-[11px] text-muted-foreground">{label}</p>
     </div>
   );

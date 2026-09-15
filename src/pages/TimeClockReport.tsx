@@ -153,7 +153,7 @@ export default function TimeClockReport() {
         <div>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display text-2xl font-bold text-foreground">Relatório de Ponto</h1>
+              <h1 className="text-xl font-semibold text-foreground">Relatório de Ponto</h1>
               <p className="text-muted-foreground text-sm">Registros de ponto por funcionário com cálculo de horas</p>
             </div>
             <MonthlyExportDialog />

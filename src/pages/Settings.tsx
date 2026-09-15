@@ -37,7 +37,7 @@ export default function Settings() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Configurações</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
           <p className="text-muted-foreground mt-1">Gerencie as configurações do sistema</p>
         </div>
 
@@ -72,7 +72,7 @@ export default function Settings() {
           <TabsContent value="links" className="space-y-6 mt-6">
             <Card>
               <CardHeader>
-                <CardTitle className="font-display flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2">
                   <Monitor className="h-5 w-5" />
                   Links Públicos
                 </CardTitle>
@@ -129,7 +129,7 @@ export default function Settings() {
             {departments.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-display flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
                     Relógio de Ponto por Departamento
                   </CardTitle>

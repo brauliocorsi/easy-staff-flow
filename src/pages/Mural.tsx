@@ -73,7 +73,7 @@ export default function Mural() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Mural de Planejamento</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Mural de Planejamento</h1>
             <p className="text-muted-foreground mt-1">Projetos, atividades e prazos partilhados entre a equipa de gestão.</p>
           </div>
           <div className="flex gap-2">

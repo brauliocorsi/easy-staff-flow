@@ -128,7 +128,7 @@ export default function Trainings() {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
               <GraduationCap className="h-6 w-6" />
               Formações
             </h1>
@@ -200,7 +200,7 @@ export default function Trainings() {
         {employeeStats.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="font-display text-base">Horas por Funcionário — Obrigatório: {ANNUAL_REQUIRED_HOURS}h/ano</CardTitle>
+              <CardTitle className="text-base">Horas por Funcionário — Obrigatório: {ANNUAL_REQUIRED_HOURS}h/ano</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-60 overflow-y-auto">

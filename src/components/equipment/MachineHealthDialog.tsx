@@ -103,7 +103,7 @@ export function MachineHealthDialog({ open, onClose, machine }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2">
             Saúde da Máquina — {machine?.name}
           </DialogTitle>
           <DialogDescription>

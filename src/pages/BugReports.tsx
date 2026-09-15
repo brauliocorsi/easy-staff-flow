@@ -67,7 +67,7 @@ export default function BugReports() {
         <div className="flex items-center gap-3">
           <Bug className="h-7 w-7 text-primary" />
           <div>
-            <h1 className="font-display text-2xl font-bold">Relatórios de Bugs</h1>
+            <h1 className="text-xl font-semibold">Relatórios de Bugs</h1>
             <p className="text-sm text-muted-foreground">
               Mensagens enviadas pelos utilizadores através do botão de ajuda.
             </p>

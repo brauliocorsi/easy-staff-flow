@@ -92,7 +92,7 @@ export function HolidayManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="font-display flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
             Adicionar Feriado
           </CardTitle>
@@ -150,7 +150,7 @@ export function HolidayManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-display flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
             Feriados Registados ({holidays.length})
           </CardTitle>

@@ -129,7 +129,7 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display text-center">Registo de Ponto</DialogTitle>
+            <DialogTitle className="text-center">Registo de Ponto</DialogTitle>
             <DialogDescription className="text-center">
               Digite seu PIN de 4 dígitos para confirmar
             </DialogDescription>

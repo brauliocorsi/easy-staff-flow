@@ -121,7 +121,7 @@ export default function Warnings() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Advertências</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Advertências</h1>
             <p className="text-muted-foreground mt-1">Registre e gerencie advertências disciplinares</p>
           </div>
           <Button onClick={() => setDialogOpen(true)}>
@@ -272,7 +272,7 @@ export default function Warnings() {
             return (
               <>
                 <SheetHeader>
-                  <SheetTitle className="font-display flex items-center gap-2">
+                  <SheetTitle className="flex items-center gap-2">
                     <Icon className="h-5 w-5" />
                     Detalhes da Advertência
                   </SheetTitle>

@@ -220,7 +220,7 @@ export default function Equipment() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">Equipamentos</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Equipamentos</h1>
           <p className="text-muted-foreground">Gestão de EPIs, Ferramentas e Manutenções</p>
         </div>
 
@@ -248,7 +248,7 @@ export default function Equipment() {
           <TabsContent value="epis">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="font-display text-base">Entregas de EPIs</CardTitle>
+                <CardTitle className="text-base">Entregas de EPIs</CardTitle>
                 <Button size="sm" className="gap-1" onClick={() => setEpiDialog(true)}>
                   <Plus className="h-4 w-4" /> Registar Entrega
                 </Button>
@@ -318,7 +318,7 @@ export default function Equipment() {
           <TabsContent value="tools">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="font-display text-base">Ferramentas Atribuídas</CardTitle>
+                <CardTitle className="text-base">Ferramentas Atribuídas</CardTitle>
                 <Button size="sm" className="gap-1" onClick={() => setToolDialog(true)}>
                   <Plus className="h-4 w-4" /> Atribuir Ferramenta
                 </Button>
@@ -392,7 +392,7 @@ export default function Equipment() {
               <TabsContent value="machines">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="font-display text-base">Registo de Máquinas</CardTitle>
+                    <CardTitle className="text-base">Registo de Máquinas</CardTitle>
                     <Button size="sm" className="gap-1" onClick={() => { setEditMachine(null); setMachineDialog(true); }}>
                       <Plus className="h-4 w-4" /> Nova Máquina
                     </Button>
@@ -442,7 +442,7 @@ export default function Equipment() {
               <TabsContent value="tasks">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="font-display text-base">Tarefas de Manutenção</CardTitle>
+                    <CardTitle className="text-base">Tarefas de Manutenção</CardTitle>
                     <Button size="sm" className="gap-1" onClick={() => setTaskDialog(true)}>
                       <Plus className="h-4 w-4" /> Nova Tarefa
                     </Button>
@@ -504,7 +504,7 @@ export default function Equipment() {
               <TabsContent value="repairs">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="font-display text-base">Reparações / Intervenções Externas</CardTitle>
+                    <CardTitle className="text-base">Reparações / Intervenções Externas</CardTitle>
                     <Button size="sm" className="gap-1" onClick={() => { setRepairMachineId(undefined); setRepairDialog(true); }}>
                       <Plus className="h-4 w-4" /> Novo Pedido
                     </Button>
@@ -570,7 +570,7 @@ export default function Equipment() {
               <TabsContent value="logs">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="font-display text-base">Registos de Manutenção</CardTitle>
+                    <CardTitle className="text-base">Registos de Manutenção</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {!(logs || []).length ? (

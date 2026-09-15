@@ -152,7 +152,7 @@ export default function Vehicles() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Veículos</h1>
+            <h1 className="text-2xl font-semibold">Veículos</h1>
             <p className="text-muted-foreground">Gestão da frota da empresa</p>
           </div>
         </div>
