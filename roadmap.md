@@ -32,21 +32,28 @@ não publicar automaticamente. Histórico sempre consultável.
       pendentes, ocorrências, mês terminado e mês anterior fechado.
 - [x] Bloquear alterações/aprovações em mês fechado; reabertura nunca cancela pagamento real.
 - [x] Cron deixa de forçar: prepara e sinaliza bloqueios, não fecha sem conciliação validada.
-- [ ] Painel de reconciliação legado somente leitura (409 candidatos, fechos divergentes).
+- [x] Painel de reconciliação legado somente leitura (divergências recalculadas em tempo real).
 
 ## Fase 4 — Horário e origem
 - [x] Resolução central de horário: individual > template, com férias/feriados/ausências.
 - [x] Auto-punch respeita férias/feriados/folgas.
 - [x] Registar origem (manual/automática) e versão do horário a partir de agora.
-- [ ] UI reflete a regra efetiva de tolerância à saída antecipada (0).
+- [x] UI reflete a regra efetiva de tolerância à saída antecipada (0) e entrada antecipada desde o 1.º minuto.
 - [x] Turno noturno: validação explícita enquanto não modelado.
 
 ## Fase 5 — Interface premium
-- [ ] Tokens e tipografia: fundo #F6F7F9, superfícies brancas, carvão/azul profundo,
+- [x] Tokens e tipografia: fundo #F6F7F9, superfícies brancas, carvão/azul profundo,
       vermelho UP como acento, estados em verde/âmbar/vermelho. Sem gradientes.
-- [ ] Shell: sidebar por domínios colapsável, cabeçalho com título/descrição/breadcrumb/ações.
-- [ ] Componentes partilhados: PageHeader, filtros, cartões de resumo, badges, tabelas,
+- [x] Shell: sidebar por domínios colapsável, cabeçalho com título/descrição/breadcrumb/ações.
+- [x] Componentes partilhados: PageHeader, filtros, cartões de resumo, badges, tabelas,
       estados vazio/carregamento/erro, diálogos e confirmações.
-- [ ] Aplicar a todos os módulos sem remover capacidades.
-- [ ] Ponto, Banco, Aprovações e Fecho segundo a direção descrita.
-- [ ] Acessibilidade: contraste, teclado, foco, rótulos, tabelas responsivas.
+- [~] Aplicar a todos os módulos: cabeçalho unificado em 17 páginas; falta trocar os
+      estados de vazio/carregamento/erro locais pelos componentes partilhados em todas as rotas.
+- [x] Ponto (próxima ação + aviso de picagem em falta), Banco, Aprovações (previsto vs real,
+      entrada antecipada separada) e Fecho (lista de verificação).
+- [~] Acessibilidade: contraste, teclado, foco, rótulos, tabelas responsivas.
+
+## Por fazer (checkpoint)
+- Substituir os blocos locais de vazio/carregamento/erro por `LoadingState`/`EmptyState`/`ErrorState`
+  e as barras de filtro por `FilterBar` em todas as rotas.
+- Inspeção visual autenticada (desktop e telemóvel) — sem sessão de teste disponível neste ambiente.
