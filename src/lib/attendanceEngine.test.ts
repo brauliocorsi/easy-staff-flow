@@ -35,20 +35,21 @@ describe("evaluateDay — sem dupla compensação", () => {
 });
 
 describe("evaluateDay — entrada antecipada", () => {
-  it("entrada 60 min antes gera candidato e nunca crédito automático", () => {
+  it("por omissão (tolerância 0) mostra todos os minutos brutos como candidato", () => {
     const ev = evaluateDay(
       { clock_in: t("07:00"), lunch_out: t("12:00"), lunch_in: t("13:00"), clock_out: t("17:00") },
       schedule,
     );
     expect(ev.earlyEntryMinutes).toBe(60);
-    expect(ev.earlyEntryCandidateMinutes).toBe(45); // 60 − tolerância explícita 15
+    expect(ev.earlyEntryCandidateMinutes).toBe(60); // default 0 — nada é descontado
     expect(ev.deficitMinutes).toBe(0);
   });
 
-  it("entrada antecipada dentro da tolerância explícita não gera candidato", () => {
+  it("tolerância configurada corta apenas o ruído indicado", () => {
     const ev = evaluateDay(
       { clock_in: t("07:50"), lunch_out: t("12:00"), lunch_in: t("13:00"), clock_out: t("17:00") },
       schedule,
+      { tolerance_early_entry_minutes: 15 },
     );
     expect(ev.earlyEntryMinutes).toBe(10);
     expect(ev.earlyEntryCandidateMinutes).toBe(0);
