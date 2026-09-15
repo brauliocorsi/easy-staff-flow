@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,15 +65,11 @@ export default function BugReports() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Bug className="h-7 w-7 text-primary" />
-          <div>
-            <h1 className="text-xl font-semibold">Relatórios de Bugs</h1>
-            <p className="text-sm text-muted-foreground">
-              Mensagens enviadas pelos utilizadores através do botão de ajuda.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={<Bug className="h-5 w-5" />}
+          title="Relatórios de Bugs"
+          description="Mensagens enviadas pelos utilizadores através do botão de ajuda."
+        />
 
         {isLoading ? (
           <p className="text-muted-foreground">A carregar...</p>

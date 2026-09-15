@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -219,10 +220,7 @@ export default function Equipment() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Equipamentos</h1>
-          <p className="text-muted-foreground">Gestão de EPIs, Ferramentas e Manutenções</p>
-        </div>
+        <PageHeader title="Equipamentos" description="Gestão de EPIs, Ferramentas e Manutenções" />
 
         {/* Employee filter */}
         <div className="flex items-center gap-3">

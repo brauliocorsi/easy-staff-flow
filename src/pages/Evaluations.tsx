@@ -39,12 +39,14 @@ export default function Evaluations() {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
-              <ClipboardCheck className="h-6 w-6" />
-              Avaliações de Funcionários
-            </h1>
-            <p className="text-muted-foreground mt-1">Solicite e acompanhe avaliações atribuídas a líderes.</p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-accent">
+              <ClipboardCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Avaliações de Funcionários</h1>
+              <p className="text-sm text-muted-foreground">Solicite e acompanhe avaliações atribuídas a líderes.</p>
+            </div>
           </div>
           <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />

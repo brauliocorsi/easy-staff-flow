@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -150,12 +151,7 @@ export default function Vehicles() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Veículos</h1>
-            <p className="text-muted-foreground">Gestão da frota da empresa</p>
-          </div>
-        </div>
+        <PageHeader title="Veículos" description="Gestão da frota da empresa" />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Veículos</CardTitle><Car className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{vehicles.length}</div></CardContent></Card>

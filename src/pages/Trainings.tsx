@@ -127,12 +127,14 @@ export default function Trainings() {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
-              <GraduationCap className="h-6 w-6" />
-              Formações
-            </h1>
-            <p className="text-muted-foreground mt-1">Registo e acompanhamento de formações contínuas.</p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-accent">
+              <GraduationCap className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Formações</h1>
+              <p className="text-sm text-muted-foreground">Registo e acompanhamento de formações contínuas.</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Select value={year} onValueChange={setYear}>
