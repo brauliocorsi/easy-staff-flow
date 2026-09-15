@@ -59,8 +59,6 @@ export function MonthlyClosureTab({ employeeId }: Props) {
   const [zeroOpen, setZeroOpen] = useState(false);
   const [zeroNotes, setZeroNotes] = useState<string>("");
   // Forçar fecho apesar de candidatos pendentes
-  const [forcePending, setForcePending] = useState(false);
-  const [ackForce, setAckForce] = useState(false);
 
   const effectiveEmp = employeeId ?? empId;
 
@@ -369,11 +367,11 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     onSuccess: () => {
       toast({ title: "Mês fechado", description: "Fecho registado com sucesso." });
       qc.invalidateQueries({ queryKey: ["closure-existing"] });
+      qc.invalidateQueries({ queryKey: ["closure-readiness"] });
       qc.invalidateQueries({ queryKey: ["closure-movements"] });
       qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
       setNotes(""); setPaidHours("");
-      setForcePending(false); setAckForce(false);
     },
     onError: (e: any) => toast({ title: "Erro ao fechar", description: e.message, variant: "destructive" }),
   });
@@ -455,6 +453,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     onSuccess: () => {
       toast({ title: "Banco zerado", description: "O saldo foi anulado e o mês fechado." });
       qc.invalidateQueries({ queryKey: ["closure-existing"] });
+      qc.invalidateQueries({ queryKey: ["closure-readiness"] });
       qc.invalidateQueries({ queryKey: ["closure-movements"] });
       qc.invalidateQueries({ queryKey: ["closure-attendance-adj"] });
       qc.invalidateQueries({ queryKey: ["time-bank-movements"] });
