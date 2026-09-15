@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluateDay } from "./attendanceEngine";
+import { evaluateDay, detectOvertimeCandidate, detectEarlyEntryCandidate } from "./attendanceEngine";
 import { computeMonthlyAttendance, type AttendanceDay } from "./attendanceReconciliation";
 
 const schedule = {
@@ -132,5 +132,42 @@ describe("computeMonthlyAttendance", () => {
       { date: "2026-05-04", schedule, record: { clock_in: t("08:00"), lunch_out: t("12:00"), lunch_in: t("13:00"), clock_out: t("15:00") }, skip: true },
     ];
     expect(computeMonthlyAttendance(days).debitMinutes).toBe(0);
+  });
+});
+
+describe("evaluateDay — jornada com pausa exige as 4 picagens", () => {
+  it("entrada + saída sem picagens de almoço fica por validar, sem débito nem candidato", () => {
+    const ev = evaluateDay({ clock_in: t("08:00"), clock_out: t("17:00") }, schedule);
+    expect(ev.needsReview).toBe(true);
+    expect(ev.reviewReasons).toContain("missing_lunch_punches");
+    expect(ev.deficitMinutes).toBe(0);
+    expect(ev.overtimeCandidateMinutes).toBe(0);
+  });
+
+  it("part-time não exige picagens de almoço", () => {
+    const ev = evaluateDay({ clock_in: t("08:00"), lunch_out: t("12:00") }, partTime);
+    expect(ev.needsReview).toBe(false);
+    expect(ev.worked).toBe(240);
+  });
+
+  it("turno noturno não modelado é marcado para validação explícita", () => {
+    const night = { clock_in_time: "22:00:00", lunch_out_time: "02:00:00", lunch_in_time: "02:30:00", clock_out_time: "06:00:00", is_day_off: false };
+    const ev = evaluateDay({ clock_in: t("22:00") }, night);
+    expect(ev.needsReview).toBe(true);
+    expect(ev.reviewReasons).toContain("overnight_shift");
+  });
+});
+
+describe("candidatos partilhados com o servidor", () => {
+  it("saída tardia gera candidato e entrada antecipada gera candidato separado", () => {
+    const rec = { clock_in: t("07:30"), lunch_out: t("12:00"), lunch_in: t("13:00"), clock_out: t("18:00") };
+    expect(detectEarlyEntryCandidate(rec, schedule)?.minutes).toBe(30);
+    expect(detectOvertimeCandidate(rec, schedule)?.minutes).toBe(45);
+  });
+
+  it("dia por validar não gera qualquer candidato", () => {
+    const rec = { clock_in: t("07:30"), clock_out: t("18:00") };
+    expect(detectEarlyEntryCandidate(rec, schedule)).toBeNull();
+    expect(detectOvertimeCandidate(rec, schedule)).toBeNull();
   });
 });
