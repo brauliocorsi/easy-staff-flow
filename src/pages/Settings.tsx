@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ScheduleTemplateManager } from "@/components/settings/ScheduleTemplateManager";
 import { AlarmManager } from "@/components/settings/AlarmManager";
@@ -36,10 +37,7 @@ export default function Settings() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
-          <p className="text-muted-foreground mt-1">Gerencie as configurações do sistema</p>
-        </div>
+        <PageHeader title={"Configurações"} description={"Gerencie as configurações do sistema"} />
 
         <Tabs defaultValue="links" className="w-full">
           <TabsList className="grid w-full grid-cols-6">

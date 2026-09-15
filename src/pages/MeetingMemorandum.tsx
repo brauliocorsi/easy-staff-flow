@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,10 +104,7 @@ export default function MeetingMemorandum() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Memorando de Reuniões</h1>
-          <p className="text-muted-foreground mt-1">Histórico completo de reuniões e pautas por colaborador</p>
-        </div>
+        <PageHeader title={"Memorando de Reuniões"} description={"Histórico completo de reuniões e pautas por colaborador"} />
 
         {/* Employee selector */}
         <Card>
