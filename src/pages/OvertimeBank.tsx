@@ -22,6 +22,7 @@ import {
   calculateWorkday, formatPunchTime, isPartTimeSchedule, minutesToHHMM,
   scheduledWorkMinutes, resolveTolerances, type Tolerances,
 } from "@/lib/timeClock";
+import { evaluateDay } from "@/lib/attendanceEngine";
 import { useHolidays } from "@/hooks/useHolidays";
 import { computeBalance, type MovementLike } from "@/lib/timeBank";
 import { OvertimeApprovalsTab } from "@/components/timeclock/OvertimeApprovalsTab";
