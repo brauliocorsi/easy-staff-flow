@@ -28,7 +28,7 @@ import {
   computeMonthlyNegativeDiff, computePendingAttendanceDebit,
   type AttendanceDay,
 } from "@/lib/attendanceReconciliation";
-import { Lock, Unlock, AlertTriangle, FileWarning } from "lucide-react";
+import { Lock, Unlock, AlertTriangle, FileWarning, CheckCircle2 } from "lucide-react";
 import { BatchClosureDialog } from "./BatchClosureDialog";
 import { BatchReopenDialog } from "./BatchReopenDialog";
 
