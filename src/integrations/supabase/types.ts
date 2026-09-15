@@ -109,6 +109,71 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_daily_evaluations: {
+        Row: {
+          computed_at: string
+          created_at: string
+          deficit_minutes: number
+          early_entry_candidate_minutes: number
+          employee_id: string
+          engine_version: string
+          id: string
+          is_day_off: boolean
+          needs_review: boolean
+          no_record: boolean
+          overtime_candidate_minutes: number
+          record_date: string
+          review_reasons: string[]
+          scheduled_minutes: number
+          updated_at: string
+          worked_minutes: number
+        }
+        Insert: {
+          computed_at?: string
+          created_at?: string
+          deficit_minutes?: number
+          early_entry_candidate_minutes?: number
+          employee_id: string
+          engine_version?: string
+          id?: string
+          is_day_off?: boolean
+          needs_review?: boolean
+          no_record?: boolean
+          overtime_candidate_minutes?: number
+          record_date: string
+          review_reasons?: string[]
+          scheduled_minutes?: number
+          updated_at?: string
+          worked_minutes?: number
+        }
+        Update: {
+          computed_at?: string
+          created_at?: string
+          deficit_minutes?: number
+          early_entry_candidate_minutes?: number
+          employee_id?: string
+          engine_version?: string
+          id?: string
+          is_day_off?: boolean
+          needs_review?: boolean
+          no_record?: boolean
+          overtime_candidate_minutes?: number
+          record_date?: string
+          review_reasons?: string[]
+          scheduled_minutes?: number
+          updated_at?: string
+          worked_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_daily_evaluations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bug_reports: {
         Row: {
           created_at: string
@@ -1404,6 +1469,7 @@ export type Database = {
           id: string
           kind: string
           minutes: number
+          needs_review: boolean
           record_date: string
           review_notes: string | null
           reviewed_at: string | null
@@ -1423,6 +1489,7 @@ export type Database = {
           id?: string
           kind: string
           minutes: number
+          needs_review?: boolean
           record_date: string
           review_notes?: string | null
           reviewed_at?: string | null
@@ -1442,6 +1509,7 @@ export type Database = {
           id?: string
           kind?: string
           minutes?: number
+          needs_review?: boolean
           record_date?: string
           review_notes?: string | null
           reviewed_at?: string | null
@@ -1543,6 +1611,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          tolerance_early_entry_minutes: number
           tolerance_early_leave_minutes: number
           tolerance_late_minutes: number
           tolerance_overtime_minutes: number
@@ -1552,6 +1621,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          tolerance_early_entry_minutes?: number
           tolerance_early_leave_minutes?: number
           tolerance_late_minutes?: number
           tolerance_overtime_minutes?: number
@@ -1561,6 +1631,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          tolerance_early_entry_minutes?: number
           tolerance_early_leave_minutes?: number
           tolerance_late_minutes?: number
           tolerance_overtime_minutes?: number
@@ -1738,8 +1809,10 @@ export type Database = {
           effective_minutes: number
           employee_id: string
           id: string
+          idempotency_key: string | null
           minutes: number
           movement_type: string
+          occurrence_date: string | null
           record_date: string
           source_id: string | null
           source_type: string
@@ -1755,8 +1828,10 @@ export type Database = {
           effective_minutes: number
           employee_id: string
           id?: string
+          idempotency_key?: string | null
           minutes: number
           movement_type: string
+          occurrence_date?: string | null
           record_date: string
           source_id?: string | null
           source_type: string
@@ -1772,8 +1847,10 @@ export type Database = {
           effective_minutes?: number
           employee_id?: string
           id?: string
+          idempotency_key?: string | null
           minutes?: number
           movement_type?: string
+          occurrence_date?: string | null
           record_date?: string
           source_id?: string | null
           source_type?: string
@@ -1817,7 +1894,9 @@ export type Database = {
           lunch_in: string | null
           lunch_out: string | null
           notes: string | null
+          punch_origin: string | null
           record_date: string
+          schedule_snapshot: Json | null
           updated_at: string
         }
         Insert: {
@@ -1831,7 +1910,9 @@ export type Database = {
           lunch_in?: string | null
           lunch_out?: string | null
           notes?: string | null
+          punch_origin?: string | null
           record_date?: string
+          schedule_snapshot?: Json | null
           updated_at?: string
         }
         Update: {
@@ -1845,7 +1926,9 @@ export type Database = {
           lunch_in?: string | null
           lunch_out?: string | null
           notes?: string | null
+          punch_origin?: string | null
           record_date?: string
+          schedule_snapshot?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -2384,32 +2467,30 @@ export type Database = {
         Args: { _employee_id: string; _viewer_id: string }
         Returns: boolean
       }
-      close_time_bank_month:
-        | {
-            Args: {
-              _attendance_debit_minutes?: number
-              _decision: string
-              _employee_id: string
-              _month: number
-              _notes?: string
-              _paid_minutes?: number
-              _year: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              _attendance_debit_minutes?: number
-              _decision: string
-              _employee_id: string
-              _force?: boolean
-              _month: number
-              _notes?: string
-              _paid_minutes?: number
-              _year: number
-            }
-            Returns: Json
-          }
+      close_time_bank_month: {
+        Args: {
+          _decision: string
+          _employee_id: string
+          _month: number
+          _notes?: string
+          _paid_minutes?: number
+          _year: number
+        }
+        Returns: Json
+      }
+      correct_time_clock_record: {
+        Args: {
+          _clock_in: string
+          _clock_out: string
+          _employee_id: string
+          _lunch_in: string
+          _lunch_out: string
+          _notes?: string
+          _reason: string
+          _record_date: string
+        }
+        Returns: Json
+      }
       create_opening_balance_snapshot: {
         Args: {
           _cutoff_date: string
@@ -2424,6 +2505,10 @@ export type Database = {
         Returns: Json
       }
       cron_close_month_if_last_day: { Args: never; Returns: undefined }
+      cron_prepare_month_closure: {
+        Args: { _month: number; _year: number }
+        Returns: Json
+      }
       get_employee_id_for_user: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -2434,9 +2519,28 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_manager_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_period_locked: {
+        Args: { _date: string; _employee_id: string }
+        Returns: boolean
+      }
+      month_closure_readiness: {
+        Args: { _employee_id: string; _month: number; _year: number }
+        Returns: Json
+      }
       reopen_time_bank_month: { Args: { _closure_id: string }; Returns: Json }
       review_overtime_approval: {
         Args: { _approval_id: string; _decision: string; _notes: string }
+        Returns: Json
+      }
+      use_time_bank_hours: {
+        Args: {
+          _employee_id: string
+          _idempotency_key?: string
+          _minutes: number
+          _occurrence_date: string
+          _reason: string
+          _source_type?: string
+        }
         Returns: Json
       }
     }
