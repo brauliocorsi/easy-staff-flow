@@ -714,11 +714,11 @@ export default function OvertimeBank() {
                             return (
                               <div className="flex flex-col items-end leading-tight">
                                 <span className={cn("text-sm font-semibold tabular-nums", approved > 0 ? "text-primary" : "text-muted-foreground")}>
-                                  {approved > 0 ? "+" : ""}{minutesToHHMM(approved)}
+                                  {minutesToHHMM(approved)}
                                 </span>
                                 {pending > 0 && (
                                   <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500">
-                                    +{minutesToHHMM(pending)} pendente
+                                    {minutesToHHMM(pending)} a validar
                                   </span>
                                 )}
                               </div>
