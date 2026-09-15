@@ -395,7 +395,7 @@ export function BatchClosureDialog() {
 
     // Group by employee, in order
     const byEmp = new Map<string, PreviewRow[]>();
-    const rowsToRun = preview.filter((r) => !r.error && (r.pendingCount === 0 || forcePending));
+    const rowsToRun = preview.filter((r) => !r.error && r.pendingCount === 0);
     for (const row of rowsToRun) {
       const arr = byEmp.get(row.employeeId) || [];
       arr.push(row);
@@ -458,7 +458,7 @@ export function BatchClosureDialog() {
   const cleanRows = preview.filter((r) => !r.error && r.pendingCount === 0);
   const pendingRows = preview.filter((r) => !r.error && r.pendingCount > 0);
   const pendingCandidatesTotal = pendingRows.reduce((a, r) => a + r.pendingCount, 0);
-  const totalToClose = forcePending ? cleanRows.length + pendingRows.length : cleanRows.length;
+  const totalToClose = cleanRows.length;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setResults(null); }}>
@@ -494,29 +494,14 @@ export function BatchClosureDialog() {
               {totalToClose} mês(es) a fechar para {new Set(preview.map((r) => r.employeeId)).size} colaborador(es).
               {pendingRows.length > 0 && (
                 <span className="ml-2 text-amber-600">
-                  {pendingRows.length} mês(es) com {pendingCandidatesTotal} candidato(s) pendente(s)
-                  {forcePending ? " serão forçados" : " excluídos por padrão"}.
+                  {pendingRows.length} mês(es) com {pendingCandidatesTotal} candidato(s) por decidir — excluídos.
                 </span>
               )}
             </div>
             {pendingRows.length > 0 && (
-              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 space-y-1">
-                <label className="flex items-start gap-2 text-xs cursor-pointer">
-                  <Checkbox
-                    checked={forcePending}
-                    onCheckedChange={(v) => { setForcePending(!!v); if (!v) setAckForce(false); }}
-                    className="mt-0.5"
-                  />
-                  <span>Incluir meses com pendentes (forçar)</span>
-                </label>
-                {forcePending && (
-                  <label className="flex items-start gap-2 text-xs cursor-pointer pl-6">
-                    <Checkbox checked={ackForce} onCheckedChange={(v) => setAckForce(!!v)} className="mt-0.5" />
-                    <span>
-                      Entendo que {pendingCandidatesTotal} candidato(s) pendente(s) ficarão de fora do saldo transitado.
-                    </span>
-                  </label>
-                )}
+              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
+                Meses com candidatos por decidir não podem ser fechados. Decida-os primeiro
+                na aba <strong>Aprovações</strong>.
               </div>
             )}
             <ScrollArea className="h-[420px] rounded-md border">
@@ -570,7 +555,7 @@ export function BatchClosureDialog() {
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={running}>Cancelar</Button>
               <Button
                 onClick={executeBatch}
-                disabled={running || totalToClose === 0 || !dataReady || (forcePending && pendingRows.length > 0 && !ackForce)}
+                disabled={running || totalToClose === 0 || !dataReady}
               >
                 {running ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> A fechar…</> : `Confirmar e fechar (${totalToClose})`}
               </Button>
