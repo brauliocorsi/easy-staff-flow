@@ -70,8 +70,8 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <main className="flex-1 flex flex-col">
-          <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/80 backdrop-blur-sm px-6">
-            <SidebarTrigger />
+          <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
+            <SidebarTrigger aria-label="Abrir ou fechar o menu" />
             <div className="flex items-center gap-2">
               <ChangePasswordDialog />
               <BugReportButton />
@@ -116,7 +116,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                               }`}
                             >
                               <div className={`mt-0.5 rounded-full p-1.5 shrink-0 ${
-                                isEarlyLeave ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-600"
+                                isEarlyLeave ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
                               }`}>
                                 <Icon className="h-3.5 w-3.5" />
                               </div>
@@ -148,7 +148,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             )}
             </div>
           </header>
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-4 sm:p-6 space-y-6">
             {children}
           </div>
         </main>

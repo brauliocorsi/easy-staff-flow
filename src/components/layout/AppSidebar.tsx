@@ -164,6 +164,7 @@ export function AppSidebar() {
                             asChild
                             isActive={location.pathname === item.path}
                             tooltip={item.title}
+                            className="data-[active=true]:border-l-2 data-[active=true]:border-primary data-[active=true]:font-medium data-[active=true]:text-accent-foreground data-[active=true]:bg-secondary"
                           >
                             <Link to={item.path}>
                               <item.icon className="h-4 w-4" />
