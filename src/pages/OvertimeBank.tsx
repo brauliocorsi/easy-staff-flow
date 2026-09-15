@@ -538,17 +538,18 @@ export default function OvertimeBank() {
         if (isCurrentMonth && dateStr === format(new Date(), "yyyy-MM-dd")) return;
         const schedule = individual?.get(date.getDay()) || template?.get(date.getDay());
         if (!schedule || schedule.is_day_off) return;
-        const calculated = calculateWorkday(recordMap.get(dateStr), schedule, tolerances);
-        total += calculated.diff;
+        const ev = evaluateDay(recordMap.get(dateStr), schedule, tolerances);
+        total -= ev.deficitMinutes;
       });
       attendanceMonthByEmp.set(emp.id, total);
     }
     return employees.map((emp) => ({
       ...emp,
-      balance: monthByEmp.get(emp.id) || attendanceMonthByEmp.get(emp.id) || 0,
-      accumulated: (accumulatedByEmployee.get(emp.id) || 0) + (
-        isCurrentMonth && !monthMovementEmpIds.has(emp.id) ? (attendanceMonthByEmp.get(emp.id) || 0) : 0
-      ),
+      // Saldo oficial: apenas movimentos. Sem qualquer recurso ao diff do ponto.
+      balance: monthByEmp.get(emp.id) || 0,
+      accumulated: accumulatedByEmployee.get(emp.id) || 0,
+      /** Diagnóstico do ponto (minutos em falta no mês) — informativo. */
+      attendanceDiagnostic: attendanceMonthByEmp.get(emp.id) || 0,
     }));
   }, [employees, allApprovedMovements, allMonthRecords, allEmployeeSchedules, allTemplateDays, allTemplateTolerances, accumulatedByEmployee, rangeStart, rangeEnd, year, month, isCurrentMonth]);
 
