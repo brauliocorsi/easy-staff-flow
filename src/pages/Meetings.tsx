@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -63,16 +64,18 @@ export default function Meetings() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Reuniões</h1>
-            <p className="text-muted-foreground mt-1">Agende e gerencie reuniões com pautas</p>
-          </div>
-          <Button onClick={() => { setEditingMeeting(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Reunião
-          </Button>
-        </div>
+        <PageHeader
+          title={"Reuniões"}
+          description={"Agende e gerencie reuniões com pautas"}
+          actions={
+            <>
+              <Button onClick={() => { setEditingMeeting(null); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Reunião
+              </Button>
+            </>
+          }
+        />
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
