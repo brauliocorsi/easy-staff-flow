@@ -62,7 +62,7 @@ export function EpiFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Registar Entrega de EPI</DialogTitle>
+          <DialogTitle>Registar Entrega de EPI</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

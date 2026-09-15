@@ -724,7 +724,7 @@ export default function EmployeePortal() {
       <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Enviar Sugestão</DialogTitle>
+            <DialogTitle>Enviar Sugestão</DialogTitle>
             <DialogDescription>Partilhe ideias para melhorar a empresa.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -757,7 +757,7 @@ export default function EmployeePortal() {
       <Dialog open={maintenanceDialogOpen} onOpenChange={(v) => { if (!v) { setMaintenanceDialogOpen(false); setActiveTask(null); } }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">Registar Manutenção</DialogTitle>
+            <DialogTitle>Registar Manutenção</DialogTitle>
             <DialogDescription>
               {activeTask?.title}{activeTask?.machines ? ` — ${activeTask.machines.name}` : ""}
             </DialogDescription>

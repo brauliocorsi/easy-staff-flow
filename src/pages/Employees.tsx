@@ -143,7 +143,7 @@ export default function Employees() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="font-display">Lista de Funcionários</CardTitle>
+            <CardTitle>Lista de Funcionários</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (

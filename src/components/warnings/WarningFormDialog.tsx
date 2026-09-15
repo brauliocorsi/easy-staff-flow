@@ -117,7 +117,7 @@ export function WarningFormDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display">Nova Advertência</DialogTitle>
+          <DialogTitle>Nova Advertência</DialogTitle>
           <DialogDescription>Preencha os dados da advertência disciplinar.</DialogDescription>
         </DialogHeader>
 

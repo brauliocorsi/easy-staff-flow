@@ -653,7 +653,7 @@ export default function Equipment() {
       <Dialog open={!!logDetailDialog} onOpenChange={(v) => !v && setLogDetailDialog(null)}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">Detalhes da Manutenção</DialogTitle>
+            <DialogTitle>Detalhes da Manutenção</DialogTitle>
             <DialogDescription>
               {logDetailDialog?.log && `${format(new Date(logDetailDialog.log.completed_date + "T00:00:00"), "dd/MM/yyyy")} — ${machineName(logDetailDialog.log.machine_id)}`}
             </DialogDescription>

@@ -66,7 +66,7 @@ export default function Documents() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle className="font-display">Todos os Documentos</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Todos os Documentos</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>

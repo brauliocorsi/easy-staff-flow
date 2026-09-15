@@ -291,7 +291,7 @@ export default function Vacations() {
           <TabsContent value="individual">
             <Card>
               <CardHeader>
-                <CardTitle className="font-display">Férias Individuais — {year}</CardTitle>
+                <CardTitle>Férias Individuais — {year}</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (

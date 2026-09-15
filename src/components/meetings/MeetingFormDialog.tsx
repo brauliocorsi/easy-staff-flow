@@ -165,7 +165,7 @@ export function MeetingFormDialog({ open, onClose, meeting }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display">{isEditing ? "Editar Reunião" : "Nova Reunião"}</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Reunião" : "Nova Reunião"}</DialogTitle>
           <DialogDescription>{isEditing ? "Altere os dados da reunião" : "Preencha os dados para agendar uma reunião"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

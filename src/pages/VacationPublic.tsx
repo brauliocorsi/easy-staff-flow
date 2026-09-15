@@ -195,7 +195,7 @@ export default function VacationPublic() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Palmtree className="h-6 w-6 text-primary" />
-              <CardTitle className="font-display">Férias {vacation.year}</CardTitle>
+              <CardTitle>Férias {vacation.year}</CardTitle>
             </div>
             <p className="text-sm text-muted-foreground">Olá {employeeName}, escolha ou confirme as suas férias.</p>
           </CardHeader>

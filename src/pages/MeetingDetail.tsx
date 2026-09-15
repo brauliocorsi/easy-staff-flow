@@ -296,7 +296,7 @@ export default function MeetingDetail() {
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="font-display">Pautas</CardTitle>
+                <CardTitle>Pautas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!isCompleted && (

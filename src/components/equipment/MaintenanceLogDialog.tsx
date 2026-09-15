@@ -63,7 +63,7 @@ export function MaintenanceLogDialog({ open, onClose, task, machine }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display">Registar Manutenção</DialogTitle>
+          <DialogTitle>Registar Manutenção</DialogTitle>
           <DialogDescription>
             {machine?.name} — {task?.title}
           </DialogDescription>
