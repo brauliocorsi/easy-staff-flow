@@ -316,6 +316,22 @@ export function MonthlyClosureTab({ employeeId }: Props) {
     return { negative, pendingDebit, alreadyAdjusted };
   }, [monthRecords, employeeScheduleRows, templateDays, templateTol, existingAttendanceAdjustment, monthVacations, monthAbsences, year, month]);
 
+  /**
+   * Prontidão do fecho apurada pelo SERVIDOR (fonte única).
+   * O ecrã já não envia o desconto de ponto nem pode forçar o fecho.
+   */
+  const { data: readiness } = useQuery({
+    queryKey: ["closure-readiness", effectiveEmp, year, month],
+    enabled: !!effectiveEmp,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("month_closure_readiness", {
+        _employee_id: effectiveEmp!, _year: year, _month: month,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
   const opening = prevClosure?.carried_over_minutes ?? 0;
   const previousMonthClosed = !!prevClosure;
   const hasPriorMovements = (priorMovementsCount ?? 0) > 0;
@@ -346,8 +362,6 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _decision: decision,
         _paid_minutes: paidMinutes ?? 0,
         _notes: notes || null,
-        _attendance_debit_minutes: attendanceDebitToApply,
-        _force: forcePending,
       });
       if (error) throw error;
       return data;
@@ -434,8 +448,6 @@ export function MonthlyClosureTab({ employeeId }: Props) {
         _decision: "carry_over_all",
         _paid_minutes: 0,
         _notes: `[Saldo zerado] ${zeroNotes.trim()}`,
-        _attendance_debit_minutes: attendanceDebitToApply,
-        _force: forcePending,
       });
       if (error) throw error;
       return data;
@@ -587,42 +599,39 @@ export function MonthlyClosureTab({ employeeId }: Props) {
 
             {!closed && isAdmin && (
               <div className="rounded-md border p-3 space-y-3">
-                {(pendingPositives ?? 0) > 0 && (
-                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+                {readiness && !readiness.ready && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                     <div className="flex gap-2">
                       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
-                      <div className="flex-1">
-                        <p className="font-medium text-amber-700">
-                          {pendingPositives} candidato(s) de aprovação pendente(s) neste mês.
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Aprove ou rejeite-os na aba <strong>Aprovações</strong> antes de fechar —
-                          caso contrário os créditos correspondentes ficarão de fora do saldo transitado.
-                        </p>
+                      <div className="flex-1 space-y-1">
+                        <p className="font-medium text-amber-700">Preparação do fecho por concluir</p>
+                        <ul className="text-xs text-muted-foreground space-y-0.5">
+                          {readiness.pending_candidates > 0 && (
+                            <li>• {readiness.pending_candidates} candidato(s) por decidir na aba <strong>Aprovações</strong>.</li>
+                          )}
+                          {readiness.review_days > 0 && (
+                            <li>• {readiness.review_days} dia(s) de ponto por validar.</li>
+                          )}
+                          {readiness.missing_evaluations > 0 && (
+                            <li>• {readiness.missing_evaluations} dia(s) por apurar. Execute o apuramento do ponto.</li>
+                          )}
+                          {!readiness.month_finished && <li>• O mês ainda não terminou.</li>}
+                          {!readiness.previous_month_closed && readiness.has_prior_movements && (
+                            <li>• O mês anterior ainda não está fechado.</li>
+                          )}
+                        </ul>
                       </div>
                     </div>
-                    <label className="flex items-start gap-2 text-xs cursor-pointer opacity-80">
-                      <Checkbox
-                        checked={forcePending}
-                        onCheckedChange={(v) => { setForcePending(!!v); if (!v) setAckForce(false); }}
-                        className="mt-0.5"
-                      />
-                      <span>Fechar mesmo assim (forçar)</span>
-                    </label>
-                    {forcePending && (
-                      <label className="flex items-start gap-2 text-xs cursor-pointer pl-6">
-                        <Checkbox
-                          checked={ackForce}
-                          onCheckedChange={(v) => setAckForce(!!v)}
-                          className="mt-0.5"
-                        />
-                        <span>
-                          Entendo que o fecho <strong>não incluirá</strong> os {pendingPositives} candidato(s) pendente(s).
-                        </span>
-                      </label>
-                    )}
                   </div>
                 )}
+
+                {readiness?.ready && (
+                  <p className="text-xs text-muted-foreground">
+                    Desconto de ponto apurado pelo servidor:{" "}
+                    <strong>{minutesToHHMM(-(readiness.attendance_debit_minutes ?? 0))}</strong>
+                  </p>
+                )}
+
                 <div>
                   <Label className="text-xs">Destino do saldo</Label>
                   <Select value={decision} onValueChange={(v) => setDecision(v as ClosureDecision)}>
@@ -659,7 +668,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                 {decision === "pay_all_and_zero" ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button disabled={!!(preview && "error" in preview) || closeMut.isPending || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}>Fechar mês</Button>
+                      <Button disabled={!!(preview && "error" in preview) || closeMut.isPending || !readiness?.ready}>Fechar mês</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -677,7 +686,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                   </AlertDialog>
                 ) : (
                   <Button
-                    disabled={!!(preview && "error" in preview) || closeMut.isPending || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}
+                    disabled={!!(preview && "error" in preview) || closeMut.isPending || !readiness?.ready}
                     onClick={() => closeMut.mutate()}
                   >
                     Fechar mês
@@ -690,7 +699,7 @@ export function MonthlyClosureTab({ employeeId }: Props) {
                       <Button
                         variant="destructive"
                         size="sm"
-                        disabled={!!(preview && "error" in preview) || ((pendingPositives ?? 0) > 0 && (!forcePending || !ackForce))}
+                        disabled={!!(preview && "error" in preview) || !readiness?.ready}
                       >
                         Zerar saldo (sem pagar)
                       </Button>
