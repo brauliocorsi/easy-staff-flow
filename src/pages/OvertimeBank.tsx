@@ -578,6 +578,34 @@ export default function OvertimeBank() {
     [bankMovements]
   );
 
+  // Horas ainda por validar: vêm dos candidatos por decidir (overtime_approvals).
+  // Só entram no banco depois da decisão do responsável, por isso nunca podem
+  // ser somadas outra vez a partir dos movimentos já lançados.
+  const { data: pendingApprovals } = useQuery({
+    queryKey: ["time-bank-pending-approvals", selectedEmployee || "all"],
+    queryFn: async () => {
+      let q = supabase
+        .from("overtime_approvals")
+        .select("id, employee_id, minutes")
+        .eq("status", "pending");
+      if (selectedEmployee) q = q.eq("employee_id", selectedEmployee);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const pendingToValidate = useMemo(() => {
+    const decided = new Set(
+      (bankMovements ?? []).map((m: any) => m.source_id).filter(Boolean),
+    );
+    const fromApprovals = (pendingApprovals ?? [])
+      .filter((a: any) => !decided.has(a.id))
+      .reduce((sum: number, a: any) => sum + (Number(a.minutes) || 0), 0);
+    // Movimentos antigos que ficaram em estado pendente continuam a contar uma vez.
+    return fromApprovals + bankBalance.pending;
+  }, [pendingApprovals, bankMovements, bankBalance.pending]);
+
   const filteredEmployees = useMemo(() => {
     const q = employeeQuery.trim().toLowerCase();
     if (!q) return summaryPerEmployee;
@@ -974,7 +1002,7 @@ export default function OvertimeBank() {
                       "font-mono font-semibold text-lg",
                       bankBalance.potential >= 0 ? "text-foreground" : "text-destructive"
                     )}>
-                      {minutesToHHMM(bankBalance.potential)}
+                      {minutesToHHMM(bankBalance.available + pendingToValidate)}
                     </p>
                     <p className="text-[10px] text-muted-foreground/70 mt-0.5">inclui pendentes</p>
                   </div>
@@ -984,7 +1012,7 @@ export default function OvertimeBank() {
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <MiniStat icon={CheckCircle2} label="Aprovado" minutes={bankBalance.approved} tone="primary" />
-              <MiniStat icon={Hourglass} label="Pendente" minutes={bankBalance.pending} tone="warning" />
+              <MiniStat icon={Hourglass} label="A validar" minutes={pendingToValidate} tone="warning" />
               <MiniStat icon={ArrowRight} label="Usado" minutes={-bankBalance.used} tone="muted" />
               <MiniStat icon={Wallet} label="Pago" minutes={bankBalance.paid} tone="muted" />
               <MiniStat icon={XCircle} label="Rejeitado" minutes={bankBalance.rejected} tone="muted" />
