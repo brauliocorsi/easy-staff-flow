@@ -548,6 +548,7 @@ export function evaluateDay(
   return {
     scheduled,
     worked,
+    observedWorked: worked,
     punchCount,
     isDayOff: false,
     noRecord: false,
