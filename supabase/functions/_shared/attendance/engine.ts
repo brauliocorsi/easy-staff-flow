@@ -332,6 +332,11 @@ export type ReviewReason =
 export type DayEvaluation = {
   scheduled: number;
   worked: number;
+  /**
+   * Minutos observados APENAS para leitura em relatórios (dias incompletos
+   * incluídos). Nunca usado em saldos, défices ou candidatos.
+   */
+  observedWorked: number;
   punchCount: number;
   isDayOff: boolean;
   noRecord: boolean;
@@ -356,6 +361,7 @@ function emptyEvaluation(
   return {
     scheduled,
     worked: 0,
+    observedWorked: 0,
     punchCount: 0,
     isDayOff: false,
     noRecord: false,
