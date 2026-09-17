@@ -142,6 +142,17 @@ describe("evaluateDay — jornada com pausa exige as 4 picagens", () => {
     expect(ev.reviewReasons).toContain("missing_lunch_punches");
     expect(ev.deficitMinutes).toBe(0);
     expect(ev.overtimeCandidateMinutes).toBe(0);
+    // Relatórios mostram os minutos observados (pausa prevista descontada)
+    expect(ev.worked).toBe(0);
+    expect(ev.observedWorked).toBe(480);
+  });
+
+  it("dia completo tem minutos observados iguais aos apurados", () => {
+    const ev = evaluateDay(
+      { clock_in: t("08:00"), lunch_out: t("12:00"), lunch_in: t("13:00"), clock_out: t("17:00") },
+      schedule,
+    );
+    expect(ev.observedWorked).toBe(ev.worked);
   });
 
   it("part-time não exige picagens de almoço", () => {

@@ -332,6 +332,11 @@ export type ReviewReason =
 export type DayEvaluation = {
   scheduled: number;
   worked: number;
+  /**
+   * Minutos observados APENAS para leitura em relatórios (dias incompletos
+   * incluídos). Nunca usado em saldos, défices ou candidatos.
+   */
+  observedWorked: number;
   punchCount: number;
   isDayOff: boolean;
   noRecord: boolean;
@@ -356,6 +361,7 @@ function emptyEvaluation(
   return {
     scheduled,
     worked: 0,
+    observedWorked: 0,
     punchCount: 0,
     isDayOff: false,
     noRecord: false,
@@ -486,8 +492,22 @@ export function evaluateDay(
   const overtimeAfterMinutes = actualOut !== null ? Math.max(0, actualOut - schedOut) : 0;
 
   if (incomplete) {
+    // Estimativa informativa (só para relatórios): intervalo entre a primeira e
+    // a última picagem, descontando a pausa prevista quando não foi picada.
+    let observedWorked = 0;
+    if (actualIn !== null && actualOut !== null && actualOut > actualIn) {
+      observedWorked = actualOut - actualIn;
+      if (!partTime && scheduleHasBreak(schedule) && !(normalized.lunch_out && normalized.lunch_in)) {
+        const schedLunch = Math.max(
+          0,
+          timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time),
+        );
+        observedWorked = Math.max(0, observedWorked - schedLunch);
+      }
+    }
     return emptyEvaluation(scheduled, normalized, {
       punchCount,
+      observedWorked,
       incomplete: true,
       needsReview: true,
       reviewReasons: reasons,
@@ -528,6 +548,7 @@ export function evaluateDay(
   return {
     scheduled,
     worked,
+    observedWorked: worked,
     punchCount,
     isDayOff: false,
     noRecord: false,
@@ -585,6 +606,7 @@ export function calculateWorkday(
 ): {
   scheduled: number;
   worked: number;
+  observedWorked: number;
   diff: number;
   incomplete: boolean;
   normalized: TimeClockRecordLike;
@@ -594,6 +616,7 @@ export function calculateWorkday(
   return {
     scheduled: ev.scheduled,
     worked: ev.worked,
+    observedWorked: ev.observedWorked,
     diff: ev.overtimeCandidateMinutes - ev.deficitMinutes,
     incomplete: ev.incomplete,
     normalized: ev.normalized,
