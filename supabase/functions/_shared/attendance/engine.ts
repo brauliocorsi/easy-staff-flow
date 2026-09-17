@@ -492,8 +492,22 @@ export function evaluateDay(
   const overtimeAfterMinutes = actualOut !== null ? Math.max(0, actualOut - schedOut) : 0;
 
   if (incomplete) {
+    // Estimativa informativa (só para relatórios): intervalo entre a primeira e
+    // a última picagem, descontando a pausa prevista quando não foi picada.
+    let observedWorked = 0;
+    if (actualIn !== null && actualOut !== null && actualOut > actualIn) {
+      observedWorked = actualOut - actualIn;
+      if (!partTime && scheduleHasBreak(schedule) && !(normalized.lunch_out && normalized.lunch_in)) {
+        const schedLunch = Math.max(
+          0,
+          timeToMinutes(schedule.lunch_in_time) - timeToMinutes(schedule.lunch_out_time),
+        );
+        observedWorked = Math.max(0, observedWorked - schedLunch);
+      }
+    }
     return emptyEvaluation(scheduled, normalized, {
       punchCount,
+      observedWorked,
       incomplete: true,
       needsReview: true,
       reviewReasons: reasons,
