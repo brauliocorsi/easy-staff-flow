@@ -606,6 +606,7 @@ export function calculateWorkday(
 ): {
   scheduled: number;
   worked: number;
+  observedWorked: number;
   diff: number;
   incomplete: boolean;
   normalized: TimeClockRecordLike;
@@ -615,6 +616,7 @@ export function calculateWorkday(
   return {
     scheduled: ev.scheduled,
     worked: ev.worked,
+    observedWorked: ev.observedWorked,
     diff: ev.overtimeCandidateMinutes - ev.deficitMinutes,
     incomplete: ev.incomplete,
     normalized: ev.normalized,

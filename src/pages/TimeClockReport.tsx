@@ -103,7 +103,7 @@ export default function TimeClockReport() {
       let status: "normal" | "late" | "overtime" | "absent" | "dayoff" | "incomplete" = isDayOff ? "dayoff" : "absent";
 
       if (calculated && normalized && (normalized.clock_in || normalized.lunch_out || normalized.lunch_in || normalized.clock_out)) {
-        workedMinutes = calculated.worked;
+        workedMinutes = calculated.observedWorked;
         overtimeMinutes = Math.max(0, calculated.diff);
         lateMinutes = Math.abs(Math.min(0, calculated.diff));
         status = calculated.incomplete ? "incomplete" : calculated.diff > 0 ? "overtime" : calculated.diff < 0 ? "late" : "normal";
