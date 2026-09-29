@@ -156,6 +156,13 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
               </p>
             </div>
 
+            <div className="w-full rounded-lg border border-border px-4 py-3">
+              <TodayPunches punches={employee.punches} isPartTime={employee.is_part_time} compact />
+              {!employee.punches && (
+                <p className="text-xs text-muted-foreground text-center">Ainda sem picagens hoje.</p>
+              )}
+            </div>
+
             {!isComplete && (
               <>
                 <InputOTP maxLength={4} value={pin} onChange={setPin}>

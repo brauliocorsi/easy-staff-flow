@@ -131,17 +131,23 @@ export function EmployeeCard({ employee, onClick }: Props) {
           )}
         </div>
         {!isDayOff && !isOnVacation && (
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1 w-full">
             <TodayStatus status={employee.today_status} late={late} />
             <p className="text-xs font-medium text-muted-foreground">
               {NEXT_ACTION[employee.today_status] ?? NEXT_ACTION.clock_in}
             </p>
+            <TodayPunches punches={employee.punches} isPartTime={employee.is_part_time} />
             {incomplete && (
               <p className="flex items-center gap-1 text-xs font-medium text-destructive">
                 <AlertTriangle className="h-3 w-3" aria-hidden />
                 Falta uma picagem hoje
               </p>
             )}
+          </div>
+        )}
+        {(isDayOff || isOnVacation) && employee.punches && (
+          <div className="w-full">
+            <TodayPunches punches={employee.punches} isPartTime={employee.is_part_time} />
           </div>
         )}
       </CardContent>
