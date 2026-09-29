@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, MoonStar, AlertTriangle, Palmtree } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
+import { TodayPunches, type DayPunches } from "./TodayPunches";
 import { useMemo } from "react";
 
 export interface EmployeeData {
@@ -13,6 +14,7 @@ export interface EmployeeData {
   avatar_url: string | null;
   department: string | null;
   today_status: string;
+  punches?: DayPunches | null;
   schedule_label?: string | null;
   scheduled_clock_in?: string | null;
   scheduled_lunch_out?: string | null;
