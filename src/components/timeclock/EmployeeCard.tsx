@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, MoonStar, AlertTriangle, Palmtree } from "lucide-react";
 import { TodayStatus } from "./TodayStatus";
+import { TodayPunches, type DayPunches } from "./TodayPunches";
 import { useMemo } from "react";
 
 export interface EmployeeData {
@@ -13,6 +14,7 @@ export interface EmployeeData {
   avatar_url: string | null;
   department: string | null;
   today_status: string;
+  punches?: DayPunches | null;
   schedule_label?: string | null;
   scheduled_clock_in?: string | null;
   scheduled_lunch_out?: string | null;
@@ -129,17 +131,23 @@ export function EmployeeCard({ employee, onClick }: Props) {
           )}
         </div>
         {!isDayOff && !isOnVacation && (
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1 w-full">
             <TodayStatus status={employee.today_status} late={late} />
             <p className="text-xs font-medium text-muted-foreground">
               {NEXT_ACTION[employee.today_status] ?? NEXT_ACTION.clock_in}
             </p>
+            <TodayPunches punches={employee.punches} isPartTime={employee.is_part_time} />
             {incomplete && (
               <p className="flex items-center gap-1 text-xs font-medium text-destructive">
                 <AlertTriangle className="h-3 w-3" aria-hidden />
                 Falta uma picagem hoje
               </p>
             )}
+          </div>
+        )}
+        {(isDayOff || isOnVacation) && employee.punches && (
+          <div className="w-full">
+            <TodayPunches punches={employee.punches} isPartTime={employee.is_part_time} />
           </div>
         )}
       </CardContent>

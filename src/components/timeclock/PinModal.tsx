@@ -8,6 +8,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { EmployeeData } from "./EmployeeCard";
+import { TodayPunches } from "./TodayPunches";
 
 const nextActionLabels: Record<string, string> = {
   clock_in: "Registar Entrada",
@@ -153,6 +154,13 @@ export function PinModal({ employee, open, onClose, onSuccess }: Props) {
               <p className="font-semibold text-primary">
                 {(employee.is_part_time ? nextActionLabelsPartTime : nextActionLabels)[employee.today_status] || nextActionLabels[employee.today_status]}
               </p>
+            </div>
+
+            <div className="w-full rounded-lg border border-border px-4 py-3">
+              <TodayPunches punches={employee.punches} isPartTime={employee.is_part_time} compact />
+              {!employee.punches && (
+                <p className="text-xs text-muted-foreground text-center">Ainda sem picagens hoje.</p>
+              )}
             </div>
 
             {!isComplete && (
