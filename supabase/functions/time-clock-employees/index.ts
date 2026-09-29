@@ -220,6 +220,15 @@ Deno.serve(async (req) => {
         today_status: nextAction,
         schedule_label,
         is_part_time: partTime,
+        // Picagens reais do dia — mostradas sempre, mesmo fora do horário.
+        punches: rec
+          ? {
+              clock_in: rec.clock_in || null,
+              lunch_out: rec.lunch_out || null,
+              lunch_in: rec.lunch_in || null,
+              clock_out: rec.clock_out || null,
+            }
+          : null,
         scheduled_clock_in: tDay && !tDay.is_day_off ? tDay.clock_in_time : null,
         scheduled_lunch_out: tDay && !tDay.is_day_off && !partTime ? tDay.lunch_out_time : null,
         scheduled_lunch_in: tDay && !tDay.is_day_off && !partTime ? tDay.lunch_in_time : null,
