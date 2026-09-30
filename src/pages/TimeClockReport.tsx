@@ -211,6 +211,13 @@ export default function TimeClockReport() {
             </Popover>
           </div>
 
+          {employeeId && selectedEmployee && (
+            <EmployeeMonthCalendarButton
+              employeeId={employeeId}
+              employeeName={`${selectedEmployee.first_name} ${selectedEmployee.last_name}`}
+              initialDate={selectedDate}
+            />
+          )}
           {employeeId && (
             <Button size="sm" onClick={() => setEditDialog({ open: true, date: format(selectedDate, "yyyy-MM-dd") })}>
               <Plus className="h-4 w-4 mr-1" />

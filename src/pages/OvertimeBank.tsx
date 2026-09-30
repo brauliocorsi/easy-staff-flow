@@ -657,6 +657,13 @@ export default function OvertimeBank() {
                 Hoje
               </Button>
             )}
+            {selectedEmployee && emp && (
+              <EmployeeMonthCalendarButton
+                employeeId={selectedEmployee}
+                employeeName={`${emp.first_name} ${emp.last_name}`}
+                initialDate={new Date(year, month, 1)}
+              />
+            )}
             {isAdmin && selectedEmployee && (
               <Button size="sm" className="h-9 gap-1.5" onClick={() => setUseBankOpen(true)}>
                 <ArrowLeftRight className="h-4 w-4" />
