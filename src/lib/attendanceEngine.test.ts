@@ -251,7 +251,7 @@ describe("previsto vs realizado (sem tolerâncias nem regra de almoço)", () => 
     expect(ev.overtimeCandidateMinutes + ev.earlyEntryCandidateMinutes).toBe(479 - ev.scheduled);
   });
   it("atraso de 5 minutos já conta (sem tolerância)", () => {
-    const ev = evalHalf({ clock_in: "2026-09-23T07:05:00Z", lunch_out: "2026-09-23T11:00:00Z", lunch_in: "2026-09-23T12:00:00Z", clock_out: "2026-09-23T16:30:00Z" } as any, sched);
+    const ev = evalHalf({ clock_in: "2026-09-23T07:05:00Z", lunch_out: "2026-09-23T11:00:00Z", lunch_in: "2026-09-23T12:00:00Z", clock_out: "2026-09-23T15:30:00Z" } as any, sched);
     expect(ev.deficitMinutes).toBe(5);
   });
 });
