@@ -493,35 +493,14 @@ export function evaluateDay(
         const afternoonOnly = aIn >= lOut && aOut > aIn;
         const morningOnly = aOut <= lIn && aOut > aIn;
         if (afternoonOnly || morningOnly) {
-          const worked = aOut - aIn;
-          const earlyLeave = Math.max(0, schedOut - aOut);
-          const missing = Math.max(0, scheduled - worked);
-          // Parte do período em falta que não é saída antecipada = entrada tardia.
-          const lateRaw = Math.max(0, missing - earlyLeave);
-          const late = lateRaw > tol.tolerance_late_minutes ? lateRaw : 0;
-          const overtimeAfter = Math.max(0, aOut - schedOut);
-          const otCand =
-            overtimeAfter > tol.tolerance_overtime_minutes
-              ? overtimeAfter - tol.tolerance_overtime_minutes
-              : 0;
-          return {
+          return totalsEvaluation(
             scheduled,
-            worked,
-            observedWorked: worked,
+            aOut - aIn,
             punchCount,
-            isDayOff: false,
-            noRecord: false,
-            incomplete: false,
-            needsReview: false,
-            reviewReasons: [],
-            deficitMinutes: late + earlyLeave,
-            deficitBreakdown: { late, earlyLeave, lunch: 0 },
-            earlyEntryMinutes: 0,
-            overtimeAfterMinutes: overtimeAfter,
-            overtimeCandidateMinutes: otCand,
-            earlyEntryCandidateMinutes: 0,
+            0,
+            Math.max(0, aOut - schedOut),
             normalized,
-          };
+          );
         }
         incomplete = true;
         reasons.push("missing_lunch_punches");
