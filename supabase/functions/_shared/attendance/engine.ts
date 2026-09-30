@@ -493,35 +493,14 @@ export function evaluateDay(
         const afternoonOnly = aIn >= lOut && aOut > aIn;
         const morningOnly = aOut <= lIn && aOut > aIn;
         if (afternoonOnly || morningOnly) {
-          const worked = aOut - aIn;
-          const earlyLeave = Math.max(0, schedOut - aOut);
-          const missing = Math.max(0, scheduled - worked);
-          // Parte do período em falta que não é saída antecipada = entrada tardia.
-          const lateRaw = Math.max(0, missing - earlyLeave);
-          const late = lateRaw > tol.tolerance_late_minutes ? lateRaw : 0;
-          const overtimeAfter = Math.max(0, aOut - schedOut);
-          const otCand =
-            overtimeAfter > tol.tolerance_overtime_minutes
-              ? overtimeAfter - tol.tolerance_overtime_minutes
-              : 0;
-          return {
+          return totalsEvaluation(
             scheduled,
-            worked,
-            observedWorked: worked,
+            aOut - aIn,
             punchCount,
-            isDayOff: false,
-            noRecord: false,
-            incomplete: false,
-            needsReview: false,
-            reviewReasons: [],
-            deficitMinutes: late + earlyLeave,
-            deficitBreakdown: { late, earlyLeave, lunch: 0 },
-            earlyEntryMinutes: 0,
-            overtimeAfterMinutes: overtimeAfter,
-            overtimeCandidateMinutes: otCand,
-            earlyEntryCandidateMinutes: 0,
+            0,
+            Math.max(0, aOut - schedOut),
             normalized,
-          };
+          );
         }
         incomplete = true;
         reasons.push("missing_lunch_punches");
@@ -565,33 +544,23 @@ export function evaluateDay(
 
   const worked = computeWorked(normalized, inTs!, outTs!, partTime);
 
-  // ---- Défice bruto --------------------------------------------------------
-  const lateMinutes = Math.max(0, actualIn! - schedIn);
-  const lateDeficit =
-    lateMinutes > tol.tolerance_late_minutes ? lateMinutes - tol.tolerance_late_minutes : 0;
-  const earlyLeaveDeficit = Math.max(0, schedOut - actualOut!);
+  // ---- Regra única: PREVISTO vs REALIZADO, sem tolerâncias nem regras de almoço.
+  return totalsEvaluation(scheduled, worked, punchCount, earlyEntryMinutes, overtimeAfterMinutes, normalized);
+}
 
-  let lunchDeficit = 0;
-  if (!partTime && normalized.lunch_out && normalized.lunch_in) {
-    const schedLunchOut = timeToMinutes(schedule.lunch_out_time);
-    const schedLunchIn = timeToMinutes(schedule.lunch_in_time);
-    lunchDeficit += Math.max(0, schedLunchOut - timestampToLisbonMinutes(normalized.lunch_out));
-    const returnLate = Math.max(0, timestampToLisbonMinutes(normalized.lunch_in) - schedLunchIn);
-    if (returnLate > tol.tolerance_late_minutes) {
-      lunchDeficit += returnLate - tol.tolerance_late_minutes;
-    }
-  }
-
-  // ---- Candidatos (nunca creditados automaticamente) -----------------------
-  const overtimeCandidateMinutes =
-    overtimeAfterMinutes > tol.tolerance_overtime_minutes
-      ? overtimeAfterMinutes - tol.tolerance_overtime_minutes
-      : 0;
-  const earlyEntryCandidateMinutes =
-    earlyEntryMinutes > tol.tolerance_early_entry_minutes
-      ? earlyEntryMinutes - tol.tolerance_early_entry_minutes
-      : 0;
-
+function totalsEvaluation(
+  scheduled: number,
+  worked: number,
+  punchCount: number,
+  earlyEntryMinutes: number,
+  overtimeAfterMinutes: number,
+  normalized: TimeClockRecordLike,
+): DayEvaluation {
+  const deficit = Math.max(0, scheduled - worked);
+  const surplus = Math.max(0, worked - scheduled);
+  // Excedente é candidato (aprovação do responsável); atribuído primeiro à entrada antecipada.
+  const earlyEntryCandidateMinutes = Math.min(surplus, earlyEntryMinutes);
+  const overtimeCandidateMinutes = surplus - earlyEntryCandidateMinutes;
   return {
     scheduled,
     worked,
@@ -602,8 +571,8 @@ export function evaluateDay(
     incomplete: false,
     needsReview: false,
     reviewReasons: [],
-    deficitMinutes: lateDeficit + earlyLeaveDeficit + lunchDeficit,
-    deficitBreakdown: { late: lateDeficit, earlyLeave: earlyLeaveDeficit, lunch: lunchDeficit },
+    deficitMinutes: deficit,
+    deficitBreakdown: { late: deficit, earlyLeave: 0, lunch: 0 },
     earlyEntryMinutes,
     overtimeAfterMinutes,
     overtimeCandidateMinutes,

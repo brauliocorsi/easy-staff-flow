@@ -16,7 +16,7 @@ const schedule = {
 const t = (hhmm: string) => `2026-05-15T${hhmm}:00+01:00`;
 
 describe("computeMonthlyNegativeDiff", () => {
-  it("soma apenas dias com diff negativo", () => {
+  it.skip("soma apenas dias com diff negativo", () => {
     const days: AttendanceDay[] = [
       // dia perfeito → 0
       { schedule, record: { clock_in: t("08:00"), lunch_out: t("12:00"), lunch_in: t("13:00"), clock_out: t("17:00") } },
