@@ -239,7 +239,7 @@ export default function TimeClockReport() {
 
         {/* Summary Cards */}
         {employeeId && reportRows.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Previsto</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold text-muted-foreground">{minutesToHHMM(summary.totalScheduled)}</p></CardContent>
