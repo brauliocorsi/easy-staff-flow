@@ -292,6 +292,7 @@ export default function TimeClockReport() {
                         <TableCell>{formatPunchTime(row.lunchOut)}</TableCell>
                         <TableCell>{formatPunchTime(row.lunchIn)}</TableCell>
                         <TableCell>{formatPunchTime(row.clockOut)}</TableCell>
+                        <TableCell className="text-muted-foreground">{!row.isDayOff && row.scheduledMinutes > 0 ? minutesToHHMM(row.scheduledMinutes) : "—"}</TableCell>
                         <TableCell>{row.workedMinutes > 0 ? minutesToHHMM(row.workedMinutes) : "—"}</TableCell>
                         <TableCell className={row.overtimeMinutes > 0 ? "text-amber-600 font-medium" : ""}>
                           {row.overtimeMinutes > 0 ? minutesToHHMM(row.overtimeMinutes) : "—"}
