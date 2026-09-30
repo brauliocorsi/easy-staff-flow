@@ -99,12 +99,14 @@ export default function TimeClockReport() {
       const normalized = calculated?.normalized;
 
       let workedMinutes = 0;
+      let scheduledMinutes = 0;
       let overtimeMinutes = 0;
       let lateMinutes = 0;
       let status: "normal" | "late" | "overtime" | "absent" | "dayoff" | "incomplete" = isDayOff ? "dayoff" : "absent";
 
       if (calculated && normalized && (normalized.clock_in || normalized.lunch_out || normalized.lunch_in || normalized.clock_out)) {
         workedMinutes = calculated.observedWorked;
+        scheduledMinutes = calculated.scheduled;
         overtimeMinutes = Math.max(0, calculated.diff);
         lateMinutes = Math.abs(Math.min(0, calculated.diff));
         status = calculated.incomplete ? "incomplete" : calculated.diff > 0 ? "overtime" : calculated.diff < 0 ? "late" : "normal";
@@ -119,6 +121,7 @@ export default function TimeClockReport() {
         lunchIn: partTime ? null : (normalized?.lunch_in ?? null),
         clockOut: partTime ? (normalized?.lunch_out ?? normalized?.clock_out ?? null) : (normalized?.clock_out ?? null),
         workedMinutes,
+        scheduledMinutes,
         overtimeMinutes,
         lateMinutes,
         status,
@@ -130,6 +133,7 @@ export default function TimeClockReport() {
   const summary = useMemo(() => {
     const workDays = reportRows.filter((r) => !r.isDayOff);
     return {
+      totalScheduled: workDays.reduce((s, r) => s + r.scheduledMinutes, 0),
       totalWorked: workDays.reduce((s, r) => s + r.workedMinutes, 0),
       totalOvertime: workDays.reduce((s, r) => s + r.overtimeMinutes, 0),
       totalLate: workDays.reduce((s, r) => s + r.lateMinutes, 0),
@@ -235,9 +239,13 @@ export default function TimeClockReport() {
 
         {/* Summary Cards */}
         {employeeId && reportRows.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Trabalhado</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Previsto</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold text-muted-foreground">{minutesToHHMM(summary.totalScheduled)}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Realizado</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">{minutesToHHMM(summary.totalWorked)}</p></CardContent>
             </Card>
             <Card>
@@ -267,7 +275,8 @@ export default function TimeClockReport() {
                      <TableHead>Saída Almoço</TableHead>
                      <TableHead>Retorno Almoço</TableHead>
                      <TableHead>Saída</TableHead>
-                     <TableHead>Total Horas</TableHead>
+                    <TableHead>Previsto</TableHead>
+                    <TableHead>Realizado</TableHead>
                      <TableHead>Hora Extra</TableHead>
                      <TableHead>Atraso</TableHead>
                      <TableHead>Status</TableHead>
@@ -288,6 +297,7 @@ export default function TimeClockReport() {
                         <TableCell>{formatPunchTime(row.lunchOut)}</TableCell>
                         <TableCell>{formatPunchTime(row.lunchIn)}</TableCell>
                         <TableCell>{formatPunchTime(row.clockOut)}</TableCell>
+                        <TableCell className="text-muted-foreground">{!row.isDayOff && row.scheduledMinutes > 0 ? minutesToHHMM(row.scheduledMinutes) : "—"}</TableCell>
                         <TableCell>{row.workedMinutes > 0 ? minutesToHHMM(row.workedMinutes) : "—"}</TableCell>
                         <TableCell className={row.overtimeMinutes > 0 ? "text-amber-600 font-medium" : ""}>
                           {row.overtimeMinutes > 0 ? minutesToHHMM(row.overtimeMinutes) : "—"}
