@@ -262,6 +262,15 @@ export function resolvePunches<T extends TimeClockRecordLike | null | undefined>
     lunch_in: record?.lunch_in ?? null,
     clock_out: record?.clock_out ?? null,
   };
+  // Entrada + saída explícitas (sem almoço) em ordem: mantêm-se como estão —
+  // pode ser meio período; evaluateDay decide se é válido ou para revisão.
+  if (
+    original.clock_in && original.clock_out && !original.lunch_out && !original.lunch_in &&
+    new Date(original.clock_in).getTime() < new Date(original.clock_out).getTime() &&
+    !isPartTimeSchedule(schedule)
+  ) {
+    return { record: original, remapped: false };
+  }
   const remapped = punchFields.some((f) => (proposed[f] ?? null) !== (original[f] ?? null));
   return { record: remapped ? original : proposed, remapped };
 }
@@ -473,9 +482,47 @@ export function evaluateDay(
       incomplete = true;
       reasons.push("missing_punch");
     } else if (scheduleHasBreak(schedule)) {
-      // Jornada COM pausa: entrada + saída sem picagens de almoço não é um dia
-      // válido. Não se assume a pausa prevista — marca-se para revisão.
+      // Jornada COM pausa: entrada + saída sem picagens de almoço só é válida
+      // quando corresponde a MEIO PERÍODO (só manhã ou só tarde, sem cruzar a
+      // pausa prevista). Caso contrário marca-se para revisão.
       if (!normalized.lunch_out && !normalized.lunch_in) {
+        const aIn = timestampToLisbonMinutes(inTs);
+        const aOut = timestampToLisbonMinutes(outTs);
+        const lOut = timeToMinutes(schedule.lunch_out_time);
+        const lIn = timeToMinutes(schedule.lunch_in_time);
+        const afternoonOnly = aIn >= lOut && aOut > aIn;
+        const morningOnly = aOut <= lIn && aOut > aIn;
+        if (afternoonOnly || morningOnly) {
+          const worked = aOut - aIn;
+          const earlyLeave = Math.max(0, schedOut - aOut);
+          const missing = Math.max(0, scheduled - worked);
+          // Parte do período em falta que não é saída antecipada = entrada tardia.
+          const lateRaw = Math.max(0, missing - earlyLeave);
+          const late = lateRaw > tol.tolerance_late_minutes ? lateRaw : 0;
+          const overtimeAfter = Math.max(0, aOut - schedOut);
+          const otCand =
+            overtimeAfter > tol.tolerance_overtime_minutes
+              ? overtimeAfter - tol.tolerance_overtime_minutes
+              : 0;
+          return {
+            scheduled,
+            worked,
+            observedWorked: worked,
+            punchCount,
+            isDayOff: false,
+            noRecord: false,
+            incomplete: false,
+            needsReview: false,
+            reviewReasons: [],
+            deficitMinutes: late + earlyLeave,
+            deficitBreakdown: { late, earlyLeave, lunch: 0 },
+            earlyEntryMinutes: 0,
+            overtimeAfterMinutes: overtimeAfter,
+            overtimeCandidateMinutes: otCand,
+            earlyEntryCandidateMinutes: 0,
+            normalized,
+          };
+        }
         incomplete = true;
         reasons.push("missing_lunch_punches");
       } else if (!normalized.lunch_out || !normalized.lunch_in) {
