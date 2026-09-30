@@ -271,6 +271,18 @@ export function resolvePunches<T extends TimeClockRecordLike | null | undefined>
   ) {
     return { record: original, remapped: false };
   }
+  // Meio período: entrada + uma única saída em ordem contam como dia completo,
+  // esteja a saída gravada em lunch_out ou clock_out (terminal antigo gravava
+  // a saída de meio período no campo errado). Sem almoço, não há ambiguidade.
+  if (isPartTimeSchedule(schedule)) {
+    const exits = [original.lunch_out, original.clock_out].filter(Boolean) as string[];
+    if (
+      original.clock_in && !original.lunch_in && exits.length === 1 &&
+      new Date(original.clock_in).getTime() < new Date(exits[0]).getTime()
+    ) {
+      return { record: proposed, remapped: false };
+    }
+  }
   const remapped = punchFields.some((f) => (proposed[f] ?? null) !== (original[f] ?? null));
   return { record: remapped ? original : proposed, remapped };
 }
