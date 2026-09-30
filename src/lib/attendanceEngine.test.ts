@@ -106,7 +106,7 @@ describe("evaluateDay — dias incompletos", () => {
     const ev = evaluateDay({ clock_in: t("09:00"), clock_out: t("11:00") }, partTime);
     expect(ev.incomplete).toBe(false);
     expect(ev.worked).toBe(120);
-    expect(ev.deficitMinutes).toBe(60);
+    expect(ev.deficitMinutes).toBe(120);
   });
 
   it("dia sem qualquer picagem não debita (é matéria do módulo de faltas)", () => {
