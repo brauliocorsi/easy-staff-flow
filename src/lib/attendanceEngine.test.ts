@@ -94,6 +94,21 @@ describe("evaluateDay — dias incompletos", () => {
     expect(ev.deficitMinutes).toBe(0);
   });
 
+  it("part-time com saída gravada no campo errado (clock_out) é completo", () => {
+    const ev = evaluateDay({ clock_in: t("08:00"), clock_out: t("12:26") }, partTime);
+    expect(ev.incomplete).toBe(false);
+    expect(ev.needsReview).toBe(false);
+    expect(ev.worked).toBe(266);
+    expect(ev.deficitMinutes).toBe(0);
+  });
+
+  it("part-time com saída no campo errado conta défice quando trabalha menos", () => {
+    const ev = evaluateDay({ clock_in: t("09:00"), clock_out: t("11:00") }, partTime);
+    expect(ev.incomplete).toBe(false);
+    expect(ev.worked).toBe(120);
+    expect(ev.deficitMinutes).toBe(120);
+  });
+
   it("dia sem qualquer picagem não debita (é matéria do módulo de faltas)", () => {
     const ev = evaluateDay(null, schedule);
     expect(ev.noRecord).toBe(true);
