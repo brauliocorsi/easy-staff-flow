@@ -226,3 +226,18 @@ describe("picagens ambíguas", () => {
     expect(day.worked).toBe(480);
   });
 });
+
+import { evaluateDay as evalHalf } from "./timeClock";
+describe("meio período sem picagens de almoço", () => {
+  const sched = { clock_in_time: "08:00", lunch_out_time: "12:00", lunch_in_time: "13:00", clock_out_time: "17:30", is_day_off: false } as any;
+  it("só tarde conta horas feitas e défice da manhã", () => {
+    const ev = evalHalf({ clock_in: "2026-09-16T12:56:00Z", lunch_out: null, lunch_in: null, clock_out: "2026-09-16T16:30:00Z" } as any, sched);
+    expect(ev.incomplete).toBe(false);
+    expect(ev.worked).toBe(214);
+    expect(ev.deficitMinutes).toBe(ev.scheduled - 214);
+  });
+  it("entrada de manhã e saída à tarde sem almoço continua em revisão", () => {
+    const ev = evalHalf({ clock_in: "2026-09-16T07:00:00Z", clock_out: "2026-09-16T16:30:00Z" } as any, sched);
+    expect(ev.incomplete).toBe(true);
+  });
+});
