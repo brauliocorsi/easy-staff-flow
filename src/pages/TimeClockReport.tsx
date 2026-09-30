@@ -121,6 +121,7 @@ export default function TimeClockReport() {
         lunchIn: partTime ? null : (normalized?.lunch_in ?? null),
         clockOut: partTime ? (normalized?.lunch_out ?? normalized?.clock_out ?? null) : (normalized?.clock_out ?? null),
         workedMinutes,
+        scheduledMinutes,
         overtimeMinutes,
         lateMinutes,
         status,
@@ -269,7 +270,8 @@ export default function TimeClockReport() {
                      <TableHead>Saída Almoço</TableHead>
                      <TableHead>Retorno Almoço</TableHead>
                      <TableHead>Saída</TableHead>
-                     <TableHead>Total Horas</TableHead>
+                    <TableHead>Previsto</TableHead>
+                    <TableHead>Realizado</TableHead>
                      <TableHead>Hora Extra</TableHead>
                      <TableHead>Atraso</TableHead>
                      <TableHead>Status</TableHead>
