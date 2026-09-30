@@ -243,7 +243,7 @@ describe("meio período sem picagens de almoço", () => {
 });
 
 describe("previsto vs realizado (sem tolerâncias nem regra de almoço)", () => {
-  const sched = { clock_in_time: "08:00", lunch_out_time: "12:00", lunch_in_time: "13:00", clock_out_time: "17:30", is_day_off: false } as any;
+  const sched = { clock_in_time: "08:00", lunch_out_time: "12:00", lunch_in_time: "13:00", clock_out_time: "16:30", is_day_off: false } as any;
   it("almoço tardio longo conta só o total trabalhado", () => {
     const ev = evalHalf({ clock_in: "2026-09-23T07:00:00Z", lunch_out: "2026-09-23T12:16:00Z", lunch_in: "2026-09-23T13:55:00Z", clock_out: "2026-09-23T16:38:00Z" } as any, sched);
     expect(ev.worked).toBe(316 + 163);
