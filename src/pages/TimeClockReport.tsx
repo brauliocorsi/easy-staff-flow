@@ -133,6 +133,7 @@ export default function TimeClockReport() {
   const summary = useMemo(() => {
     const workDays = reportRows.filter((r) => !r.isDayOff);
     return {
+      totalScheduled: workDays.reduce((s, r) => s + r.scheduledMinutes, 0),
       totalWorked: workDays.reduce((s, r) => s + r.workedMinutes, 0),
       totalOvertime: workDays.reduce((s, r) => s + r.overtimeMinutes, 0),
       totalLate: workDays.reduce((s, r) => s + r.lateMinutes, 0),
@@ -240,7 +241,11 @@ export default function TimeClockReport() {
         {employeeId && reportRows.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Trabalhado</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Previsto</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold text-muted-foreground">{minutesToHHMM(summary.totalScheduled)}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Clock className="h-4 w-4" />Total Realizado</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold">{minutesToHHMM(summary.totalWorked)}</p></CardContent>
             </Card>
             <Card>
