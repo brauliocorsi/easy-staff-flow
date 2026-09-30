@@ -262,6 +262,15 @@ export function resolvePunches<T extends TimeClockRecordLike | null | undefined>
     lunch_in: record?.lunch_in ?? null,
     clock_out: record?.clock_out ?? null,
   };
+  // Entrada + saída explícitas (sem almoço) em ordem: mantêm-se como estão —
+  // pode ser meio período; evaluateDay decide se é válido ou para revisão.
+  if (
+    original.clock_in && original.clock_out && !original.lunch_out && !original.lunch_in &&
+    new Date(original.clock_in).getTime() < new Date(original.clock_out).getTime() &&
+    !isPartTimeSchedule(schedule)
+  ) {
+    return { record: original, remapped: false };
+  }
   const remapped = punchFields.some((f) => (proposed[f] ?? null) !== (original[f] ?? null));
   return { record: remapped ? original : proposed, remapped };
 }
