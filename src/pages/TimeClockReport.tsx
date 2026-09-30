@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { EmployeeMonthCalendarButton } from "@/components/timeclock/EmployeeMonthCalendarDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -211,6 +212,13 @@ export default function TimeClockReport() {
             </Popover>
           </div>
 
+          {employeeId && selectedEmployee && (
+            <EmployeeMonthCalendarButton
+              employeeId={employeeId}
+              employeeName={`${selectedEmployee.first_name} ${selectedEmployee.last_name}`}
+              initialDate={selectedDate}
+            />
+          )}
           {employeeId && (
             <Button size="sm" onClick={() => setEditDialog({ open: true, date: format(selectedDate, "yyyy-MM-dd") })}>
               <Plus className="h-4 w-4 mr-1" />

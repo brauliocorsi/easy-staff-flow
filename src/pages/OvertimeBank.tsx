@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { EmployeeMonthCalendarButton } from "@/components/timeclock/EmployeeMonthCalendarDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -656,6 +657,13 @@ export default function OvertimeBank() {
               <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setMonth(currentDate.getMonth()); setYear(currentDate.getFullYear()); }}>
                 Hoje
               </Button>
+            )}
+            {selectedEmployee && emp && (
+              <EmployeeMonthCalendarButton
+                employeeId={selectedEmployee}
+                employeeName={`${emp.first_name} ${emp.last_name}`}
+                initialDate={new Date(year, month, 1)}
+              />
             )}
             {isAdmin && selectedEmployee && (
               <Button size="sm" className="h-9 gap-1.5" onClick={() => setUseBankOpen(true)}>
