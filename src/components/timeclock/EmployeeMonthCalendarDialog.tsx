@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { CalendarDays, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { useHolidays } from "@/hooks/useHolidays";
-import { formatPunchTime, isPartTimeSchedule } from "@/lib/timeClock";
+import { evaluateDay, formatPunchTime, isPartTimeSchedule } from "@/lib/timeClock";
 import { cn } from "@/lib/utils";
 
 type DayKind = "worked" | "incomplete" | "absence" | "off" | "holiday" | "vacation" | "future";
@@ -94,7 +94,10 @@ export function EmployeeMonthCalendarDialog({ open, onOpenChange, employeeId, em
       const rec: any = recMap.get(ds);
       const hasPunch = !!(rec && (rec.clock_in || rec.lunch_out || rec.lunch_in || rec.clock_out));
       const partTime = isPartTimeSchedule(sched);
-      const complete = rec && (partTime ? rec.clock_in && (rec.lunch_out || rec.clock_out) : rec.clock_in && rec.clock_out);
+      // Mesmo critério do motor de ponto (meio período com 2 picagens conta como completo).
+      const complete = !!rec && (sched && !sched.is_day_off
+        ? !evaluateDay(rec, sched).incomplete
+        : !!(rec.clock_in && (rec.clock_out || rec.lunch_out)));
       const isOff = sched ? sched.is_day_off : dow === 0 || dow === 6;
       const holiday = getHoliday(ds);
       const onVac = data.vac.some((v: any) => ds >= v.start_date && ds <= v.end_date);
