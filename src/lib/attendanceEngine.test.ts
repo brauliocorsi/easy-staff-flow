@@ -182,6 +182,28 @@ describe("evaluateDay — jornada com pausa exige as 4 picagens", () => {
     expect(ev.needsReview).toBe(true);
     expect(ev.reviewReasons).toContain("overnight_shift");
   });
+
+  it("meio período da tarde gravado pelo terminal (2.ª picagem em lunch_out) conta no banco", () => {
+    const ev = evaluateDay({ clock_in: t("13:56"), lunch_out: t("17:30") }, schedule);
+    expect(ev.incomplete).toBe(false);
+    expect(ev.reviewReasons).not.toContain("ambiguous_punches");
+    expect(ev.worked).toBe(214);
+    expect(ev.deficitMinutes).toBe(480 - 214);
+  });
+
+  it("meio período da manhã gravado pelo terminal conta no banco", () => {
+    const ev = evaluateDay({ clock_in: t("08:00"), lunch_out: t("12:00") }, schedule);
+    expect(ev.incomplete).toBe(false);
+    expect(ev.worked).toBe(240);
+    expect(ev.deficitMinutes).toBe(240);
+  });
+
+  it("2 picagens que atravessam a pausa (em lunch_out) continuam por validar", () => {
+    const ev = evaluateDay({ clock_in: t("08:00"), lunch_out: t("17:00") }, schedule);
+    expect(ev.needsReview).toBe(true);
+    expect(ev.reviewReasons).toContain("missing_lunch_punches");
+    expect(ev.deficitMinutes).toBe(0);
+  });
 });
 
 describe("candidatos partilhados com o servidor", () => {

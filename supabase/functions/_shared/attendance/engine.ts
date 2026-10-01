@@ -262,14 +262,22 @@ export function resolvePunches<T extends TimeClockRecordLike | null | undefined>
     lunch_in: record?.lunch_in ?? null,
     clock_out: record?.clock_out ?? null,
   };
-  // Entrada + saída explícitas (sem almoço) em ordem: mantêm-se como estão —
-  // pode ser meio período; evaluateDay decide se é válido ou para revisão.
-  if (
-    original.clock_in && original.clock_out && !original.lunch_out && !original.lunch_in &&
-    new Date(original.clock_in).getTime() < new Date(original.clock_out).getTime() &&
-    !isPartTimeSchedule(schedule)
-  ) {
-    return { record: original, remapped: false };
+  // Jornada completa com só DUAS picagens (entrada + uma saída, sem regresso
+  // do almoço) em ordem: é um único par entrada/saída. O terminal grava a 2.ª
+  // picagem do dia em lunch_out (sequência fixa), por isso a saída pode estar
+  // em lunch_out ou clock_out. Trata-se como entrada + saída; evaluateDay
+  // decide se é meio período válido ou se fica para revisão.
+  if (!isPartTimeSchedule(schedule) && original.clock_in && !original.lunch_in) {
+    const exits = [original.lunch_out, original.clock_out].filter(Boolean) as string[];
+    if (
+      exits.length === 1 &&
+      new Date(original.clock_in).getTime() < new Date(exits[0]).getTime()
+    ) {
+      return {
+        record: { clock_in: original.clock_in, lunch_out: null, lunch_in: null, clock_out: exits[0] },
+        remapped: false,
+      };
+    }
   }
   // Meio período: entrada + uma única saída em ordem contam como dia completo,
   // esteja a saída gravada em lunch_out ou clock_out (terminal antigo gravava
