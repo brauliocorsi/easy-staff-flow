@@ -94,6 +94,8 @@ export function EmployeeMonthCalendarDialog({ open, onOpenChange, employeeId, em
       const rec: any = recMap.get(ds);
       const hasPunch = !!(rec && (rec.clock_in || rec.lunch_out || rec.lunch_in || rec.clock_out));
       const partTime = isPartTimeSchedule(sched);
+      // Só entrada + uma saída (o terminal grava a 2.ª picagem em lunch_out).
+      const twoPunch = !!rec?.clock_in && !rec?.lunch_in && !!rec?.lunch_out !== !!rec?.clock_out;
       // Mesmo critério do motor de ponto (meio período com 2 picagens conta como completo).
       const complete = !!rec && (sched && !sched.is_day_off
         ? !evaluateDay(rec, sched).incomplete
@@ -112,9 +114,9 @@ export function EmployeeMonthCalendarDialog({ open, onOpenChange, employeeId, em
       return {
         date: d, ds, kind, holidayName: holiday?.name,
         clockIn: rec?.clock_in ?? null,
-        lunchOut: partTime ? null : rec?.lunch_out ?? null,
+        lunchOut: partTime || twoPunch ? null : rec?.lunch_out ?? null,
         lunchIn: partTime ? null : rec?.lunch_in ?? null,
-        clockOut: partTime ? rec?.lunch_out ?? rec?.clock_out ?? null : rec?.clock_out ?? null,
+        clockOut: partTime || twoPunch ? rec?.lunch_out ?? rec?.clock_out ?? null : rec?.clock_out ?? null,
         notes: rec?.notes ?? "",
       };
     });
